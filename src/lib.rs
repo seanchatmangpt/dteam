@@ -67,3 +67,4 @@ pub mod rl_state_serialization {
 }
 pub mod automation;
 pub mod benchmark;
+pub mod config;

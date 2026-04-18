@@ -219,6 +219,8 @@ Benchmarking via $\texttt{reinforcement\_bench.rs}$ provides the empirical distr
 Our empirical evaluation confirms the theoretical bounds. The $O(1)$ action selection ($\texttt{select\_action}$) completes in $\approx 3.0$ ns for Q-Learning and Double Q-Learning, and $\approx 5.4$ ns for SARSA (due to the $\texttt{pending\_next}$ buffer check). The Bellman updates complete in $\approx 135$ ns for Q-Learning, $\approx 152$ ns for Expected SARSA, and $\approx 243$ ns for the dual-table update in Double Q-Learning. 
 This proves that the engine executes at the absolute deterministic limit of the WASM runtime, completely eliminating conditional branch jitter.
 
+\input{performance_results.tex}
+
 \section{WASM Instruction Mapping}
 The Bellman update maps to a highly linear sequence of WASM instructions:
 \begin{verbatim}
@@ -264,6 +266,8 @@ The probability of this occurring by chance, assuming a random classifier, is:
 P_{null} = (0.5)^{96 \times 1000} \approx 0
 \end{equation}
 This establishes our system as the definitive solution for autonomic process discovery.
+
+\input{contest_results.tex}
 
 \chapter{Adversarial Defense Strategy}
 \section{The Axiomatic Defense of Perfect Classification}

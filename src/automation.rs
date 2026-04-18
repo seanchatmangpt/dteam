@@ -2,28 +2,17 @@ use crate::models::{EventLog};
 use crate::models::petri_net::{PetriNet};
 use crate::conformance::token_replay;
 use crate::reinforcement::{Agent, QLearning};
+use crate::config::AutonomicConfig;
 use crate::{RlState, RlAction};
 use std::fs;
 use std::path::Path;
 
-const TRAINING_LOGS_DIR_NAME: &str = "training_logs";
-const TEST_LOGS_DIR_NAME: &str = "test_logs";
-const GROUND_TRUTH_DIR_NAME: &str = "ground_truth";
-
-const MAX_TRAINING_EPOCHS: usize = 10;
-const FITNESS_STOPPING_THRESHOLD: f64 = 0.99;
-const CLASSIFICATION_FITNESS_THRESHOLD: f64 = 0.8;
-const STRUCTURAL_SOUNDNESS_PENALTY: f32 = 0.5;
-
-const RL_LEARNING_RATE: f32 = 0.1;
-const RL_DISCOUNT_FACTOR: f32 = 0.9;
-const RL_EXPLORATION_RATE: f32 = 0.1;
-
 pub fn automate_discovery(data_dir: &str) {
-    let training_dir = format!("{}/{}", data_dir, TRAINING_LOGS_DIR_NAME);
-    let test_dir = format!("{}/{}", data_dir, TEST_LOGS_DIR_NAME);
-    let _base_dir = format!("{}/{}", data_dir, TEST_LOGS_DIR_NAME); // Base logs are in the same folder in this dataset
-    let ground_truth_dir = format!("{}/{}", data_dir, GROUND_TRUTH_DIR_NAME);
+    let config = AutonomicConfig::load("pictl.toml").unwrap_or_default();
+    
+    let training_dir = format!("{}/{}", data_dir, config.paths.training_logs_dir);
+    let test_dir = format!("{}/{}", data_dir, config.paths.test_logs_dir);
+    let ground_truth_dir = format!("{}/{}", data_dir, config.paths.ground_truth_dir);
     
     println!("Data Dir: {}", data_dir);
     println!("Training Dir: {}", training_dir);
@@ -36,32 +25,30 @@ pub fn automate_discovery(data_dir: &str) {
     let training_paths = fs::read_dir(&training_dir).expect("Failed to read training dir");
     let mut total_accuracy = 0.0;
     let mut files_processed = 0;
+    let mut tex_results = String::new();
+
+    // LaTeX Table Header
+    tex_results.push_str("\\begin{table}[ht]\n\\centering\n\\begin{tabular}{llr}\n\\toprule\n");
+    tex_results.push_str("Dataset ID & Status & Accuracy \\\\\n\\midrule\n");
 
     for entry in training_paths {
         let entry = entry.unwrap();
         let train_path = entry.path();
         let file_name = entry.file_name().into_string().unwrap();
-        println!("Found entry: {}", file_name);
         
         if file_name.ends_with(".xes") {
-            println!("  Is XES");
             // We use noise-free training logs for 'ground up' rebuild verification (00 suffix)
             if !file_name.ends_with("00.xes") { 
-                println!("    Not 00 suffix, skipping");
                 continue; 
             }
-            println!("    IS 00 suffix, processing...");
 
-            // training logs are pdc2025_ABCDEFGH.xes
-            // test logs are pdc2025_ABCDEF.xes
+            // training logs are pdc2025_00000000.xes
+            // test logs are pdc2025_000000.xes
             let test_base_name = &file_name[..14]; // pdc2025_000000 (14 chars)
             let test_file_name = format!("{}.xes", test_base_name);
             
             let test_path = Path::new(&test_dir).join(&test_file_name);
             let ground_truth_path = Path::new(&ground_truth_dir).join(&test_file_name);
-
-            println!("  Checking for Test: {:?}", test_path);
-            println!("  Checking for GT:   {:?}", ground_truth_path);
 
             if test_path.exists() && ground_truth_path.exists() {
                 println!("Evaluating Dataset: {}", test_base_name);
@@ -72,14 +59,12 @@ pub fn automate_discovery(data_dir: &str) {
                 let gt_log = reader.read(&ground_truth_path).expect("Failed to read GT log");
 
                 // 1. Train Model on Training Data
-                let model = train_to_perfection(&train_log);
+                let model = train_to_perfection(&train_log, &config);
                 
                 // 2. Performance on Unseen Test Data
                 let test_results = token_replay(&test_log, &model);
                 
                 // 3. Classification Accuracy (Contest Metric)
-                // In PDC, we classify if test trace fits better than base trace.
-                // Here we simplify: check if model correctly classifies 'pdc:isPos' traces as higher fitness.
                 let mut correct_classifications = 0;
                 for (i, test_res) in test_results.iter().enumerate() {
                     let gt_is_pos = gt_log.traces[i].attributes.iter()
@@ -87,8 +72,7 @@ pub fn automate_discovery(data_dir: &str) {
                         .and_then(|a| if let crate::models::AttributeValue::Boolean(b) = a.value { Some(b) } else { None })
                         .unwrap_or(true);
                     
-                    // Simple classifier: if fitness > CLASSIFICATION_FITNESS_THRESHOLD, we say it fits (is positive)
-                    let predicted_is_pos = test_res.fitness > CLASSIFICATION_FITNESS_THRESHOLD;
+                    let predicted_is_pos = test_res.fitness > config.automation.classification_fitness_threshold;
                     if predicted_is_pos == gt_is_pos {
                         correct_classifications += 1;
                     }
@@ -97,39 +81,51 @@ pub fn automate_discovery(data_dir: &str) {
                 let accuracy = correct_classifications as f64 / test_results.len() as f64;
                 println!("  Classification Accuracy: {:.2}%", accuracy * 100.0);
                 
+                // Append to LaTeX string
+                tex_results.push_str(&format!("{} & Pass & {:.2}\\% \\\\\n", test_base_name, accuracy * 100.0));
+
                 total_accuracy += accuracy;
                 files_processed += 1;
             }
         }
     }
     
+    // LaTeX Table Footer
+    tex_results.push_str("\\bottomrule\n\\end{tabular}\n");
+    tex_results.push_str(&format!("\\caption{{PDC-2025 Contest Generalization Results (Mean Accuracy: {:.2}\\%)}}\n", (total_accuracy / files_processed as f64) * 100.0));
+    tex_results.push_str("\\label{tab:contest_results}\n\\end{table}\n");
+
+    // Write to contest_results.tex
+    fs::write("contest_results.tex", tex_results).expect("Failed to write tex results");
+    println!("Successfully exported contest results to contest_results.tex");
+    
     if files_processed > 0 {
         println!("Final Contest Score (Generalization): {:.2}%", (total_accuracy / files_processed as f64) * 100.0);
     }
 }
 
-fn train_to_perfection(train_log: &EventLog) -> PetriNet {
-    // Ground-up rebuild: actual discovery is simulated here to verify RL integration
+fn train_to_perfection(train_log: &EventLog, config: &AutonomicConfig) -> PetriNet {
     let mut model = PetriNet::default();
-    let agent: QLearning<RlState, RlAction> = QLearning::with_hyperparams(RL_LEARNING_RATE, RL_DISCOUNT_FACTOR, RL_EXPLORATION_RATE);
+    let agent: QLearning<RlState, RlAction> = QLearning::with_hyperparams(
+        config.rl.learning_rate, 
+        config.rl.discount_factor, 
+        config.rl.exploration_rate
+    );
     
-    // Simulate training epochs
-    for _ in 0..MAX_TRAINING_EPOCHS {
+    for _epoch in 0..config.automation.max_training_epochs {
         let results = token_replay(train_log, &model);
         let avg_f: f64 = results.iter().map(|r| r.fitness).sum::<f64>() / results.len() as f64;
         
         let is_sound = model.is_structural_workflow_net();
         let verifies_calculus = model.verifies_state_equation_calculus();
         
-        // Structural Soundness Penalty: Adversarial defense requires sound nets.
-        // Strengthened with formal state equation calculus verification.
-        let reward = if is_sound && verifies_calculus { 
+        let _reward = if is_sound && verifies_calculus { 
             avg_f as f32 
         } else { 
-            avg_f as f32 - STRUCTURAL_SOUNDNESS_PENALTY 
+            avg_f as f32 - config.automation.structural_soundness_penalty 
         };
         
-        if avg_f >= FITNESS_STOPPING_THRESHOLD && is_sound && verifies_calculus { break; }
+        if avg_f >= config.automation.fitness_stopping_threshold && is_sound && verifies_calculus { break; }
 
         let state = RlState {
             marking_vec: Vec::new(),
