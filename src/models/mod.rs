@@ -68,4 +68,19 @@ impl EventLog {
     pub fn add_trace(&mut self, trace: Trace) {
         self.traces.push(trace);
     }
+
+    /// Pre-pass sizing: returns the number of distinct activities in the log.
+    pub fn activity_footprint(&self) -> usize {
+        let mut activities = std::collections::HashSet::new();
+        for trace in &self.traces {
+            for event in &trace.events {
+                if let Some(attr) = event.attributes.iter().find(|a| a.key == "concept:name") {
+                    if let AttributeValue::String(s) = &attr.value {
+                        activities.insert(s);
+                    }
+                }
+            }
+        }
+        activities.len()
+    }
 }

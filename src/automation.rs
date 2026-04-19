@@ -111,6 +111,16 @@ pub fn automate_discovery(data_dir: &str) {
 }
 
 fn train_to_perfection(train_log: &EventLog, config: &AutonomicConfig) -> PetriNet {
+    train_to_perfection_with_reward(train_log, config, STRUCTURAL_SOUNDNESS_WEIGHT, MINIMALITY_WEIGHT)
+}
+
+/// Parameterized training loop for DPIE Engine integration.
+pub fn train_to_perfection_with_reward(
+    train_log: &EventLog, 
+    config: &AutonomicConfig,
+    beta: f32,
+    lambda: f32
+) -> PetriNet {
     let mut model = PetriNet::default();
     let agent: QLearning<RlState, RlAction> = QLearning::with_hyperparams(
         config.rl.learning_rate, 
@@ -129,10 +139,9 @@ fn train_to_perfection(train_log: &EventLog, config: &AutonomicConfig) -> PetriN
         let verifies_calculus = model.verifies_state_equation_calculus();
         
         // REWARD SHAPING: F - (beta * U) - (lambda * C) - canonical_penalty
-        // Bulletproof against Dr. van der Aalst's critique by enforcing minimality, smooth soundness, and strict uniqueness.
         let reward = avg_f as f32 
-            - (STRUCTURAL_SOUNDNESS_WEIGHT * unsoundness_u) 
-            - (MINIMALITY_WEIGHT * complexity_c)
+            - (beta * unsoundness_u) 
+            - (lambda * complexity_c)
             - canonical_penalty;
         
         if avg_f >= config.automation.fitness_stopping_threshold && is_sound && verifies_calculus { break; }
