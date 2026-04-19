@@ -18,11 +18,13 @@
 \contentsline {section}{\numberline {4.2}Calculus of Interior Mutability}{9}{section.4.2}%
 \contentsline {chapter}{\numberline {5}The Structural Calculus of Soundness}{10}{chapter.5}%
 \contentsline {section}{\numberline {5.1}Addressing the van der Aalst Critique}{10}{section.5.1}%
-\contentsline {section}{\numberline {5.2}The Structural Soundness Penalty}{10}{section.5.2}%
+\contentsline {section}{\numberline {5.2}The Continuous Topographic Penalty Gradient}{10}{section.5.2}%
 \contentsline {chapter}{\numberline {6}Generalization and PDC-2025 Analysis}{11}{chapter.6}%
-\contentsline {section}{\numberline {6.1}The 100\% Accuracy Proof}{11}{section.6.1}%
-\contentsline {section}{\numberline {6.2}Analysis of the Eight Dataset Axes}{11}{section.6.2}%
-\contentsline {section}{\numberline {6.3}The Reset Axiom and Mutual Information}{11}{section.6.3}%
+\contentsline {section}{\numberline {6.1}The Theorem of Structural Isomorphism}{11}{section.6.1}%
+\contentsline {section}{\numberline {6.2}Closing the Identifiability Gap}{11}{section.6.2}%
+\contentsline {section}{\numberline {6.3}The 100\% Accuracy Proof}{12}{section.6.3}%
+\contentsline {section}{\numberline {6.4}Analysis of the Eight Dataset Axes}{12}{section.6.4}%
+\contentsline {section}{\numberline {6.5}The Reset Axiom and Mutual Information}{12}{section.6.5}%
 \contentsline {chapter}{\numberline {7}Adversarial Defense Strategy}{13}{chapter.7}%
 \contentsline {section}{\numberline {7.1}Representational Bias and Invisible Tasks}{13}{section.7.1}%
 \contentsline {section}{\numberline {7.2}Defense Against the Committee}{13}{section.7.2}%

@@ -152,4 +152,48 @@ impl PetriNet {
         }
         true
     }
+
+    /// Computes a smooth unsoundness score by counting structural violations.
+    /// Used as a gradient for RL reward shaping to prevent degenerate topologies.
+    pub fn structural_unsoundness_score(&self) -> f32 {
+        if self.places.is_empty() || self.transitions.is_empty() { return 10.0; }
+        
+        let mut score = 0.0;
+        let mut id_to_index = HashMap::new();
+        let mut idx = 0;
+        
+        for p in &self.places { id_to_index.insert(&p.id, idx); idx += 1; }
+        let place_count = idx;
+        for t in &self.transitions { id_to_index.insert(&t.id, idx); idx += 1; }
+        let total_nodes = idx;
+        
+        let mut in_degrees = vec![0u32; total_nodes];
+        let mut out_degrees = vec![0u32; total_nodes];
+        
+        for arc in &self.arcs {
+            if let Some(&from_idx) = id_to_index.get(&arc.from) { out_degrees[from_idx] += 1; }
+            if let Some(&to_idx) = id_to_index.get(&arc.to) { in_degrees[to_idx] += 1; }
+        }
+        
+        // 1. Source/Sink violations
+        let source_places: Vec<usize> = (0..place_count).filter(|&i| in_degrees[i] == 0).collect();
+        let sink_places: Vec<usize> = (0..place_count).filter(|&i| out_degrees[i] == 0).collect();
+        
+        if source_places.len() != 1 { score += (source_places.len() as f32 - 1.0).abs(); }
+        if sink_places.len() != 1 { score += (sink_places.len() as f32 - 1.0).abs(); }
+        
+        // 2. Transition connectivity violations
+        for i in place_count..total_nodes {
+            if in_degrees[i] == 0 { score += 1.0; }
+            if out_degrees[i] == 0 { score += 1.0; }
+        }
+        
+        // 3. Place connectivity (non-source/sink)
+        for i in 0..place_count {
+            if !source_places.contains(&i) && in_degrees[i] == 0 { score += 1.0; }
+            if !sink_places.contains(&i) && out_degrees[i] == 0 { score += 1.0; }
+        }
+        
+        score
+    }
 }

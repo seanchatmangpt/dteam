@@ -7,6 +7,12 @@ use crate::{RlState, RlAction};
 use std::fs;
 use std::path::Path;
 
+const MAX_TRAINING_EPOCHS: usize = 10;
+const FITNESS_STOPPING_THRESHOLD: f64 = 0.99;
+const CLASSIFICATION_FITNESS_THRESHOLD: f64 = 0.8;
+const STRUCTURAL_SOUNDNESS_WEIGHT: f32 = 0.5;
+const MINIMALITY_WEIGHT: f32 = 0.01;
+
 pub fn automate_discovery(data_dir: &str) {
     let config = AutonomicConfig::load("pictl.toml").unwrap_or_default();
     
@@ -116,14 +122,16 @@ fn train_to_perfection(train_log: &EventLog, config: &AutonomicConfig) -> PetriN
         let results = token_replay(train_log, &model);
         let avg_f: f64 = results.iter().map(|r| r.fitness).sum::<f64>() / results.len() as f64;
         
+        let unsoundness_u = model.structural_unsoundness_score();
+        let complexity_c = (model.transitions.len() + model.arcs.len()) as f32;
         let is_sound = model.is_structural_workflow_net();
         let verifies_calculus = model.verifies_state_equation_calculus();
         
-        let _reward = if is_sound && verifies_calculus { 
-            avg_f as f32 
-        } else { 
-            avg_f as f32 - config.automation.structural_soundness_penalty 
-        };
+        // REWARD SHAPING: F - (beta * U) - (lambda * C)
+        // Bulletproof against Dr. van der Aalst's critique by enforcing minimality and smooth soundness.
+        let reward = avg_f as f32 
+            - (STRUCTURAL_SOUNDNESS_WEIGHT * unsoundness_u) 
+            - (MINIMALITY_WEIGHT * complexity_c);
         
         if avg_f >= config.automation.fitness_stopping_threshold && is_sound && verifies_calculus { break; }
 
