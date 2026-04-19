@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use crate::ref_models::ref_petri_net::{PetriNet, Marking, PlaceID, ArcType};
 use crate::ref_models::ref_event_log::EventLogActivityProjection;
 use uuid::Uuid;
+use itertools::Itertools;
 
 #[derive(Debug, Clone, Default)]
 pub struct TokenBasedReplayResult {
@@ -66,7 +67,7 @@ pub fn apply_token_based_replay_standard(
                         }
                         ArcType::TransitionPlace(from, to) => {
                             if *node_to_pos.get(&from).unwrap() == trans_idx {
-                                let p_pos = *node_to_pos.get(&to).unwrap();
+                                let p_pos = *node_to_pos.get(&from).unwrap();
                                 marking[p_pos] += arc.weight as i64;
                                 result.produced += arc.weight as u64 * freq;
                             }
@@ -100,16 +101,15 @@ pub fn apply_token_based_replay_optimized(
     let mut result = TokenBasedReplayResult::default();
     let num_places = petri_net.places.len();
     let num_transitions = petri_net.transitions.len();
-    let node_to_pos = petri_net.create_vector_dictionary();
-
+    
     // Mapping for places and transitions separately to avoid offset issues
     let mut place_to_idx = HashMap::new();
     let mut trans_to_idx = HashMap::new();
     
-    for (i, id) in petri_net.places.keys().enumerate() {
+    for (i, id) in petri_net.places.keys().sorted().enumerate() {
         place_to_idx.insert(*id, i);
     }
-    for (i, id) in petri_net.transitions.keys().enumerate() {
+    for (i, id) in petri_net.transitions.keys().sorted().enumerate() {
         trans_to_idx.insert(*id, i);
     }
 
@@ -142,9 +142,9 @@ pub fn apply_token_based_replay_optimized(
         .collect();
 
     let initial_marking: Vec<(usize, i64)> = petri_net.initial_marking.as_ref().unwrap().iter()
-        .map(|(p, c)| (*place_to_idx.get(&p.0).unwrap(), *c as i64)).collect();
+        .map(|(p, c)| (*place_to_idx.get(&p.0).expect("Place not found"), *c as i64)).collect();
     let final_marking: Vec<(usize, i64)> = petri_net.final_markings.as_ref().unwrap().first().unwrap().iter()
-        .map(|(p, c)| (*place_to_idx.get(&p.0).unwrap(), *c as i64)).collect();
+        .map(|(p, c)| (*place_to_idx.get(&p.0).expect("Place not found"), *c as i64)).collect();
 
     // 3. Fast Replay Loop
     for (trace, freq) in &event_log.traces {
@@ -182,6 +182,82 @@ pub fn apply_token_based_replay_optimized(
             result.consumed += (*count as u64) * freq;
         }
         result.remaining += marking.iter().filter(|&&c| c > 0).map(|&c| c as u64).sum::<u64>() * freq;
+    }
+    result
+}
+
+/// Pure BCINR Bitset Replayer.
+/// Assumes Safe Petri Net (1-bounded).
+/// Uses u64 bitsets for O(1) vectorized firing.
+pub fn apply_token_based_replay_bcinr(
+    petri_net: &PetriNet,
+    event_log: &EventLogActivityProjection,
+) -> TokenBasedReplayResult {
+    let mut result = TokenBasedReplayResult::default();
+    let num_places = petri_net.places.len();
+    let num_transitions = petri_net.transitions.len();
+    
+    if num_places > 64 {
+        return apply_token_based_replay_optimized(petri_net, event_log);
+    }
+
+    let mut place_to_idx = HashMap::new();
+    let mut trans_to_idx = HashMap::new();
+    for (i, id) in petri_net.places.keys().sorted().enumerate() { place_to_idx.insert(*id, i); }
+    for (i, id) in petri_net.transitions.keys().sorted().enumerate() { trans_to_idx.insert(*id, i); }
+
+    let mut input_masks = vec![0u64; num_transitions];
+    let mut output_masks = vec![0u64; num_transitions];
+
+    for arc in &petri_net.arcs {
+        match arc.from_to {
+            ArcType::PlaceTransition(from, to) => {
+                let p_idx = *place_to_idx.get(&from).unwrap();
+                let t_idx = *trans_to_idx.get(&to).unwrap();
+                input_masks[t_idx] |= 1u64 << p_idx;
+            }
+            ArcType::TransitionPlace(from, to) => {
+                let t_idx = *trans_to_idx.get(&from).unwrap();
+                let p_idx = *place_to_idx.get(&to).unwrap();
+                output_masks[t_idx] |= 1u64 << p_idx;
+            }
+        }
+    }
+
+    let initial_mask: u64 = petri_net.initial_marking.as_ref().unwrap().iter()
+        .fold(0u64, |acc, (p, _)| acc | (1u64 << *place_to_idx.get(&p.0).unwrap()));
+    let final_mask: u64 = petri_net.final_markings.as_ref().unwrap().first().unwrap().iter()
+        .fold(0u64, |acc, (p, _)| acc | (1u64 << *place_to_idx.get(&p.0).unwrap()));
+
+    let trans_mapping: Vec<Option<usize>> = event_log.activities.iter()
+        .map(|act| {
+            petri_net.transitions.values()
+                .find(|t| t.label.as_ref() == Some(act))
+                .and_then(|t| trans_to_idx.get(&t.id).cloned())
+        })
+        .collect();
+
+    for (trace, freq) in &event_log.traces {
+        let mut marking: u64 = initial_mask;
+        result.produced += (initial_mask.count_ones() as u64) * freq;
+
+        for &act_idx in trace {
+            if let Some(t_idx) = trans_mapping[act_idx] {
+                let in_mask = input_masks[t_idx];
+                let out_mask = output_masks[t_idx];
+                let missing = in_mask & !marking;
+                result.missing += (missing.count_ones() as u64) * freq;
+                marking = (marking & !in_mask) | out_mask;
+                result.consumed += (in_mask.count_ones() as u64) * freq;
+                result.produced += (out_mask.count_ones() as u64) * freq;
+            }
+        }
+
+        let missing_final = final_mask & !marking;
+        result.missing += (missing_final.count_ones() as u64) * freq;
+        result.consumed += (final_mask.count_ones() as u64) * freq;
+        marking = marking & !final_mask;
+        result.remaining += (marking.count_ones() as u64) * freq;
     }
     result
 }

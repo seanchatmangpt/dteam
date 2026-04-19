@@ -1,7 +1,7 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use wasm4pm::ref_models::ref_petri_net::{PetriNet, ArcType, Marking};
 use wasm4pm::ref_models::ref_event_log::EventLogActivityProjection;
-use wasm4pm::ref_conformance::ref_token_replay::{apply_token_based_replay_standard, apply_token_based_replay_optimized};
+use wasm4pm::ref_conformance::ref_token_replay::{apply_token_based_replay_standard, apply_token_based_replay_optimized, apply_token_based_replay_bcinr};
 use wasm4pm::io::xes::XESReader;
 use std::path::Path;
 
@@ -50,10 +50,11 @@ fn bench_replay_parity(c: &mut Criterion) {
         apply_token_based_replay_optimized(black_box(&net), black_box(&projection))
     }));
 
-    // 3. Industry Standard (process_mining crate)
-    // We need to convert our net to the crate's net, but for the thesis, 
-    // we can use the results from the previously verified run.
-    
+    // 3. Pure Bitset (bcinr bitset algebra)
+    group.bench_function("BCINR Pure Bitset Replayer", |b| b.iter(|| {
+        apply_token_based_replay_bcinr(black_box(&net), black_box(&projection))
+    }));
+
     group.finish();
 }
 
