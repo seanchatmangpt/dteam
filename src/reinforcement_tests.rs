@@ -17,7 +17,7 @@ mod tests {
 
     fn create_state(h: i32) -> RlState {
         RlState {
-            health_level: h,
+            health_level: h as i8,
             event_rate_q: 0,
             activity_count_q: 0,
             spc_alert_level: 0,
@@ -25,8 +25,8 @@ mod tests {
             rework_ratio_q: 0,
             circuit_state: 0,
             cycle_phase: 0,
-            marking_vec: Vec::new(),
-            recent_activities: Vec::new(),
+            marking_mask: 0,
+            activities_hash: 0,
         }
     }
 
@@ -39,18 +39,18 @@ mod tests {
             agent.reset();
             let mut state = create_state(0);
             let mut steps = 0;
-            while state.health_level < goal_state && steps < MAX_STEPS {
-                let action = agent.select_action(&state);
+            while (state.health_level as i32) < goal_state && steps < MAX_STEPS {
+                let action = agent.select_action(state);
                 let next_h = match action {
                     RlAction::Idle => state.health_level,
                     RlAction::Optimize => state.health_level + 1,
                     RlAction::Rework => (state.health_level - 1).max(0),
                 };
-                let next_state = create_state(next_h);
-                let done = next_h >= goal_state;
+                let next_state = create_state(next_h as i32);
+                let done = (next_h as i32) >= goal_state;
                 let reward = if done { 1.0 } else { 0.0 };
                 
-                agent.update(&state, &action, reward, &next_state, done);
+                agent.update(state, action, reward, next_state, done);
                 
                 state = next_state;
                 total_reward += reward;
@@ -121,8 +121,8 @@ mod tests {
         let agent = QLearning::with_hyperparams(0.1, 0.9, 0.1);
         for _ in 0..200 {
             let state = create_state(0);
-            agent.update(&state, &RlAction::Optimize, -10.0, &create_state(1), true);
-            agent.update(&state, &RlAction::Idle, -1.0, &create_state(2), true);
+            agent.update(state, RlAction::Optimize, -10.0, create_state(1), true);
+            agent.update(state, RlAction::Idle, -1.0, create_state(2), true);
         }
         let q_bad = agent.get_q_value(&create_state(0), &RlAction::Optimize);
         let q_good = agent.get_q_value(&create_state(0), &RlAction::Idle);
@@ -135,7 +135,7 @@ mod tests {
         let state = create_state(42);
         
         for _ in 0..100 {
-            agent.update(&state, &RlAction::Optimize, 100.0, &create_state(43), true);
+            agent.update(state, RlAction::Optimize, 100.0, create_state(43), true);
         }
         
         let serialized = agent.export_as_serialized(3);

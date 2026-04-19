@@ -20,8 +20,8 @@ pub const DEFAULT_EXPLORATION_RATE: f32 = 1.0;
 pub const DEFAULT_EXPLORATION_DECAY: f32 = 0.995;
 pub const REINFORCE_LEARNING_RATE: f32 = 0.01;
 
-/// State for reinforcement learning (must be hashable and cloneable)
-pub trait WorkflowState: Clone + Eq + Hash {
+/// State for reinforcement learning (must be hashable and copyable)
+pub trait WorkflowState: Clone + Copy + Eq + Hash {
     /// State features for function approximation
     fn features(&self) -> Vec<f32>;
 
@@ -29,8 +29,8 @@ pub trait WorkflowState: Clone + Eq + Hash {
     fn is_terminal(&self) -> bool;
 }
 
-/// Action for reinforcement learning
-pub trait WorkflowAction: Clone + Eq + Hash {
+/// Action for reinforcement learning (must be copyable)
+pub trait WorkflowAction: Clone + Copy + Eq + Hash {
     /// Total number of possible actions
     const ACTION_COUNT: usize;
 
@@ -74,9 +74,9 @@ fn get_q_values<S: WorkflowState, A: WorkflowAction>(
 
 fn ensure_state<S: WorkflowState, A: WorkflowAction>(
     table: &mut HashMap<S, Vec<f32>>,
-    state: &S,
+    state: S,
 ) {
-    table.entry(state.clone()).or_insert_with(zeros::<A>);
+    table.entry(state).or_insert_with(zeros::<A>);
 }
 
 fn max_q<S: WorkflowState, A: WorkflowAction>(table: &HashMap<S, Vec<f32>>, state: &S) -> f32 {
@@ -117,8 +117,8 @@ fn softmax_probs(logits: &[f32]) -> Vec<f32> {
 
 /// Trait for any learning agent
 pub trait Agent<S: WorkflowState, A: WorkflowAction> {
-    fn select_action(&self, state: &S) -> A;
-    fn update(&self, state: &S, action: &A, reward: f32, next_state: &S, done: bool);
+    fn select_action(&self, state: S) -> A;
+    fn update(&self, state: S, action: A, reward: f32, next_state: S, done: bool);
     fn reset(&self);
 }
 
@@ -204,16 +204,16 @@ impl<S: WorkflowState, A: WorkflowAction> QLearning<S, A> {
     }
 
     #[allow(dead_code)]
-    pub fn update(&self, state: &S, action: &A, reward: f32, next_state: &S, done: bool) {
+    pub fn update(&self, state: S, action: A, reward: f32, next_state: S, done: bool) {
         let mut q_table = self.q_table.borrow_mut();
         ensure_state::<S, A>(&mut q_table, state);
 
-        let next_val = if done { 0.0 } else { max_q::<S, A>(&q_table, next_state) };
+        let next_val = if done { 0.0 } else { max_q::<S, A>(&q_table, &next_state) };
 
         let action_idx = action.to_index();
-        let current_q = q_table[state][action_idx];
+        let current_q = q_table[&state][action_idx];
         let target = reward + self.discount_factor * next_val;
-        q_table.get_mut(state).unwrap()[action_idx] += self.learning_rate * (target - current_q);
+        q_table.get_mut(&state).unwrap()[action_idx] += self.learning_rate * (target - current_q);
 
         *self.total_reward.borrow_mut() += reward;
     }
@@ -309,8 +309,8 @@ impl QLearning<crate::RlState, crate::RlAction> {
                     rework_ratio_q: r,
                     circuit_state: c,
                     cycle_phase: p,
-                    marking_vec: Vec::new(),
-                    recent_activities: Vec::new(),
+                    marking_mask: 0,
+                    activities_hash: 0,
                 },
                 q_values,
             );
@@ -387,11 +387,11 @@ impl<S: WorkflowState, A: WorkflowAction> SARSAAgent<S, A> {
     #[allow(dead_code)]
     pub fn update_with_next_action(
         &self,
-        state: &S,
-        action: &A,
+        state: S,
+        action: A,
         reward: f32,
-        next_state: &S,
-        next_action: &A,
+        next_state: S,
+        next_action: A,
         done: bool,
     ) {
         let mut q_table = self.q_table.borrow_mut();
@@ -401,15 +401,15 @@ impl<S: WorkflowState, A: WorkflowAction> SARSAAgent<S, A> {
             0.0
         } else {
             q_table
-                .get(next_state)
+                .get(&next_state)
                 .map(|q_vals| q_vals[next_action.to_index()])
                 .unwrap_or(0.0)
         };
 
         let action_idx = action.to_index();
-        let current_q = q_table[state][action_idx];
+        let current_q = q_table[&state][action_idx];
         let target = reward + self.discount_factor * next_q;
-        q_table.get_mut(state).unwrap()[action_idx] += self.learning_rate * (target - current_q);
+        q_table.get_mut(&state).unwrap()[action_idx] += self.learning_rate * (target - current_q);
     }
 
     #[allow(dead_code)]
@@ -489,8 +489,8 @@ impl SARSAAgent<crate::RlState, crate::RlAction> {
                     rework_ratio_q: r,
                     circuit_state: c,
                     cycle_phase: p,
-                    marking_vec: Vec::new(),
-                    recent_activities: Vec::new(),
+                    marking_mask: 0,
+                    activities_hash: 0,
                 },
                 q_values,
             );
@@ -578,7 +578,7 @@ impl<S: WorkflowState, A: WorkflowAction> DoubleQLearning<S, A> {
     }
 
     #[allow(dead_code)]
-    pub fn update(&self, state: &S, action: &A, reward: f32, next_state: &S, done: bool) {
+    pub fn update(&self, state: S, action: A, reward: f32, next_state: S, done: bool) {
         let mut qa = self.q_a.borrow_mut();
         let mut qb = self.q_b.borrow_mut();
 
@@ -588,33 +588,33 @@ impl<S: WorkflowState, A: WorkflowAction> DoubleQLearning<S, A> {
         let action_idx = action.to_index();
 
         if self.rng.borrow_mut().bool() {
-            let next_vals = get_q_values::<S, A>(&qa, next_state);
+            let next_vals = get_q_values::<S, A>(&qa, &next_state);
             let best_next_idx = greedy_index(&next_vals);
             let next_q = if done {
                 0.0
             } else {
-                qb.get(next_state)
+                qb.get(&next_state)
                     .map(|vals| vals[best_next_idx])
                     .unwrap_or(0.0)
             };
 
-            let current = qa[state][action_idx];
+            let current = qa[&state][action_idx];
             let target = reward + self.discount_factor * next_q;
-            qa.get_mut(state).unwrap()[action_idx] += self.learning_rate * (target - current);
+            qa.get_mut(&state).unwrap()[action_idx] += self.learning_rate * (target - current);
         } else {
-            let next_vals = get_q_values::<S, A>(&qb, next_state);
+            let next_vals = get_q_values::<S, A>(&qb, &next_state);
             let best_next_idx = greedy_index(&next_vals);
             let next_q = if done {
                 0.0
             } else {
-                qa.get(next_state)
+                qa.get(&next_state)
                     .map(|vals| vals[best_next_idx])
                     .unwrap_or(0.0)
             };
 
-            let current = qb[state][action_idx];
+            let current = qb[&state][action_idx];
             let target = reward + self.discount_factor * next_q;
-            qb.get_mut(state).unwrap()[action_idx] += self.learning_rate * (target - current);
+            qb.get_mut(&state).unwrap()[action_idx] += self.learning_rate * (target - current);
         }
     }
 
@@ -691,10 +691,10 @@ impl DoubleQLearning<crate::RlState, crate::RlAction> {
                 rework_ratio_q: r,
                 circuit_state: c,
                 cycle_phase: p,
-                marking_vec: Vec::new(),
-                recent_activities: Vec::new(),
+                marking_mask: 0,
+                activities_hash: 0,
             };
-            qa.insert(state.clone(), q_values.clone());
+            qa.insert(state, q_values.clone());
             qb.insert(state, q_values);
         }
     }
@@ -768,12 +768,12 @@ impl<S: WorkflowState, A: WorkflowAction> ExpectedSARSAAgent<S, A> {
     }
 
     #[allow(dead_code)]
-    pub fn update(&self, state: &S, action: &A, reward: f32, next_state: &S, done: bool) {
+    pub fn update(&self, state: S, action: A, reward: f32, next_state: S, done: bool) {
         let expected_next = if done {
             0.0
         } else {
             let q_table = self.q_table.borrow();
-            let q_vals = get_q_values::<S, A>(&q_table, next_state);
+            let q_vals = get_q_values::<S, A>(&q_table, &next_state);
             drop(q_table);
 
             let probs = epsilon_greedy_probs(&q_vals, self.exploration_rate);
@@ -788,9 +788,9 @@ impl<S: WorkflowState, A: WorkflowAction> ExpectedSARSAAgent<S, A> {
         ensure_state::<S, A>(&mut q_table, state);
 
         let action_idx = action.to_index();
-        let current_q = q_table[state][action_idx];
+        let current_q = q_table[&state][action_idx];
         let target = reward + self.discount_factor * expected_next;
-        q_table.get_mut(state).unwrap()[action_idx] += self.learning_rate * (target - current_q);
+        q_table.get_mut(&state).unwrap()[action_idx] += self.learning_rate * (target - current_q);
     }
 
     #[allow(dead_code)]
@@ -865,8 +865,8 @@ impl ExpectedSARSAAgent<crate::RlState, crate::RlAction> {
                     rework_ratio_q: r,
                     circuit_state: c,
                     cycle_phase: p,
-                    marking_vec: Vec::new(),
-                    recent_activities: Vec::new(),
+                    marking_mask: 0,
+                    activities_hash: 0,
                 },
                 q_values,
             );
@@ -955,7 +955,7 @@ impl<S: WorkflowState, A: WorkflowAction> ReinforceAgent<S, A> {
         let mut theta = self.theta.borrow_mut();
 
         for (t, (state, action, _)) in trajectory.iter().enumerate() {
-            ensure_state::<S, A>(&mut theta, state);
+            ensure_state::<S, A>(&mut theta, *state);
             let logits = theta.get(state).cloned().unwrap_or_else(zeros::<A>);
             let probs = softmax_probs(&logits);
             let a_idx = action.to_index();
@@ -970,8 +970,8 @@ impl<S: WorkflowState, A: WorkflowAction> ReinforceAgent<S, A> {
     }
 
     #[allow(dead_code)]
-    pub fn update_step(&self, state: &S, action: &A, reward: f32) {
-        self.update_from_trajectory(&[(state.clone(), action.clone(), reward)]);
+    pub fn update_step(&self, state: S, action: A, reward: f32) {
+        self.update_from_trajectory(&[(state, action, reward)]);
     }
 
     #[allow(dead_code)]
@@ -1042,8 +1042,8 @@ impl ReinforceAgent<crate::RlState, crate::RlAction> {
                     rework_ratio_q: r,
                     circuit_state: c,
                     cycle_phase: p,
-                    marking_vec: Vec::new(),
-                    recent_activities: Vec::new(),
+                    marking_mask: 0,
+                    activities_hash: 0,
                 },
                 weights,
             );
@@ -1056,11 +1056,11 @@ impl ReinforceAgent<crate::RlState, crate::RlAction> {
 // ---------------------------------------------------------------------------
 
 impl<S: WorkflowState, A: WorkflowAction> Agent<S, A> for QLearning<S, A> {
-    fn select_action(&self, state: &S) -> A {
-        QLearning::select_action(self, state)
+    fn select_action(&self, state: S) -> A {
+        QLearning::select_action(self, &state)
     }
 
-    fn update(&self, state: &S, action: &A, reward: f32, next_state: &S, done: bool) {
+    fn update(&self, state: S, action: A, reward: f32, next_state: S, done: bool) {
         QLearning::update(self, state, action, reward, next_state, done)
     }
 
@@ -1082,19 +1082,19 @@ impl<S: WorkflowState, A: WorkflowAction> AgentMeta for QLearning<S, A> {
 }
 
 impl<S: WorkflowState, A: WorkflowAction> Agent<S, A> for SARSAAgent<S, A> {
-    fn select_action(&self, state: &S) -> A {
+    fn select_action(&self, state: S) -> A {
         let mut pending = self.pending_next.borrow_mut();
         if let Some((ref s, ref a)) = *pending {
-            if s == state {
-                return a.clone();
+            if *s == state {
+                return *a;
             }
         }
-        let action = self.epsilon_greedy_action(state, self.exploration_rate);
-        *pending = Some((state.clone(), action.clone()));
+        let action = self.epsilon_greedy_action(&state, self.exploration_rate);
+        *pending = Some((state, action));
         action
     }
 
-    fn update(&self, state: &S, action: &A, reward: f32, next_state: &S, done: bool) {
+    fn update(&self, state: S, action: A, reward: f32, next_state: S, done: bool) {
         if done {
             self.update_with_next_action(state, action, reward, next_state, action, true);
             return;
@@ -1102,14 +1102,14 @@ impl<S: WorkflowState, A: WorkflowAction> Agent<S, A> for SARSAAgent<S, A> {
 
         let mut pending = self.pending_next.borrow_mut();
         let next_action = match pending.take() {
-            Some((pending_state, pending_action)) if pending_state == *next_state => pending_action,
-            _ => self.epsilon_greedy_action(next_state, self.exploration_rate),
+            Some((pending_state, pending_action)) if pending_state == next_state => pending_action,
+            _ => self.epsilon_greedy_action(&next_state, self.exploration_rate),
         };
         // Re-store the next_action so the subsequent select_action uses it
-        *pending = Some((next_state.clone(), next_action.clone()));
+        *pending = Some((next_state, next_action));
         drop(pending);
 
-        self.update_with_next_action(state, action, reward, next_state, &next_action, false);
+        self.update_with_next_action(state, action, reward, next_state, next_action, false);
     }
 
     fn reset(&self) {
@@ -1132,11 +1132,11 @@ impl<S: WorkflowState, A: WorkflowAction> AgentMeta for SARSAAgent<S, A> {
 }
 
 impl<S: WorkflowState, A: WorkflowAction> Agent<S, A> for DoubleQLearning<S, A> {
-    fn select_action(&self, state: &S) -> A {
-        DoubleQLearning::select_action(self, state)
+    fn select_action(&self, state: S) -> A {
+        DoubleQLearning::select_action(self, &state)
     }
 
-    fn update(&self, state: &S, action: &A, reward: f32, next_state: &S, done: bool) {
+    fn update(&self, state: S, action: A, reward: f32, next_state: S, done: bool) {
         DoubleQLearning::update(self, state, action, reward, next_state, done)
     }
 
@@ -1158,11 +1158,11 @@ impl<S: WorkflowState, A: WorkflowAction> AgentMeta for DoubleQLearning<S, A> {
 }
 
 impl<S: WorkflowState, A: WorkflowAction> Agent<S, A> for ExpectedSARSAAgent<S, A> {
-    fn select_action(&self, state: &S) -> A {
-        ExpectedSARSAAgent::select_action(self, state)
+    fn select_action(&self, state: S) -> A {
+        ExpectedSARSAAgent::select_action(self, &state)
     }
 
-    fn update(&self, state: &S, action: &A, reward: f32, next_state: &S, done: bool) {
+    fn update(&self, state: S, action: A, reward: f32, next_state: S, done: bool) {
         ExpectedSARSAAgent::update(self, state, action, reward, next_state, done)
     }
 
@@ -1184,11 +1184,11 @@ impl<S: WorkflowState, A: WorkflowAction> AgentMeta for ExpectedSARSAAgent<S, A>
 }
 
 impl<S: WorkflowState, A: WorkflowAction> Agent<S, A> for ReinforceAgent<S, A> {
-    fn select_action(&self, state: &S) -> A {
-        ReinforceAgent::select_action(self, state)
+    fn select_action(&self, state: S) -> A {
+        ReinforceAgent::select_action(self, &state)
     }
 
-    fn update(&self, state: &S, action: &A, reward: f32, _next_state: &S, _done: bool) {
+    fn update(&self, state: S, action: A, reward: f32, _next_state: S, _done: bool) {
         self.update_step(state, action, reward);
     }
 

@@ -206,8 +206,8 @@ pub fn apply_token_based_replay_bcinr(
     for (i, id) in petri_net.places.keys().sorted().enumerate() { place_to_idx.insert(*id, i); }
     for (i, id) in petri_net.transitions.keys().sorted().enumerate() { trans_to_idx.insert(*id, i); }
 
-    let mut input_masks = vec![0u64; num_transitions];
-    let mut output_masks = vec![0u64; num_transitions];
+    let mut input_masks = vec![0u64; num_transitions + 1];
+    let mut output_masks = vec![0u64; num_transitions + 1];
 
     for arc in &petri_net.arcs {
         match arc.from_to {
@@ -223,41 +223,62 @@ pub fn apply_token_based_replay_bcinr(
             }
         }
     }
+    
+    // Index for activities not in the model (dummy transition with 0 in/out masks)
+    let dummy_t_idx = num_transitions;
+
+    let mut input_counts = vec![0u32; num_transitions + 1];
+    let mut output_counts = vec![0u32; num_transitions + 1];
+    for i in 0..num_transitions {
+        input_counts[i] = input_masks[i].count_ones();
+        output_counts[i] = output_masks[i].count_ones();
+    }
 
     let initial_mask: u64 = petri_net.initial_marking.as_ref().unwrap().iter()
         .fold(0u64, |acc, (p, _)| acc | (1u64 << *place_to_idx.get(&p.0).unwrap()));
     let final_mask: u64 = petri_net.final_markings.as_ref().unwrap().first().unwrap().iter()
         .fold(0u64, |acc, (p, _)| acc | (1u64 << *place_to_idx.get(&p.0).unwrap()));
+    let final_count = final_mask.count_ones();
 
-    let trans_mapping: Vec<Option<usize>> = event_log.activities.iter()
+    let trans_mapping: Vec<usize> = event_log.activities.iter()
         .map(|act| {
             petri_net.transitions.values()
                 .find(|t| t.label.as_ref() == Some(act))
                 .and_then(|t| trans_to_idx.get(&t.id).cloned())
+                .unwrap_or(dummy_t_idx)
         })
         .collect();
 
     for (trace, freq) in &event_log.traces {
         let mut marking: u64 = initial_mask;
-        result.produced += (initial_mask.count_ones() as u64) * freq;
+        let mut local_missing = 0;
+        let mut local_consumed = 0;
+        let mut local_produced = initial_mask.count_ones();
 
         for &act_idx in trace {
-            if let Some(t_idx) = trans_mapping[act_idx] {
-                let in_mask = input_masks[t_idx];
-                let out_mask = output_masks[t_idx];
-                let missing = in_mask & !marking;
-                result.missing += (missing.count_ones() as u64) * freq;
-                marking = (marking & !in_mask) | out_mask;
-                result.consumed += (in_mask.count_ones() as u64) * freq;
-                result.produced += (out_mask.count_ones() as u64) * freq;
-            }
+            // 100% Branchless Hot Path
+            let t_idx = trans_mapping[act_idx];
+            let in_mask = input_masks[t_idx];
+            
+            let missing = in_mask & !marking;
+            local_missing += missing.count_ones();
+            
+            marking = (marking & !in_mask) | output_masks[t_idx];
+            
+            local_consumed += input_counts[t_idx];
+            local_produced += output_counts[t_idx];
         }
 
         let missing_final = final_mask & !marking;
-        result.missing += (missing_final.count_ones() as u64) * freq;
-        result.consumed += (final_mask.count_ones() as u64) * freq;
+        local_missing += missing_final.count_ones();
+        local_consumed += final_count;
         marking = marking & !final_mask;
-        result.remaining += (marking.count_ones() as u64) * freq;
+        let local_remaining = marking.count_ones();
+        
+        result.missing += (local_missing as u64) * freq;
+        result.consumed += (local_consumed as u64) * freq;
+        result.produced += (local_produced as u64) * freq;
+        result.remaining += (local_remaining as u64) * freq;
     }
     result
 }

@@ -4,7 +4,9 @@
 //! -------
 //! This file encodes a *hostile committee-grade skeptic system* for evaluating:
 //!
-//!     "100% accuracy without overfitting in RL-based process discovery"
+//! ```text
+//! "100% accuracy without overfitting in RL-based process discovery"
+//! ```
 //!
 //! This is NOT an implementation of the system.
 //! This is a **formal adversarial verification harness**.
@@ -16,7 +18,9 @@
 //! CORE CLAIM UNDER TEST
 //! ---------------------
 //!
-//!     A = μ(O*)
+//! ```text
+//! A = μ(O*)
+//! ```
 //!
 //! where:
 //!     - O* = lawful, complete ontology (no leakage, no partial state)
@@ -85,7 +89,9 @@ pub struct Claim {
 ///     3. Policy is greedy w.r.t Q*
 ///
 /// Then:
-///     π* ⇒ N* ≅ N_GT (bisimulation equivalence)
+/// ```text
+/// π* ⇒ N* ≅ N_GT (bisimulation equivalence)
+/// ```
 ///
 /// Failure mode:
 ///     Convergence to wrong but locally optimal topology
@@ -95,11 +101,15 @@ pub fn theorem_value_structure_equivalence() {}
 ///
 /// For all traces k:
 ///
-///     H_k = ∅
+/// ```text
+/// H_k = ∅
+/// ```
 ///
 /// Implies:
 ///
-///     I(σ_{k+1}; H_k | s0) = 0
+/// ```text
+/// I(σ_{k+1}; H_k | s0) = 0
+/// ```
 ///
 /// Meaning:
 ///     No temporal leakage → no overfitting via memory
@@ -107,7 +117,9 @@ pub fn axiom_reset() {}
 
 /// # Definition: Execution Determinism
 ///
-///     Var(τ(s,a)) = 0
+/// ```text
+/// Var(τ(s,a)) = 0
+/// ```
 ///
 /// Eliminates hardware-induced stochasticity from learning dynamics
 pub fn definition_execution_determinism() {}
@@ -116,11 +128,15 @@ pub fn definition_execution_determinism() {}
 ///
 /// If:
 ///
-///     Σ γ^k r_{t+k} << r_t
+/// ```text
+/// Σ γ^k r_{t+k} << r_t
+/// ```
 ///
 /// Then:
 ///
-///     G_t ≈ r_t
+/// ```text
+/// G_t ≈ r_t
+/// ```
 ///
 /// Failure mode:
 ///     Delayed reward invalidates approximation
@@ -128,7 +144,9 @@ pub fn lemma_impulse_gradient() {}
 
 /// # Axiom: Identifiability
 ///
-///     T(N1) = T(N2) ⇒ N1 ≅ N2
+/// ```text
+/// T(N1) = T(N2) ⇒ N1 ≅ N2
+/// ```
 ///
 /// Without this:
 ///     "Perfect accuracy" is underdetermined

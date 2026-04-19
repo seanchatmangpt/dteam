@@ -138,8 +138,8 @@ fn train_to_perfection(train_log: &EventLog, config: &AutonomicConfig) -> PetriN
         if avg_f >= config.automation.fitness_stopping_threshold && is_sound && verifies_calculus { break; }
 
         let state = RlState {
-            marking_vec: Vec::new(),
-            recent_activities: Vec::new(),
+            marking_mask: 0,
+            activities_hash: 0,
             health_level: 0,
             event_rate_q: 0,
             activity_count_q: 0,
