@@ -188,7 +188,7 @@ impl<S: WorkflowState, A: WorkflowAction> QLearning<S, A> {
     }
 
     #[allow(dead_code)]
-    pub fn select_action(&self, state: &S) -> A {
+    pub fn select_action(&self, state: S) -> A {
         if self.rng.borrow_mut().f32() < self.exploration_rate {
             let idx = self.rng.borrow_mut().usize(..A::ACTION_COUNT);
             A::from_index(idx).unwrap()
@@ -197,9 +197,9 @@ impl<S: WorkflowState, A: WorkflowAction> QLearning<S, A> {
         }
     }
 
-    fn best_action(&self, state: &S) -> A {
+    fn best_action(&self, state: S) -> A {
         let q_table = self.q_table.borrow();
-        let q_values = get_q_values::<S, A>(&q_table, state);
+        let q_values = get_q_values::<S, A>(&q_table, &state);
         A::from_index(greedy_index(&q_values)).unwrap()
     }
 
@@ -368,7 +368,20 @@ impl<S: WorkflowState, A: WorkflowAction> SARSAAgent<S, A> {
     }
 
     #[allow(dead_code)]
-    pub fn epsilon_greedy_action(&self, state: &S, epsilon: f32) -> A {
+    pub fn select_action(&self, state: S) -> A {
+        let mut pending = self.pending_next.borrow_mut();
+        if let Some((ref s, ref a)) = *pending {
+            if *s == state {
+                return *a;
+            }
+        }
+        let action = self.epsilon_greedy_action(state, self.exploration_rate);
+        *pending = Some((state, action));
+        action
+    }
+
+    #[allow(dead_code)]
+    pub fn epsilon_greedy_action(&self, state: S, epsilon: f32) -> A {
         let eps = clamp_probability(epsilon);
         if self.rng.borrow_mut().f32() < eps {
             let idx = self.rng.borrow_mut().usize(..A::ACTION_COUNT);
@@ -378,9 +391,9 @@ impl<S: WorkflowState, A: WorkflowAction> SARSAAgent<S, A> {
         }
     }
 
-    fn greedy_action(&self, state: &S) -> A {
+    fn greedy_action(&self, state: S) -> A {
         let q_table = self.q_table.borrow();
-        let q_vals = get_q_values::<S, A>(&q_table, state);
+        let q_vals = get_q_values::<S, A>(&q_table, &state);
         A::from_index(greedy_index(&q_vals)).unwrap()
     }
 
@@ -553,7 +566,7 @@ impl<S: WorkflowState, A: WorkflowAction> DoubleQLearning<S, A> {
     }
 
     #[allow(dead_code)]
-    pub fn select_action(&self, state: &S) -> A {
+    pub fn select_action(&self, state: S) -> A {
         if self.rng.borrow_mut().f32() < self.exploration_rate {
             let idx = self.rng.borrow_mut().usize(..A::ACTION_COUNT);
             A::from_index(idx).unwrap()
@@ -562,12 +575,12 @@ impl<S: WorkflowState, A: WorkflowAction> DoubleQLearning<S, A> {
         }
     }
 
-    fn greedy_action(&self, state: &S) -> A {
+    fn greedy_action(&self, state: S) -> A {
         let qa = self.q_a.borrow();
         let qb = self.q_b.borrow();
 
-        let va = get_q_values::<S, A>(&qa, state);
-        let vb = get_q_values::<S, A>(&qb, state);
+        let va = get_q_values::<S, A>(&qa, &state);
+        let vb = get_q_values::<S, A>(&qb, &state);
 
         let mut merged = vec![0.0; A::ACTION_COUNT];
         for i in 0..A::ACTION_COUNT {
@@ -752,7 +765,7 @@ impl<S: WorkflowState, A: WorkflowAction> ExpectedSARSAAgent<S, A> {
     }
 
     #[allow(dead_code)]
-    pub fn select_action(&self, state: &S) -> A {
+    pub fn select_action(&self, state: S) -> A {
         if self.rng.borrow_mut().f32() < self.exploration_rate {
             let idx = self.rng.borrow_mut().usize(..A::ACTION_COUNT);
             A::from_index(idx).unwrap()
@@ -761,9 +774,9 @@ impl<S: WorkflowState, A: WorkflowAction> ExpectedSARSAAgent<S, A> {
         }
     }
 
-    fn greedy_action(&self, state: &S) -> A {
+    fn greedy_action(&self, state: S) -> A {
         let q_table = self.q_table.borrow();
-        let q_vals = get_q_values::<S, A>(&q_table, state);
+        let q_vals = get_q_values::<S, A>(&q_table, &state);
         A::from_index(greedy_index(&q_vals)).unwrap()
     }
 
@@ -919,9 +932,9 @@ impl<S: WorkflowState, A: WorkflowAction> ReinforceAgent<S, A> {
     }
 
     #[allow(dead_code)]
-    pub fn select_action(&self, state: &S) -> A {
+    pub fn select_action(&self, state: S) -> A {
         let theta = self.theta.borrow();
-        let weights = theta.get(state).cloned().unwrap_or_else(zeros::<A>);
+        let weights = theta.get(&state).cloned().unwrap_or_else(zeros::<A>);
         drop(theta);
 
         let probs = softmax_probs(&weights);
@@ -975,9 +988,9 @@ impl<S: WorkflowState, A: WorkflowAction> ReinforceAgent<S, A> {
     }
 
     #[allow(dead_code)]
-    pub fn get_policy_weights(&self, state: &S) -> Vec<f32> {
+    pub fn get_policy_weights(&self, state: S) -> Vec<f32> {
         let theta = self.theta.borrow();
-        theta.get(state).cloned().unwrap_or_else(zeros::<A>)
+        theta.get(&state).cloned().unwrap_or_else(zeros::<A>)
     }
 
     pub fn set_exploration_rate(&mut self, _rate: f32) {
@@ -1057,11 +1070,11 @@ impl ReinforceAgent<crate::RlState, crate::RlAction> {
 
 impl<S: WorkflowState, A: WorkflowAction> Agent<S, A> for QLearning<S, A> {
     fn select_action(&self, state: S) -> A {
-        QLearning::select_action(self, &state)
+        self.select_action(state)
     }
 
     fn update(&self, state: S, action: A, reward: f32, next_state: S, done: bool) {
-        QLearning::update(self, state, action, reward, next_state, done)
+        self.update(state, action, reward, next_state, done)
     }
 
     fn reset(&self) {}
@@ -1083,15 +1096,7 @@ impl<S: WorkflowState, A: WorkflowAction> AgentMeta for QLearning<S, A> {
 
 impl<S: WorkflowState, A: WorkflowAction> Agent<S, A> for SARSAAgent<S, A> {
     fn select_action(&self, state: S) -> A {
-        let mut pending = self.pending_next.borrow_mut();
-        if let Some((ref s, ref a)) = *pending {
-            if *s == state {
-                return *a;
-            }
-        }
-        let action = self.epsilon_greedy_action(&state, self.exploration_rate);
-        *pending = Some((state, action));
-        action
+        self.select_action(state)
     }
 
     fn update(&self, state: S, action: A, reward: f32, next_state: S, done: bool) {
@@ -1103,7 +1108,7 @@ impl<S: WorkflowState, A: WorkflowAction> Agent<S, A> for SARSAAgent<S, A> {
         let mut pending = self.pending_next.borrow_mut();
         let next_action = match pending.take() {
             Some((pending_state, pending_action)) if pending_state == next_state => pending_action,
-            _ => self.epsilon_greedy_action(&next_state, self.exploration_rate),
+            _ => self.epsilon_greedy_action(next_state, self.exploration_rate),
         };
         // Re-store the next_action so the subsequent select_action uses it
         *pending = Some((next_state, next_action));
@@ -1133,11 +1138,11 @@ impl<S: WorkflowState, A: WorkflowAction> AgentMeta for SARSAAgent<S, A> {
 
 impl<S: WorkflowState, A: WorkflowAction> Agent<S, A> for DoubleQLearning<S, A> {
     fn select_action(&self, state: S) -> A {
-        DoubleQLearning::select_action(self, &state)
+        self.select_action(state)
     }
 
     fn update(&self, state: S, action: A, reward: f32, next_state: S, done: bool) {
-        DoubleQLearning::update(self, state, action, reward, next_state, done)
+        self.update(state, action, reward, next_state, done)
     }
 
     fn reset(&self) {}
@@ -1159,11 +1164,11 @@ impl<S: WorkflowState, A: WorkflowAction> AgentMeta for DoubleQLearning<S, A> {
 
 impl<S: WorkflowState, A: WorkflowAction> Agent<S, A> for ExpectedSARSAAgent<S, A> {
     fn select_action(&self, state: S) -> A {
-        ExpectedSARSAAgent::select_action(self, &state)
+        self.select_action(state)
     }
 
     fn update(&self, state: S, action: A, reward: f32, next_state: S, done: bool) {
-        ExpectedSARSAAgent::update(self, state, action, reward, next_state, done)
+        self.update(state, action, reward, next_state, done)
     }
 
     fn reset(&self) {}
@@ -1185,7 +1190,7 @@ impl<S: WorkflowState, A: WorkflowAction> AgentMeta for ExpectedSARSAAgent<S, A>
 
 impl<S: WorkflowState, A: WorkflowAction> Agent<S, A> for ReinforceAgent<S, A> {
     fn select_action(&self, state: S) -> A {
-        ReinforceAgent::select_action(self, &state)
+        self.select_action(state)
     }
 
     fn update(&self, state: S, action: A, reward: f32, _next_state: S, _done: bool) {

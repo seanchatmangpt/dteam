@@ -144,7 +144,7 @@ mod tests {
         
         let mut new_agent_greedy = new_agent;
         new_agent_greedy.set_exploration_rate(0.0);
-        let selected = new_agent_greedy.select_action(&state);
+        let selected = new_agent_greedy.select_action(state);
         assert_eq!(selected, RlAction::Optimize);
     }
 }

@@ -42,3 +42,7 @@ harness = false
 [[bench]]
 name = "algorithm_bench"
 harness = false
+
+[[bench]]
+name = "dpie_bench"
+harness = false

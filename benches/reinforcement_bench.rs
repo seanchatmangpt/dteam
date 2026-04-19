@@ -1,17 +1,8 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use wasm4pm::reinforcement::{
-    Agent, DoubleQLearning, ExpectedSARSAAgent, QLearning, ReinforceAgent,
-    SARSAAgent,
-};
-use wasm4pm::{RlAction, RlState};
+use wasm4pm::reinforcement::{Agent, QLearning, SARSAAgent, DoubleQLearning};
+use wasm4pm::{RlState, RlAction};
 
-const MAX_STEPS: usize = 100;
-const BENCH_EPISODES: usize = 500;
-const GOAL_STATE_DEFAULT: i32 = 5;
-const GOAL_STATE_REINFORCE: i32 = 3;
-const BENCH_SAMPLE_SIZE: usize = 10;
-
-fn create_state(h: i32) -> RlState {
+fn create_mock_state(h: i8) -> RlState {
     RlState {
         health_level: h,
         event_rate_q: 0,
@@ -21,82 +12,48 @@ fn create_state(h: i32) -> RlState {
         rework_ratio_q: 0,
         circuit_state: 0,
         cycle_phase: 0,
-        marking_vec: Vec::new(),
-        recent_activities: Vec::new(),
+        marking_mask: 0xDEADBEEF,
+        activities_hash: 0xCAFEBABE,
     }
 }
 
-fn run_corridor_silent<T: Agent<RlState, RlAction>>(agent: &T, episodes: usize, goal_state: i32) {
-    for _ in 0..episodes {
-        agent.reset();
-        let mut state = create_state(0);
-        let mut steps = 0;
-        while state.health_level < goal_state && steps < MAX_STEPS {
-            let action = agent.select_action(&state);
-            let next_h = match action {
-                RlAction::Idle => state.health_level,
-                RlAction::Optimize => state.health_level + 1,
-                RlAction::Rework => (state.health_level - 1).max(0),
-            };
-            let next_state = create_state(next_h);
-            let done = next_h >= goal_state;
-            let reward = if done { 1.0 } else { 0.0 };
-            agent.update(&state, &action, reward, &next_state, done);
-            state = next_state;
-            steps += 1;
-        }
-    }
-}
-
-fn bench_agents_step(c: &mut Criterion) {
-    let q = QLearning::<RlState, RlAction>::new();
-    let sarsa = SARSAAgent::<RlState, RlAction>::new();
-    let d_q = DoubleQLearning::<RlState, RlAction>::new();
-    let e_sarsa = ExpectedSARSAAgent::<RlState, RlAction>::new();
-    let reinforce = ReinforceAgent::<RlState, RlAction>::new();
+fn bench_rl_ops(c: &mut Criterion) {
+    let mut group = c.benchmark_group("ReinforcementLearning");
     
-    let state = create_state(0);
+    let state = create_mock_state(2);
+    let next_state = create_mock_state(3);
     let action = RlAction::Optimize;
-    let next_state = create_state(1);
+    let reward = 1.0f32;
 
-    c.bench_function("QLearning select_action", |b| b.iter(|| q.select_action(black_box(&state))));
-    c.bench_function("QLearning update", |b| b.iter(|| q.update(black_box(&state), black_box(&action), 1.0, black_box(&next_state), true)));
-
-    c.bench_function("SARSA select_action", |b| b.iter(|| sarsa.select_action(black_box(&state))));
-    c.bench_function("SARSA update", |b| b.iter(|| sarsa.update(black_box(&state), black_box(&action), 1.0, black_box(&next_state), true)));
-
-    c.bench_function("DoubleQLearning select_action", |b| b.iter(|| d_q.select_action(black_box(&state))));
-    c.bench_function("DoubleQLearning update", |b| b.iter(|| d_q.update(black_box(&state), black_box(&action), 1.0, black_box(&next_state), true)));
-
-    c.bench_function("ExpectedSARSA select_action", |b| b.iter(|| e_sarsa.select_action(black_box(&state))));
-    c.bench_function("ExpectedSARSA update", |b| b.iter(|| e_sarsa.update(black_box(&state), black_box(&action), 1.0, black_box(&next_state), true)));
-
-    c.bench_function("ReinforceAgent select_action", |b| b.iter(|| reinforce.select_action(black_box(&state))));
-    c.bench_function("ReinforceAgent update", |b| b.iter(|| reinforce.update(black_box(&state), black_box(&action), 1.0, black_box(&next_state), true)));
-}
-
-fn bench_convergence(c: &mut Criterion) {
-    let mut group = c.benchmark_group("Convergence");
-    group.sample_size(BENCH_SAMPLE_SIZE); // Convergence benchmarks are slower
-    
-    group.bench_function(format!("QLearning Corridor ({} ep)", BENCH_EPISODES), |b| b.iter(|| {
-        let agent = QLearning::with_hyperparams(0.1, 0.9, 0.5);
-        run_corridor_silent(&agent, BENCH_EPISODES, GOAL_STATE_DEFAULT);
+    // 1. Q-Learning
+    let q_agent = QLearning::<RlState, RlAction>::with_hyperparams(0.1, 0.9, 0.1);
+    group.bench_function("QLearning/select_action", |b| b.iter(|| {
+        q_agent.select_action(black_box(state))
+    }));
+    group.bench_function("QLearning/update", |b| b.iter(|| {
+        q_agent.update(black_box(state), black_box(action), reward, black_box(next_state), false)
     }));
 
-    group.bench_function(format!("SARSA Corridor ({} ep)", BENCH_EPISODES), |b| b.iter(|| {
-        let mut agent = SARSAAgent::new();
-        agent.set_exploration_rate(0.5);
-        run_corridor_silent(&agent, BENCH_EPISODES, GOAL_STATE_DEFAULT);
+    // 2. SARSA
+    let sarsa_agent = SARSAAgent::<RlState, RlAction>::new();
+    group.bench_function("SARSA/select_action", |b| b.iter(|| {
+        sarsa_agent.select_action(black_box(state))
+    }));
+    group.bench_function("SARSA/update", |b| b.iter(|| {
+        sarsa_agent.update(black_box(state), black_box(action), reward, black_box(next_state), false)
     }));
 
-    group.bench_function(format!("Reinforce Corridor ({} ep)", BENCH_EPISODES), |b| b.iter(|| {
-        let agent = ReinforceAgent::with_hyperparams(0.1, 0.9);
-        run_corridor_silent(&agent, BENCH_EPISODES, GOAL_STATE_REINFORCE);
+    // 3. Double Q-Learning
+    let double_q = DoubleQLearning::<RlState, RlAction>::with_hyperparams(0.1, 0.9, 0.1);
+    group.bench_function("DoubleQLearning/select_action", |b| b.iter(|| {
+        double_q.select_action(black_box(state))
+    }));
+    group.bench_function("DoubleQLearning/update", |b| b.iter(|| {
+        double_q.update(black_box(state), black_box(action), reward, black_box(next_state), false)
     }));
 
     group.finish();
 }
 
-criterion_group!(benches, bench_agents_step, bench_convergence);
+criterion_group!(benches, bench_rl_ops);
 criterion_main!(benches);

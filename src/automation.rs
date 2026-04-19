@@ -158,7 +158,7 @@ pub fn train_to_perfection_with_reward(
             circuit_state: 0,
             cycle_phase: 0,
         };
-        let _action = agent.select_action(&state);
+        let _action = agent.select_action(state);
     }
     
     // For verification of 100% path, we ensure the model matches the log's transitions
