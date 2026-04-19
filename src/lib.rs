@@ -69,6 +69,7 @@ pub mod automation;
 pub mod benchmark;
 pub mod config;
 pub mod skeptic_harness;
+pub mod skeptic_contract;
 pub mod ref_models {
     pub mod ref_petri_net;
     pub mod ref_event_log;
