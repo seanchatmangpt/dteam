@@ -189,6 +189,7 @@ impl QLearning<crate::RlState, crate::RlAction> {
                 cycle_phase: p,
                 marking_mask: 0,
                 activities_hash: 0,
+                ontology_mask: crate::utils::dense_kernel::KBitSet::<16>::zero(),
             };
             q_table.insert(hash_state(&state), state, q_values);
         }

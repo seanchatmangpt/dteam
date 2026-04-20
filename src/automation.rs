@@ -33,10 +33,11 @@ pub fn automate_discovery(data_dir: &str) {
 pub fn train_with_provenance(
     train_log: &EventLog,
     config: &AutonomicConfig,
-    _beta: f32,
-    _lambda: f32,
+    beta: f32,
+    lambda: f32,
+    ontology: Option<&crate::models::Ontology>,
 ) -> (PetriNet, Vec<u8>) {
-    train_with_provenance_projected(&ProjectedLog::from(train_log), config, _beta, _lambda)
+    train_with_provenance_projected(&ProjectedLog::generate_with_ontology(train_log, ontology), config, beta, lambda, ontology)
 }
 
 pub fn train_with_provenance_projected(
@@ -44,6 +45,7 @@ pub fn train_with_provenance_projected(
     config: &AutonomicConfig,
     _beta: f32,
     _lambda: f32,
+    ontology: Option<&crate::models::Ontology>,
 ) -> (PetriNet, Vec<u8>) {
     let mut model = PetriNet::default();
     let agent: QLearning<RlState, RlAction> = QLearning::with_hyperparams(
@@ -53,6 +55,7 @@ pub fn train_with_provenance_projected(
     );
 
     let mut trajectory = Vec::new();
+    let ontology_mask = ontology.map(|o| o.bitset).unwrap_or_else(|| crate::utils::dense_kernel::KBitSet::<16>::zero());
 
     for _epoch in 0..config.discovery.max_training_epochs {
         let avg_f = token_replay_projected(train_log, &model);
@@ -77,6 +80,7 @@ pub fn train_with_provenance_projected(
             rework_ratio_q: 0,
             circuit_state: 0,
             cycle_phase: 0,
+            ontology_mask,
         };
 
         let action = agent.select_action(state);
@@ -84,6 +88,7 @@ pub fn train_with_provenance_projected(
     }
 
     for act in &train_log.activities {
+        // AC 1.3: Ensure we only add activities allowed by ontology (already filtered in ProjectedLog)
         if !model.transitions.iter().any(|t| &t.label == act) {
             model
                 .transitions
@@ -98,7 +103,7 @@ pub fn train_with_provenance_projected(
 }
 
 fn train_to_perfection_projected(train_log: &ProjectedLog, config: &AutonomicConfig) -> PetriNet {
-    let (model, _) = train_with_provenance_projected(train_log, config, 0.5, 0.01);
+    let (model, _) = train_with_provenance_projected(train_log, config, 0.5, 0.01, None);
     model
 }
 

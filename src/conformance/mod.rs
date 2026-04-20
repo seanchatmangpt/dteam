@@ -24,13 +24,19 @@ pub struct ConformanceResult {
 pub struct ProjectedLog {
     pub activities: Vec<String>,
     pub traces: Vec<(Vec<usize>, u64)>, // (activity indices, frequency)
+    pub violation_count: usize,
 }
 
-impl From<&EventLog> for ProjectedLog {
-    fn from(log: &EventLog) -> Self {
+impl ProjectedLog {
+    pub fn generate(log: &EventLog) -> Self {
+        Self::generate_with_ontology(log, None)
+    }
+
+    pub fn generate_with_ontology(log: &EventLog, ontology: Option<&crate::models::Ontology>) -> Self {
         let mut act_to_idx = PackedKeyTable::new();
         let mut activities = Vec::new();
         let mut traces_map = PackedKeyTable::new();
+        let mut violation_count = 0;
 
         for trace in &log.traces {
             let mut trace_acts = Vec::with_capacity(trace.events.len());
@@ -48,6 +54,13 @@ impl From<&EventLog> for ProjectedLog {
                     })
                     .unwrap_or("No Activity");
 
+                if let Some(ont) = ontology {
+                    if !ont.contains(activity) {
+                        violation_count += 1;
+                        continue; // Prune out-of-ontology events (AC 1.2 option b)
+                    }
+                }
+
                 let h = fnv1a_64(activity.as_bytes());
                 let index = if let Some(&idx) = act_to_idx.get(h) {
                     idx
@@ -59,6 +72,8 @@ impl From<&EventLog> for ProjectedLog {
                 };
                 trace_acts.push(index);
             }
+
+            if trace_acts.is_empty() { continue; }
 
             let mut hasher = rustc_hash::FxHasher::default();
             trace_acts.hash(&mut hasher);
@@ -73,7 +88,14 @@ impl From<&EventLog> for ProjectedLog {
         Self {
             activities,
             traces: traces_map.iter().map(|(_, k, v)| (k.clone(), *v)).collect(),
+            violation_count,
         }
+    }
+}
+
+impl From<&EventLog> for ProjectedLog {
+    fn from(log: &EventLog) -> Self {
+        Self::generate(log)
     }
 }
 

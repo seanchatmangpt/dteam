@@ -5,6 +5,7 @@ pub mod jtbd_tests;
 pub mod models;
 pub mod reinforcement;
 pub mod reinforcement_tests;
+pub mod ontology_proptests;
 pub mod utils;
 
 // Re-export models for easier access
@@ -24,6 +25,7 @@ pub struct RlState {
     pub cycle_phase: i8,
     pub marking_mask: u64,    // BCINR bitset mask for Petri net marking
     pub activities_hash: u64, // Rolling FNV-1a hash of recent activities
+    pub ontology_mask: crate::utils::dense_kernel::KBitSet<16>, // AC 4.2
 }
 
 #[derive(Clone, Copy, Eq, Hash, PartialEq, Debug)]
@@ -189,6 +191,8 @@ pub mod dteam {
             beta: f32,
             lambda: f32,
             deterministic: bool,
+            ontology: Option<crate::models::Ontology>,
+            prune_on_violation: bool,
         }
 
         impl EngineBuilder {
@@ -198,6 +202,8 @@ pub mod dteam {
                     beta: 0.5,
                     lambda: 0.01,
                     deterministic: true,
+                    ontology: None,
+                    prune_on_violation: false,
                 }
             }
 
@@ -223,12 +229,24 @@ pub mod dteam {
                 self
             }
 
+            pub fn with_ontology(mut self, ontology: crate::models::Ontology) -> Self {
+                self.ontology = Some(ontology);
+                self
+            }
+
+            pub fn with_pruning(mut self, prune: bool) -> Self {
+                self.prune_on_violation = prune;
+                self
+            }
+
             pub fn build(self) -> Engine {
                 Engine {
                     k_tier: self.k_tier.unwrap_or(KTier::K256),
                     beta: self.beta,
                     lambda: self.lambda,
                     deterministic: self.deterministic,
+                    ontology: self.ontology,
+                    prune_on_violation: self.prune_on_violation,
                 }
             }
         }
@@ -244,6 +262,8 @@ pub mod dteam {
             pub beta: f32,
             pub lambda: f32,
             pub deterministic: bool,
+            pub ontology: Option<crate::models::Ontology>,
+            pub prune_on_violation: bool,
         }
 
         pub trait DteamDoctor {
@@ -264,7 +284,8 @@ pub mod dteam {
                  zero-heap hot path: verified\n\
                  boundary batching: recommended\n\
                  manifest mode: enabled\n\
-                 determinism profile: strict"
+                 determinism profile: strict\n\
+                 ontology enforcement: active"
                     .to_string()
             }
 
@@ -381,12 +402,16 @@ pub mod dteam {
             pub mdl_score: f64,
             pub k_tier: String,
             pub latency_ns: u64,
+            pub ontology_hash: Option<u64>,
+            pub violation_count: usize,
+            pub closure_verified: bool,
         }
 
         #[derive(Debug)]
         pub enum EngineResult {
             Success(PetriNet, ExecutionManifest),
             PartitionRequired { required: usize, configured: usize },
+            BoundaryViolation { activity: String },
         }
 
         impl Engine {
@@ -408,21 +433,56 @@ pub mod dteam {
                 let config = crate::config::AutonomicConfig::load("dteam.toml").unwrap_or_default();
                 let start_time = std::time::Instant::now();
 
+                // Boundary Enforcement Phase (AC 1.2)
+                if let Some(ontology) = &self.ontology {
+                    if !self.prune_on_violation {
+                        for trace in &log.traces {
+                            for event in &trace.events {
+                                let activity = event.attributes.iter().find(|a| a.key == "concept:name").and_then(|a| {
+                                    if let crate::models::AttributeValue::String(s) = &a.value { Some(s.as_str()) } else { None }
+                                }).unwrap_or("No Activity");
+
+                                if !ontology.contains(activity) {
+                                    return EngineResult::BoundaryViolation { activity: activity.to_string() };
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // Use reward weights from config
                 let beta = *config.rl.reward_weights.get("fitness").unwrap_or(&0.5);
                 let lambda = *config.rl.reward_weights.get("soundness").unwrap_or(&0.01);
 
+                // Projection and Training
+                let projected_log = crate::conformance::ProjectedLog::generate_with_ontology(log, self.ontology.as_ref());
+                let violation_count = projected_log.violation_count;
+
                 let (net, trajectory) =
-                    crate::automation::train_with_provenance(log, &config, beta, lambda);
+                    crate::automation::train_with_provenance_projected(&projected_log, &config, beta, lambda, self.ontology.as_ref());
                 let execution_time_ns = start_time.elapsed().as_nanos() as u64;
+
+                // Closure Verification (AC 5.1, AC 2.1)
+                let mut closure_verified = true;
+                if let Some(ontology) = &self.ontology {
+                    for t in &net.transitions {
+                        if !ontology.contains(&t.label) {
+                            closure_verified = false;
+                            break;
+                        }
+                    }
+                }
 
                 let manifest = ExecutionManifest {
                     input_log_hash: log.canonical_hash(),
                     action_sequence: trajectory,
                     model_canonical_hash: net.canonical_hash(),
-                    mdl_score: net.mdl_score(),
+                    mdl_score: net.mdl_score_with_ontology(self.ontology.as_ref().map(|o| o.index.len())),
                     k_tier: format!("{:?}", self.k_tier),
                     latency_ns: execution_time_ns,
+                    ontology_hash: self.ontology.as_ref().map(|o| o.hash()),
+                    violation_count,
+                    closure_verified,
                 };
 
                 EngineResult::Success(net, manifest)

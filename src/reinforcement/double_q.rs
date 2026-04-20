@@ -200,6 +200,7 @@ impl DoubleQLearning<crate::RlState, crate::RlAction> {
                 cycle_phase: p,
                 marking_mask: 0,
                 activities_hash: 0,
+                ontology_mask: crate::utils::dense_kernel::KBitSet::<16>::zero(),
             };
             qa.insert(hash_state(&state), state, q_values.clone());
             qb.insert(hash_state(&state), state, q_values);
