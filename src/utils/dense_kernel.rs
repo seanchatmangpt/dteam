@@ -92,25 +92,25 @@ impl DenseIndex {
             tmp.push((hash, id, kind));
         }
 
-        tmp.sort_by(|a, b| {
-            a.0.cmp(&b.0)
-                .then_with(|| a.1.cmp(&b.1))
-                .then_with(|| a.2.cmp(&b.2))
-        });
+        // Use a separate sorted vector to check for duplicates and collisions
+        let mut sorted_hashes: Vec<(u64, &String, &NodeKind)> =
+            tmp.iter().map(|(h, s, k)| (*h, s, k)).collect();
 
-        for pair in tmp.windows(2) {
+        sorted_hashes.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(b.1)));
+
+        for pair in sorted_hashes.windows(2) {
             let (h1, s1, _) = &pair[0];
             let (h2, s2, _) = &pair[1];
 
             if s1 == s2 {
-                return Err(DenseError::DuplicateSymbol { id: s1.clone() });
+                return Err(DenseError::DuplicateSymbol { id: (*s1).clone() });
             }
 
             if h1 == h2 {
                 return Err(DenseError::HashCollision {
                     hash: *h1,
-                    left: s1.clone(),
-                    right: s2.clone(),
+                    left: (*s1).clone(),
+                    right: (*s2).clone(),
                 });
             }
         }
@@ -129,6 +129,7 @@ impl DenseIndex {
             kinds.push(kind);
         }
 
+        // Sort entries by hash for binary search, but they still point to original dense IDs
         entries.sort_by_key(|e| e.hash);
 
         Ok(Self {
@@ -146,6 +147,14 @@ impl DenseIndex {
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.symbols.is_empty()
+    }
+    #[inline]
+    pub fn symbols(&self) -> &[String] {
+        &self.symbols
+    }
+    #[inline]
+    pub fn dense_id_by_symbol(&self, symbol: &str) -> Option<DenseId> {
+        self.dense_id(symbol)
     }
     #[inline]
     pub fn dense_id(&self, symbol: &str) -> Option<DenseId> {
@@ -172,7 +181,7 @@ impl DenseIndex {
 // K-BITSET
 // ============================================================================
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct KBitSet<const WORDS: usize> {
     pub words: [u64; WORDS],
 }
@@ -285,6 +294,12 @@ pub type K64 = KBitSet<1>;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PackedKeyTable<K, V> {
     entries: Vec<(u64, K, V)>,
+}
+
+impl<K: PartialEq, V: PartialEq> PartialEq for PackedKeyTable<K, V> {
+    fn eq(&self, other: &Self) -> bool {
+        self.entries == other.entries
+    }
 }
 
 impl<K, V> PackedKeyTable<K, V> {

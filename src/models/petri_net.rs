@@ -1,4 +1,4 @@
-use crate::utils::dense_kernel::{fnv1a_64, PackedKeyTable};
+use crate::utils::dense_kernel::{fnv1a_64, DenseIndex, NodeKind, PackedKeyTable};
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 
@@ -28,6 +28,38 @@ pub struct PetriNet {
     pub arcs: Vec<Arc>,
     pub initial_marking: PackedKeyTable<String, usize>,
     pub final_markings: Vec<PackedKeyTable<String, usize>>,
+
+    /// Cached flat incidence matrix
+    #[serde(skip)]
+    pub cached_incidence: Option<FlatIncidenceMatrix>,
+
+    /// Cached dense index for fast node lookups
+    #[serde(skip)]
+    pub cached_index: Option<DenseIndex>,
+}
+
+impl PartialEq for PetriNet {
+    fn eq(&self, other: &Self) -> bool {
+        self.places == other.places
+            && self.transitions == other.transitions
+            && self.arcs == other.arcs
+            && self.initial_marking == other.initial_marking
+            && self.final_markings == other.final_markings
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct FlatIncidenceMatrix {
+    /// Contiguous 1D buffer of incidence values [row-major: places x transitions]
+    pub data: Vec<i32>,
+    pub places_count: usize,
+    pub transitions_count: usize,
+}
+
+impl FlatIncidenceMatrix {
+    pub fn get(&self, place_idx: usize, transition_idx: usize) -> i32 {
+        self.data[place_idx * self.transitions_count + transition_idx]
+    }
 }
 
 impl PetriNet {
@@ -52,7 +84,6 @@ impl PetriNet {
             return false;
         }
 
-        let id_to_index = self.build_node_index();
         let place_count = self.places.len();
         let total_nodes = place_count + self.transitions.len();
         let num_words = total_nodes.div_ceil(64);
@@ -60,13 +91,27 @@ impl PetriNet {
         let mut in_degrees = vec![0u64; num_words];
         let mut out_degrees = vec![0u64; num_words];
 
-        for arc in &self.arcs {
-            if let (Some(&from_idx), Some(&to_idx)) = (
-                id_to_index.get(fnv1a_64(arc.from.as_bytes())),
-                id_to_index.get(fnv1a_64(arc.to.as_bytes())),
-            ) {
-                out_degrees[from_idx / 64] |= 1u64 << (from_idx % 64);
-                in_degrees[to_idx / 64] |= 1u64 << (to_idx % 64);
+        if let Some(ref index) = self.cached_index {
+            for arc in &self.arcs {
+                if let (Some(from_idx), Some(to_idx)) =
+                    (index.dense_id(&arc.from), index.dense_id(&arc.to))
+                {
+                    let from_idx = from_idx as usize;
+                    let to_idx = to_idx as usize;
+                    out_degrees[from_idx / 64] |= 1u64 << (from_idx % 64);
+                    in_degrees[to_idx / 64] |= 1u64 << (to_idx % 64);
+                }
+            }
+        } else {
+            let id_to_index = self.build_node_index();
+            for arc in &self.arcs {
+                if let (Some(&from_idx), Some(&to_idx)) = (
+                    id_to_index.get(fnv1a_64(arc.from.as_bytes())),
+                    id_to_index.get(fnv1a_64(arc.to.as_bytes())),
+                ) {
+                    out_degrees[from_idx / 64] |= 1u64 << (from_idx % 64);
+                    in_degrees[to_idx / 64] |= 1u64 << (to_idx % 64);
+                }
             }
         }
 
@@ -99,42 +144,101 @@ impl PetriNet {
         true
     }
 
-    /// Generates the Incidence Matrix (W).
-    pub fn incidence_matrix(&self) -> Vec<Vec<i32>> {
-        let mut matrix = vec![vec![0; self.transitions.len()]; self.places.len()];
-        let id_to_index = self.build_node_index();
-        let place_count = self.places.len();
+    /// Compiles the incidence matrix and node index for maximum performance.
+    pub fn compile_incidence(&mut self) {
+        // Compile Index
+        let mut symbols = Vec::with_capacity(self.places.len() + self.transitions.len());
+        for p in &self.places {
+            symbols.push((p.id.clone(), NodeKind::Place));
+        }
+        for t in &self.transitions {
+            symbols.push((t.id.clone(), NodeKind::Transition));
+        }
 
-        for arc in &self.arcs {
-            let weight = arc.weight.unwrap_or(1) as i32;
-            if let (Some(&from_idx), Some(&to_idx)) = (
-                id_to_index.get(fnv1a_64(arc.from.as_bytes())),
-                id_to_index.get(fnv1a_64(arc.to.as_bytes())),
-            ) {
-                if from_idx < place_count && to_idx >= place_count {
-                    matrix[from_idx][to_idx - place_count] -= weight;
-                } else if from_idx >= place_count && to_idx < place_count {
-                    matrix[to_idx][from_idx - place_count] += weight;
+        if let Ok(index) = DenseIndex::compile(symbols) {
+            self.cached_index = Some(index);
+        }
+
+        self.cached_incidence = Some(self.compute_incidence());
+    }
+
+    /// Computes the incidence matrix on the fly.
+    fn compute_incidence(&self) -> FlatIncidenceMatrix {
+        let places_count = self.places.len();
+        let transitions_count = self.transitions.len();
+        let mut data = vec![0; places_count * transitions_count];
+
+        if let Some(ref index) = self.cached_index {
+            for arc in &self.arcs {
+                let weight = arc.weight.unwrap_or(1) as i32;
+                if let (Some(from_idx), Some(to_idx)) =
+                    (index.dense_id(&arc.from), index.dense_id(&arc.to))
+                {
+                    let from_idx = from_idx as usize;
+                    let to_idx = to_idx as usize;
+                    if from_idx < places_count && to_idx >= places_count {
+                        let t_idx = to_idx - places_count;
+                        data[from_idx * transitions_count + t_idx] -= weight;
+                    } else if from_idx >= places_count && to_idx < places_count {
+                        let t_idx = from_idx - places_count;
+                        data[to_idx * transitions_count + t_idx] += weight;
+                    }
+                }
+            }
+        } else {
+            let id_to_index = self.build_node_index();
+            for arc in &self.arcs {
+                let weight = arc.weight.unwrap_or(1) as i32;
+                if let (Some(&from_idx), Some(&to_idx)) = (
+                    id_to_index.get(fnv1a_64(arc.from.as_bytes())),
+                    id_to_index.get(fnv1a_64(arc.to.as_bytes())),
+                ) {
+                    if from_idx < places_count && to_idx >= places_count {
+                        let t_idx = to_idx - places_count;
+                        data[from_idx * transitions_count + t_idx] -= weight;
+                    } else if from_idx >= places_count && to_idx < places_count {
+                        let t_idx = from_idx - places_count;
+                        data[to_idx * transitions_count + t_idx] += weight;
+                    }
                 }
             }
         }
-        matrix
+
+        FlatIncidenceMatrix {
+            data,
+            places_count,
+            transitions_count,
+        }
+    }
+
+    /// Generates the Incidence Matrix (W) in a flat representation.
+    /// Returns the cached matrix if available, otherwise computes it on the fly.
+    pub fn incidence_matrix(&self) -> FlatIncidenceMatrix {
+        if let Some(ref cached) = self.cached_incidence {
+            return cached.clone();
+        }
+        self.compute_incidence()
     }
 
     /// Verifies the structural bounds of the workflow net state equation.
+    /// A transition must have at least one input place and one output place.
     pub fn verifies_state_equation_calculus(&self) -> bool {
         if !self.is_structural_workflow_net() {
             return false;
         }
         let w = self.incidence_matrix();
-        for t_col in 0..self.transitions.len() {
+        let p_count = self.places.len();
+        let t_count = self.transitions.len();
+
+        for t_col in 0..t_count {
             let mut consumes = false;
             let mut produces = false;
-            for row in w.iter().take(self.places.len()) {
-                if row[t_col] < 0 {
+            for p_row in 0..p_count {
+                let val = w.get(p_row, t_col);
+                if val < 0 {
                     consumes = true;
                 }
-                if row[t_col] > 0 {
+                if val > 0 {
                     produces = true;
                 }
             }
@@ -151,7 +255,6 @@ impl PetriNet {
             return 10.0;
         }
 
-        let id_to_index = self.build_node_index();
         let place_count = self.places.len();
         let total_nodes = place_count + self.transitions.len();
         let num_words = total_nodes.div_ceil(64);
@@ -159,13 +262,27 @@ impl PetriNet {
         let mut in_degrees = vec![0u64; num_words];
         let mut out_degrees = vec![0u64; num_words];
 
-        for arc in &self.arcs {
-            if let (Some(&from_idx), Some(&to_idx)) = (
-                id_to_index.get(fnv1a_64(arc.from.as_bytes())),
-                id_to_index.get(fnv1a_64(arc.to.as_bytes())),
-            ) {
-                out_degrees[from_idx / 64] |= 1u64 << (from_idx % 64);
-                in_degrees[to_idx / 64] |= 1u64 << (to_idx % 64);
+        if let Some(ref index) = self.cached_index {
+            for arc in &self.arcs {
+                if let (Some(from_idx), Some(to_idx)) =
+                    (index.dense_id(&arc.from), index.dense_id(&arc.to))
+                {
+                    let from_idx = from_idx as usize;
+                    let to_idx = to_idx as usize;
+                    out_degrees[from_idx / 64] |= 1u64 << (from_idx % 64);
+                    in_degrees[to_idx / 64] |= 1u64 << (to_idx % 64);
+                }
+            }
+        } else {
+            let id_to_index = self.build_node_index();
+            for arc in &self.arcs {
+                if let (Some(&from_idx), Some(&to_idx)) = (
+                    id_to_index.get(fnv1a_64(arc.from.as_bytes())),
+                    id_to_index.get(fnv1a_64(arc.to.as_bytes())),
+                ) {
+                    out_degrees[from_idx / 64] |= 1u64 << (from_idx % 64);
+                    in_degrees[to_idx / 64] |= 1u64 << (to_idx % 64);
+                }
             }
         }
 
@@ -251,5 +368,92 @@ impl PetriNet {
         }
 
         hasher.finish()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_incidence_matrix_flat_parity() {
+        let mut net = PetriNet::default();
+        net.places.push(Place {
+            id: "p1".to_string(),
+        });
+        net.places.push(Place {
+            id: "p2".to_string(),
+        });
+        net.transitions.push(Transition {
+            id: "t1".to_string(),
+            label: "A".to_string(),
+            is_invisible: None,
+        });
+        net.arcs.push(Arc {
+            from: "p1".to_string(),
+            to: "t1".to_string(),
+            weight: Some(1),
+        });
+        net.arcs.push(Arc {
+            from: "t1".to_string(),
+            to: "p2".to_string(),
+            weight: Some(2),
+        });
+
+        let w = net.incidence_matrix();
+        assert_eq!(w.places_count, 2);
+        assert_eq!(w.transitions_count, 1);
+        assert_eq!(w.get(0, 0), -1); // p1 -> t1
+        assert_eq!(w.get(1, 0), 2); // t1 -> p2
+
+        net.compile_incidence();
+        assert!(net.cached_incidence.is_some());
+        assert!(net.cached_index.is_some());
+        let w_cached = net.incidence_matrix();
+        assert_eq!(w, w_cached);
+    }
+
+    #[test]
+    fn test_verifies_state_equation_calculus() {
+        let mut net = PetriNet::default();
+        net.places.push(Place {
+            id: "p1".to_string(),
+        });
+        net.places.push(Place {
+            id: "p2".to_string(),
+        });
+        net.transitions.push(Transition {
+            id: "t1".to_string(),
+            label: "A".to_string(),
+            is_invisible: None,
+        });
+        net.arcs.push(Arc {
+            from: "p1".to_string(),
+            to: "t1".to_string(),
+            weight: None,
+        });
+        net.arcs.push(Arc {
+            from: "t1".to_string(),
+            to: "p2".to_string(),
+            weight: None,
+        });
+
+        assert!(net.is_structural_workflow_net());
+        assert!(net.verifies_state_equation_calculus());
+
+        // Add a transition that only produces
+        net.transitions.push(Transition {
+            id: "t2".to_string(),
+            label: "B".to_string(),
+            is_invisible: None,
+        });
+        net.arcs.push(Arc {
+            from: "t2".to_string(),
+            to: "p2".to_string(),
+            weight: None,
+        });
+
+        assert!(!net.is_structural_workflow_net());
+        assert!(!net.verifies_state_equation_calculus());
     }
 }

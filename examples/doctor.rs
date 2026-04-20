@@ -1,13 +1,15 @@
 use dteam::autonomic::{AutonomicEvent, AutonomicKernel, DefaultKernel};
 use dteam::dteam::orchestration::{DteamDoctor, Engine};
+use log::{debug, info};
 use std::time::SystemTime;
 
 fn main() {
-    println!("--- dteam Digital Team Doctor ---");
+    env_logger::init();
+    info!("--- dteam Digital Team Doctor ---");
     let engine = Engine::builder().build();
-    println!("{}", engine.doctor());
+    info!("{}", engine.doctor());
 
-    println!("\n--- Autonomic Kernel Diagnostic ---");
+    info!("\n--- Autonomic Kernel Diagnostic ---");
     let mut kernel = DefaultKernel::new();
     let event = AutonomicEvent {
         source: "diagnostic_agent".to_string(),
@@ -15,13 +17,13 @@ fn main() {
         timestamp: SystemTime::now(),
     };
 
-    println!("State before: {}", kernel.infer());
+    debug!("State before: {}", kernel.infer());
     let results = kernel.run_cycle(event);
-    println!("Cycle executed. Result count: {}", results.len());
+    info!("Cycle executed. Result count: {}", results.len());
     for res in results {
-        println!("  {}", res);
+        info!("  {}", res);
     }
-    println!("State after:  {}", kernel.infer());
+    debug!("State after:  {}", kernel.infer());
 
-    println!("\nDiagnostics complete. System status: NOMINAL");
+    info!("\nDiagnostics complete. System status: NOMINAL");
 }

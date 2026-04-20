@@ -5,6 +5,7 @@ pub mod jtbd_tests;
 pub mod models;
 pub mod reinforcement;
 pub mod reinforcement_tests;
+pub mod proptest_kernel_verification;
 pub mod utils;
 
 // Re-export models for easier access
@@ -13,7 +14,7 @@ pub use models::*;
 
 // Zero-heap, stack-allocated RL state for nanosecond-scale updates.
 #[derive(Clone, Copy, Eq, Hash, PartialEq, Debug)]
-pub struct RlState {
+pub struct RlState<const WORDS: usize> {
     pub health_level: i8,
     pub event_rate_q: i8,
     pub activity_count_q: i8,
@@ -22,8 +23,8 @@ pub struct RlState {
     pub rework_ratio_q: i8,
     pub circuit_state: i8,
     pub cycle_phase: i8,
-    pub marking_mask: u64,    // BCINR bitset mask for Petri net marking
-    pub activities_hash: u64, // Rolling FNV-1a hash of recent activities
+    pub marking_mask: utils::dense_kernel::KBitSet<WORDS>,
+    pub activities_hash: u64,
 }
 
 #[derive(Clone, Copy, Eq, Hash, PartialEq, Debug)]
@@ -53,11 +54,14 @@ impl reinforcement::WorkflowAction for RlAction {
 }
 
 // Minimal RlState impls for reinforcement trait
-impl reinforcement::WorkflowState for RlState {
-    fn features(&self) -> Vec<f32> {
-        // Optimized feature vector: only allocate if necessary for function approx.
-        // For Q-Table, this is rarely called in the hot path.
-        vec![self.health_level as f32, self.marking_mask as f32]
+impl<const WORDS: usize> reinforcement::WorkflowState for RlState<WORDS> {
+    fn features(&self) -> [f32; 16] {
+        let mut f = [0.0; 16];
+        f[0] = self.health_level as f32;
+        for i in 0..WORDS.min(15) {
+            f[i + 1] = self.marking_mask.words[i] as f32;
+        }
+        f
     }
     fn is_terminal(&self) -> bool {
         self.health_level < 0 || self.health_level >= 5
@@ -148,9 +152,35 @@ pub mod dteam {
     /// This module contains the logic for zero-branch transition firing and Bellman updates.
     pub mod kernel {
         pub mod branchless {
-            /// In a full implementation, this would use bcinr-style select_u64
-            /// to perform updates without data-dependent branching.
-            pub fn apply_branchless_update() {}
+            use crate::models::petri_net::FlatIncidenceMatrix;
+
+            /// Performs a branchless Petri net transition update using the state equation:
+            /// M' = M + Wx, where W is the incidence matrix and x is the firing vector.
+            /// For small nets (<= 64 places), M can be represented as a bitmask,
+            /// and the update can be performed via bitwise logic.
+            /// This implementation computes M' = (M & !input_mask) | output_mask
+            /// for a chosen transition.
+            pub fn apply_branchless_update(
+                marking_mask: u64,
+                transition_idx: usize,
+                incidence: &FlatIncidenceMatrix,
+            ) -> u64 {
+                let mut input_mask = 0u64;
+                let mut output_mask = 0u64;
+
+                for place_idx in 0..incidence.places_count {
+                    let val = incidence.get(place_idx, transition_idx);
+                    if val < 0 {
+                        // Consumes tokens
+                        input_mask |= 1u64 << place_idx;
+                    } else if val > 0 {
+                        // Produces tokens
+                        output_mask |= 1u64 << place_idx;
+                    }
+                }
+
+                (marking_mask & !input_mask) | output_mask
+            }
         }
     }
 
@@ -189,6 +219,7 @@ pub mod dteam {
             beta: f32,
             lambda: f32,
             deterministic: bool,
+            config: Option<crate::config::AutonomicConfig>,
         }
 
         impl EngineBuilder {
@@ -198,6 +229,7 @@ pub mod dteam {
                     beta: 0.5,
                     lambda: 0.01,
                     deterministic: true,
+                    config: None,
                 }
             }
 
@@ -224,11 +256,15 @@ pub mod dteam {
             }
 
             pub fn build(self) -> Engine {
+                let config = self.config.unwrap_or_else(|| {
+                    crate::config::AutonomicConfig::load("dteam.toml").unwrap_or_default()
+                });
                 Engine {
                     k_tier: self.k_tier.unwrap_or(KTier::K256),
                     beta: self.beta,
                     lambda: self.lambda,
                     deterministic: self.deterministic,
+                    config,
                 }
             }
         }
@@ -244,6 +280,7 @@ pub mod dteam {
             pub beta: f32,
             pub lambda: f32,
             pub deterministic: bool,
+            pub config: crate::config::AutonomicConfig,
         }
 
         pub trait DteamDoctor {
@@ -385,7 +422,7 @@ pub mod dteam {
 
         #[derive(Debug)]
         pub enum EngineResult {
-            Success(PetriNet, ExecutionManifest),
+            Success(Box<PetriNet>, ExecutionManifest),
             PartitionRequired { required: usize, configured: usize },
         }
 
@@ -395,7 +432,11 @@ pub mod dteam {
             }
 
             pub fn run(&self, log: &EventLog) -> EngineResult {
-                let required_k = log.activity_footprint();
+                let start_time = std::time::Instant::now();
+                
+                // Pre-project log once to avoid redundant scans
+                let projected = crate::conformance::ProjectedLog::from(log);
+                let required_k = projected.activities.len();
                 let target_tier = self.k_tier;
 
                 if required_k > target_tier.capacity() {
@@ -405,15 +446,13 @@ pub mod dteam {
                     };
                 }
 
-                let config = crate::config::AutonomicConfig::load("dteam.toml").unwrap_or_default();
-                let start_time = std::time::Instant::now();
-
-                // Use reward weights from config
-                let beta = *config.rl.reward_weights.get("fitness").unwrap_or(&0.5);
-                let lambda = *config.rl.reward_weights.get("soundness").unwrap_or(&0.01);
+                // Use reward weights from cached config
+                let beta = *self.config.rl.reward_weights.get("fitness").unwrap_or(&0.5);
+                let lambda = *self.config.rl.reward_weights.get("soundness").unwrap_or(&0.01);
 
                 let (net, trajectory) =
-                    crate::automation::train_with_provenance(log, &config, beta, lambda);
+                    crate::automation::train_with_provenance_projected(&projected, &self.config, beta, lambda);
+                
                 let execution_time_ns = start_time.elapsed().as_nanos() as u64;
 
                 let manifest = ExecutionManifest {
@@ -425,7 +464,7 @@ pub mod dteam {
                     latency_ns: execution_time_ns,
                 };
 
-                EngineResult::Success(net, manifest)
+                EngineResult::Success(Box::new(net), manifest)
             }
 
             pub fn run_batch(&self, logs: &[EventLog]) -> Vec<EngineResult> {
@@ -476,3 +515,4 @@ pub mod dteam {
         }
     }
 }
+pub mod proptest_xes;

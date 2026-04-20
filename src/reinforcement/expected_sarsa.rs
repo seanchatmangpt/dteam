@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 use super::*;
 
 pub struct ExpectedSARSAAgent<S: WorkflowState, A: WorkflowAction> {
-    pub(crate) q_table: RefCell<PackedKeyTable<S, Vec<f32>>>,
+    pub(crate) q_table: RefCell<PackedKeyTable<S, QArray>>,
     pub(crate) learning_rate: f32,
     pub(crate) discount_factor: f32,
     pub(crate) exploration_rate: f32,
@@ -68,14 +68,14 @@ impl<S: WorkflowState, A: WorkflowAction> ExpectedSARSAAgent<S, A> {
     }
 
     #[allow(dead_code)]
-    pub fn update(&self, state: S, action: A, reward: f32, next_state: S, done: bool) {
+    pub fn update(&mut self, state: S, action: A, reward: f32, next_state: S, done: bool) {
         let expected_next = if done {
             0.0
         } else {
             let q_table = self.q_table.borrow();
             let q_vals = get_q_values::<S, A>(&*q_table, &next_state);
 
-            let probs = epsilon_greedy_probs(q_vals, self.exploration_rate);
+            let probs = epsilon_greedy_probs::<ACTION_MAX_LIMIT>(q_vals, self.exploration_rate);
             q_vals
                 .iter()
                 .zip(probs.iter())
@@ -88,7 +88,7 @@ impl<S: WorkflowState, A: WorkflowAction> ExpectedSARSAAgent<S, A> {
 
         let action_idx = action.to_index();
         let h = hash_state(&state);
-        let current_q = q_table.get(h).unwrap()[action_idx];
+        let current_q = q_table.get_mut(h).unwrap()[action_idx];
         let target = reward + self.discount_factor * expected_next;
         q_table.get_mut(h).unwrap()[action_idx] += self.learning_rate * (target - current_q);
     }
@@ -115,7 +115,7 @@ impl<S: WorkflowState, A: WorkflowAction> Default for ExpectedSARSAAgent<S, A> {
 }
 
 // Serialization support for ExpectedSARSAAgent
-impl ExpectedSARSAAgent<crate::RlState, crate::RlAction> {
+impl ExpectedSARSAAgent<crate::RlState<1>, crate::RlAction> {
     #[allow(dead_code)]
     pub fn export_as_serialized(
         &self,
@@ -137,7 +137,7 @@ impl ExpectedSARSAAgent<crate::RlState, crate::RlAction> {
                 state.circuit_state,
                 state.cycle_phase,
             );
-            state_values.insert(key, q_values.clone());
+            state_values.insert(key, q_values.to_vec());
         }
 
         SerializedAgentQTable {
@@ -152,13 +152,14 @@ impl ExpectedSARSAAgent<crate::RlState, crate::RlAction> {
         table: crate::rl_state_serialization::SerializedAgentQTable,
     ) {
         use crate::rl_state_serialization::decode_rl_state_key;
+        use crate::utils::dense_kernel::KBitSet;
 
         let mut q_table = self.q_table.borrow_mut();
         q_table.clear();
 
         for (key, q_values) in table.state_values {
             let (h, e, a, s, d, r, c, p) = decode_rl_state_key(key);
-            let state = crate::RlState {
+            let state = crate::RlState::<1> {
                 health_level: h,
                 event_rate_q: e,
                 activity_count_q: a,
@@ -167,10 +168,12 @@ impl ExpectedSARSAAgent<crate::RlState, crate::RlAction> {
                 rework_ratio_q: r,
                 circuit_state: c,
                 cycle_phase: p,
-                marking_mask: 0,
+                marking_mask: KBitSet::zero(),
                 activities_hash: 0,
             };
-            q_table.insert(hash_state(&state), state, q_values);
+            let mut q_array = [0.0; ACTION_MAX_LIMIT];
+            q_array.copy_from_slice(&q_values);
+            q_table.insert(hash_state(&state), state, q_array);
         }
     }
 }
@@ -180,11 +183,13 @@ impl<S: WorkflowState, A: WorkflowAction> Agent<S, A> for ExpectedSARSAAgent<S, 
         self.select_action(state)
     }
 
-    fn update(&self, state: S, action: A, reward: f32, next_state: S, done: bool) {
+    fn update(&mut self, state: S, action: A, reward: f32, next_state: S, done: bool) {
         self.update(state, action, reward, next_state, done)
     }
 
-    fn reset(&self) {}
+    fn reset(&mut self) {
+        // Just reset internal state if any, but don't wipe Q-table
+    }
 }
 
 impl<S: WorkflowState, A: WorkflowAction> AgentMeta for ExpectedSARSAAgent<S, A> {

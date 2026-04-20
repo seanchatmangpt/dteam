@@ -428,6 +428,8 @@ pub fn powl_to_wf_net(node: &PowlNode) -> PetriNet {
     fm.insert(fnv1a_64(sink.id.as_bytes()), sink.id.clone(), 1);
     net.final_markings.push(fm);
 
+    net.compile_incidence();
+
     net
 }
 

@@ -5,8 +5,8 @@ use std::marker::PhantomData;
 use super::*;
 
 pub struct DoubleQLearning<S: WorkflowState, A: WorkflowAction> {
-    pub(crate) q_a: RefCell<PackedKeyTable<S, Vec<f32>>>,
-    pub(crate) q_b: RefCell<PackedKeyTable<S, Vec<f32>>>,
+    pub(crate) q_a: RefCell<PackedKeyTable<S, QArray>>,
+    pub(crate) q_b: RefCell<PackedKeyTable<S, QArray>>,
     pub(crate) learning_rate: f32,
     pub(crate) discount_factor: f32,
     pub(crate) exploration_rate: f32,
@@ -71,16 +71,16 @@ impl<S: WorkflowState, A: WorkflowAction> DoubleQLearning<S, A> {
         let va = get_q_values::<S, A>(&*qa, &state);
         let vb = get_q_values::<S, A>(&*qb, &state);
 
-        let mut merged = vec![0.0; A::ACTION_COUNT];
+        let mut merged = [0.0; ACTION_MAX_LIMIT];
         for i in 0..A::ACTION_COUNT {
             merged[i] = va[i] + vb[i];
         }
 
-        A::from_index(greedy_index(&merged)).unwrap()
+        A::from_index(greedy_index(&merged[..A::ACTION_COUNT])).unwrap()
     }
 
     #[allow(dead_code)]
-    pub fn update(&self, state: S, action: A, reward: f32, next_state: S, done: bool) {
+    pub fn update(&mut self, state: S, action: A, reward: f32, next_state: S, done: bool) {
         let mut qa = self.q_a.borrow_mut();
         let mut qb = self.q_b.borrow_mut();
 
@@ -102,7 +102,7 @@ impl<S: WorkflowState, A: WorkflowAction> DoubleQLearning<S, A> {
                     .unwrap_or(0.0)
             };
 
-            let current = qa.get(h_state).unwrap()[action_idx];
+            let current = qa.get_mut(h_state).unwrap()[action_idx];
             let target = reward + self.discount_factor * next_q;
             qa.get_mut(h_state).unwrap()[action_idx] += self.learning_rate * (target - current);
         } else {
@@ -116,7 +116,7 @@ impl<S: WorkflowState, A: WorkflowAction> DoubleQLearning<S, A> {
                     .unwrap_or(0.0)
             };
 
-            let current = qb.get(h_state).unwrap()[action_idx];
+            let current = qb.get_mut(h_state).unwrap()[action_idx];
             let target = reward + self.discount_factor * next_q;
             qb.get_mut(h_state).unwrap()[action_idx] += self.learning_rate * (target - current);
         }
@@ -144,7 +144,7 @@ impl<S: WorkflowState, A: WorkflowAction> Default for DoubleQLearning<S, A> {
 }
 
 // Serialization support for DoubleQLearning
-impl DoubleQLearning<crate::RlState, crate::RlAction> {
+impl DoubleQLearning<crate::RlState<1>, crate::RlAction> {
     #[allow(dead_code)]
     pub fn export_as_serialized(
         &self,
@@ -166,7 +166,7 @@ impl DoubleQLearning<crate::RlState, crate::RlAction> {
                 state.circuit_state,
                 state.cycle_phase,
             );
-            state_values.insert(key, q_values.clone());
+            state_values.insert(key, q_values.to_vec());
         }
 
         SerializedAgentQTable {
@@ -181,6 +181,7 @@ impl DoubleQLearning<crate::RlState, crate::RlAction> {
         table: crate::rl_state_serialization::SerializedAgentQTable,
     ) {
         use crate::rl_state_serialization::decode_rl_state_key;
+        use crate::utils::dense_kernel::KBitSet;
 
         let mut qa = self.q_a.borrow_mut();
         let mut qb = self.q_b.borrow_mut();
@@ -189,7 +190,7 @@ impl DoubleQLearning<crate::RlState, crate::RlAction> {
 
         for (key, q_values) in table.state_values {
             let (h, e, a, s, d, r, c, p) = decode_rl_state_key(key);
-            let state = crate::RlState {
+            let state = crate::RlState::<1> {
                 health_level: h,
                 event_rate_q: e,
                 activity_count_q: a,
@@ -198,11 +199,13 @@ impl DoubleQLearning<crate::RlState, crate::RlAction> {
                 rework_ratio_q: r,
                 circuit_state: c,
                 cycle_phase: p,
-                marking_mask: 0,
+                marking_mask: KBitSet::zero(),
                 activities_hash: 0,
             };
-            qa.insert(hash_state(&state), state, q_values.clone());
-            qb.insert(hash_state(&state), state, q_values);
+            let mut q_array = [0.0; ACTION_MAX_LIMIT];
+            q_array.copy_from_slice(&q_values);
+            qa.insert(hash_state(&state), state, q_array);
+            qb.insert(hash_state(&state), state, q_array);
         }
     }
 }
@@ -212,11 +215,11 @@ impl<S: WorkflowState, A: WorkflowAction> Agent<S, A> for DoubleQLearning<S, A> 
         self.select_action(state)
     }
 
-    fn update(&self, state: S, action: A, reward: f32, next_state: S, done: bool) {
+    fn update(&mut self, state: S, action: A, reward: f32, next_state: S, done: bool) {
         self.update(state, action, reward, next_state, done)
     }
 
-    fn reset(&self) {}
+    fn reset(&mut self) {}
 }
 
 impl<S: WorkflowState, A: WorkflowAction> AgentMeta for DoubleQLearning<S, A> {

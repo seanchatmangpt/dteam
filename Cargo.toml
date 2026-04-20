@@ -8,6 +8,7 @@ description = "Deterministic Process Intelligence Engine (dteam) - Digital Team"
 [workspace]
 
 [dependencies]
+log = "0.4"
 bcinr = "26.4.18"
 rustc-hash = "1.1.0"
 fastrand = "2.1"
@@ -18,7 +19,7 @@ toml = "0.8"
 anyhow = "1.0"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-opentelemetry = { version = "0.21", features = ["metrics", "tracing"] }
+opentelemetry = { version = "0.21", features = ["metrics", "trace"] }
 opentelemetry_sdk = { version = "0.21", features = ["rt-tokio"] }
 tracing-opentelemetry = "0.22"
 opentelemetry-otlp = "0.14"
@@ -35,6 +36,7 @@ default = ["token-based-replay"]
 token-based-replay = []
 
 [dev-dependencies]
+env_logger = "0.11"
 criterion = "0.5"
 process_mining = "0.5.4"
 dhat = "0.3.3"
@@ -119,4 +121,8 @@ harness = false
 
 [[bench]]
 name = "vision_2030_bench"
+harness = false
+
+[[bench]]
+name = "scc_bench"
 harness = false

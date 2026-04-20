@@ -11,6 +11,7 @@ use crate::probabilistic::CountMinSketch;
 use crate::simd::SwarMarking;
 use crate::utils::bitset::select_u64;
 use crate::utils::dense_kernel::{fnv1a_64, KBitSet, PackedKeyTable};
+use log::{debug, info, warn};
 
 /// Operational dimensions for the LinUCB bandit
 const CONTEXT_DIM: usize = 10;
@@ -338,16 +339,14 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
         let action_idx = self.bandit.select_action(&context, 3);
 
         // BCINR Optimization: Use MCTS UCT to weight recovery vs optimization
-        let uct_score_repair =
-            crate::utils::math::monte_carlo_tree_search_mcts(
-                ((0.8 * 1000.0) as u64) << 32 | 100, // Q=0.8, visits=100
-                1000,                                // total visits
-            );
-        let uct_score_opt =
-            crate::utils::math::monte_carlo_tree_search_mcts(
-                ((0.5 * 1000.0) as u64) << 32 | 500, // Q=0.5, visits=500
-                1000,
-            );
+        let uct_score_repair = crate::utils::math::monte_carlo_tree_search_mcts(
+            ((0.8 * 1000.0) as u64) << 32 | 100, // Q=0.8, visits=100
+            1000,                                // total visits
+        );
+        let uct_score_opt = crate::utils::math::monte_carlo_tree_search_mcts(
+            ((0.5 * 1000.0) as u64) << 32 | 500, // Q=0.5, visits=500
+            1000,
+        );
 
         if state.drift_detected {
             // If MCTS UCT favors repair (it should given the scores above)
@@ -370,19 +369,25 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
         }
 
         match action_idx {
-            0 => vec![AutonomicAction::recommend(101, "Throughput optimization")],
-            1 => vec![AutonomicAction::new(
-                102,
-                ActionType::Repair,
-                ActionRisk::Medium,
-                "Patching trace buffer",
-            )],
-            _ => vec![AutonomicAction::new(
-                103,
-                ActionType::Escalate,
-                ActionRisk::High,
-                "Critical escalation",
-            )],
+            0 => {
+                vec![AutonomicAction::recommend(101, "Throughput optimization")]
+            }
+            1 => {
+                vec![AutonomicAction::new(
+                    102,
+                    ActionType::Repair,
+                    ActionRisk::Medium,
+                    "Patching trace buffer",
+                )]
+            }
+            _ => {
+                vec![AutonomicAction::new(
+                    103,
+                    ActionType::Escalate,
+                    ActionRisk::High,
+                    "Critical escalation",
+                )]
+            }
         }
     }
 
@@ -391,7 +396,10 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
         let (_, expected_reward) = sim.evaluate_action(action);
 
         if action.risk_profile >= ActionRisk::High {
-            return expected_reward > 0.0;
+            let accepted = expected_reward > 0.0;
+            if !accepted {
+            }
+            return accepted;
         }
 
         let threshold = match self.config.autonomic.guards.risk_threshold.as_str() {
@@ -405,6 +413,7 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
     }
 
     fn execute(&mut self, action: AutonomicAction) -> AutonomicResult {
+        let old_drift = self.state.drift_detected;
         let is_repair = (action.action_type == ActionType::Repair) as u64;
 
         // Branchless state mutation via BCINR select
@@ -422,16 +431,19 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
             // self.powl_executed_mask remains as is (context preservation)
             // self.powl_prev_idx remains (context preservation)
 
+            let old_conf = self.state.conformance_score;
+            let old_health = self.state.process_health;
             self.state.conformance_score =
                 (self.state.conformance_score + CONFORMANCE_REWARD_REPAIR).min(1.0);
             self.state.process_health = (self.state.process_health + HEALTH_REWARD_REPAIR).min(1.0);
         }
 
-        AutonomicResult {
+        let result = AutonomicResult {
             success: true,
             execution_latency_ms: 1,
             manifest_hash: 0x2030_ABCD,
-        }
+        };
+        result
     }
 
     fn manifest(&self, result: &AutonomicResult) -> String {
@@ -445,6 +457,7 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
         let context = self.extract_context("adaptation");
         self.bandit.update(&context, feedback.reward);
 
+        let old_health = self.state.process_health;
         let decay = if feedback.reward < 0.0 {
             HEALTH_DECAY_NEGATIVE_REWARD
         } else {

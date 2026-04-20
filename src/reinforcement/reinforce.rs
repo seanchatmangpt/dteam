@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 use super::*;
 
 pub struct ReinforceAgent<S: WorkflowState, A: WorkflowAction> {
-    pub(crate) theta: RefCell<PackedKeyTable<S, Vec<f32>>>,
+    pub(crate) theta: RefCell<PackedKeyTable<S, QArray>>,
     pub(crate) learning_rate: f32,
     pub(crate) discount_factor: f32,
     pub(crate) rng: RefCell<Rng>,
@@ -49,11 +49,14 @@ impl<S: WorkflowState, A: WorkflowAction> ReinforceAgent<S, A> {
         let theta = self.theta.borrow();
         let weights = get_q_values::<S, A>(&*theta, &state);
 
-        let probs = softmax_probs(weights);
+        let probs = softmax_probs::<ACTION_MAX_LIMIT>(weights);
         let u = self.rng.borrow_mut().f32();
         let mut acc = 0.0;
 
         for (idx, p) in probs.iter().enumerate() {
+            if idx >= A::ACTION_COUNT {
+                break;
+            }
             acc += *p;
             if u <= acc {
                 return A::from_index(idx).unwrap();
@@ -82,7 +85,7 @@ impl<S: WorkflowState, A: WorkflowAction> ReinforceAgent<S, A> {
         for (t, (state, action, _)) in trajectory.iter().enumerate() {
             ensure_state::<S, A>(&mut *theta, *state);
             let logits = get_q_values::<S, A>(&*theta, state);
-            let probs = softmax_probs(logits);
+            let probs = softmax_probs::<ACTION_MAX_LIMIT>(logits);
             let a_idx = action.to_index();
             let g_t = returns[t];
 
@@ -122,7 +125,7 @@ impl<S: WorkflowState, A: WorkflowAction> Default for ReinforceAgent<S, A> {
 }
 
 // Serialization support for ReinforceAgent
-impl ReinforceAgent<crate::RlState, crate::RlAction> {
+impl ReinforceAgent<crate::RlState<1>, crate::RlAction> {
     #[allow(dead_code)]
     pub fn export_as_serialized(
         &self,
@@ -144,7 +147,7 @@ impl ReinforceAgent<crate::RlState, crate::RlAction> {
                 state.circuit_state,
                 state.cycle_phase,
             );
-            state_values.insert(key, weights.clone());
+            state_values.insert(key, weights.to_vec());
         }
 
         SerializedAgentQTable {
@@ -159,13 +162,14 @@ impl ReinforceAgent<crate::RlState, crate::RlAction> {
         table: crate::rl_state_serialization::SerializedAgentQTable,
     ) {
         use crate::rl_state_serialization::decode_rl_state_key;
+        use crate::utils::dense_kernel::KBitSet;
 
         let mut theta = self.theta.borrow_mut();
         theta.clear();
 
         for (key, weights) in table.state_values {
             let (h, e, a, s, d, r, c, p) = decode_rl_state_key(key);
-            let state = crate::RlState {
+            let state = crate::RlState::<1> {
                 health_level: h,
                 event_rate_q: e,
                 activity_count_q: a,
@@ -174,10 +178,12 @@ impl ReinforceAgent<crate::RlState, crate::RlAction> {
                 rework_ratio_q: r,
                 circuit_state: c,
                 cycle_phase: p,
-                marking_mask: 0,
+                marking_mask: KBitSet::zero(),
                 activities_hash: 0,
             };
-            theta.insert(hash_state(&state), state, weights);
+            let mut q_array = [0.0; ACTION_MAX_LIMIT];
+            q_array.copy_from_slice(&weights);
+            theta.insert(hash_state(&state), state, q_array);
         }
     }
 }
@@ -187,11 +193,14 @@ impl<S: WorkflowState, A: WorkflowAction> Agent<S, A> for ReinforceAgent<S, A> {
         self.select_action(state)
     }
 
-    fn update(&self, state: S, action: A, reward: f32, _next_state: S, _done: bool) {
+    fn update(&mut self, state: S, action: A, reward: f32, _next_state: S, _done: bool) {
         self.update_step(state, action, reward);
     }
 
-    fn reset(&self) {}
+    fn reset(&mut self) {
+        let mut theta = self.theta.borrow_mut();
+        theta.clear();
+    }
 }
 
 impl<S: WorkflowState, A: WorkflowAction> AgentMeta for ReinforceAgent<S, A> {
