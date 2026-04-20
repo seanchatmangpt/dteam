@@ -45,7 +45,9 @@ async fn main() -> anyhow::Result<()> {
     let _tracer = init_telemetry().ok(); // Gracefully handle if no OTel collector
     let _main_span = info_span!("ralph_main").entered();
 
-    info!("--- Ralph Wiggum Loop: Rust Parallel Orchestrator ---");
+    if cfg!(debug_assertions) {
+        info!("--- Ralph Wiggum Loop: Rust Parallel Orchestrator ---");
+    }
 
     let args: Vec<String> = std::env::args().collect();
     let is_test = args.contains(&"--test".to_string());
@@ -67,16 +69,24 @@ async fn main() -> anyhow::Result<()> {
     }
 
     if is_test {
-        info!("!! TEST MODE ENABLED: Skipping LLM calls and using mock responses.");
+        if cfg!(debug_assertions) {
+            info!("!! TEST MODE ENABLED: Skipping LLM calls and using mock responses.");
+        }
     }
-    info!("!! CONCURRENCY LEVEL: {}", max_concurrency);
+    if cfg!(debug_assertions) {
+        info!("!! CONCURRENCY LEVEL: {}", max_concurrency);
+    }
     if let Some(m) = &model {
-        info!("!! LLM MODEL: {}", m);
+        if cfg!(debug_assertions) {
+            info!("!! LLM MODEL: {}", m);
+        }
     }
 
     let ideas_path = Path::new("IDEAS.md");
     if !ideas_path.exists() {
-        info!("No IDEAS.md found. Creating a sample...");
+        if cfg!(debug_assertions) {
+            info!("No IDEAS.md found. Creating a sample...");
+        }
         fs::write(
             ideas_path,
             "1. Implement a basic health check endpoint\n2. Add logging to the autonomic cycle\n",
@@ -113,7 +123,9 @@ async fn main() -> anyhow::Result<()> {
                 if let Err(e) =
                     process_idea(&global_id, &idea, is_test, model_clone, merge_lock, meta_log_clone)
                 {
-                    error!("  !! Error processing idea '{}': {}", idea, e);
+                    if cfg!(debug_assertions) {
+                        error!("  !! Error processing idea '{}': {}", idea, e);
+                    }
                 }
             });
             handles.push(handle);
@@ -126,19 +138,25 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // --- Meta-Engine Cycle: Eating our own Dog Food ---
-    info!("\n--- Process Complete. Running Meta-Engine (Dogfooding) ---");
+    if cfg!(debug_assertions) {
+        info!("\n--- Process Complete. Running Meta-Engine (Dogfooding) ---");
+    }
     let final_log = meta_log.lock().unwrap();
 
     let engine = Engine::builder().build();
     let result = engine.run(&final_log);
 
     if let EngineResult::Success(_net, manifest) = result {
-        info!(
-            "  >> Meta-Process Analysis Success. Model Canonical Hash: {}",
-            manifest.model_canonical_hash
-        );
+        if cfg!(debug_assertions) {
+            info!(
+                "  >> Meta-Process Analysis Success. Model Canonical Hash: {}",
+                manifest.model_canonical_hash
+            );
+        }
         if manifest.mdl_score > 0.0 {
-            info!("  >> dteam identifies structural optimization potential. Injecting self-optimization task...");
+            if cfg!(debug_assertions) {
+                info!("  >> dteam identifies structural optimization potential. Injecting self-optimization task...");
+            }
             let mut file = fs::OpenOptions::new().append(true).open("IDEAS.md")?;
             use std::io::Write;
             writeln!(
@@ -149,7 +167,9 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    info!("\n--- All ideas processed! ---");
+    if cfg!(debug_assertions) {
+        info!("\n--- All ideas processed! ---");
+    }
     global::shutdown_tracer_provider();
     Ok(())
 }
@@ -173,14 +193,18 @@ fn process_idea(
     let working_dir = PathBuf::from(".wreckit").join(format!("{}-{}", id, slug));
     fs::create_dir_all(&working_dir)?;
 
-    info!("\n[Idea {}] Processing: {}", id, idea);
+    if cfg!(debug_assertions) {
+        info!("\n[Idea {}] Processing: {}", id, idea);
+    }
 
     let mut trace = Trace::default();
     trace.id = id.to_string();
 
     // Git branch management
     let branch_name = format!("wreckit/{}", slug);
-    debug!("  >> Branch: {}", branch_name);
+    if cfg!(debug_assertions) {
+        debug!("  >> Branch: {}", branch_name);
+    }
     let worktree_path = working_dir.join("worktree");
 
     setup_worktree(&branch_name, &worktree_path)?;
@@ -220,7 +244,9 @@ fn process_idea(
     {
         let _lock = merge_lock.lock().unwrap();
         if let Err(e) = merge_into_dev(&branch_name) {
-            warn!("  !! Failed to merge branch {}: {}", branch_name, e);
+            if cfg!(debug_assertions) {
+                warn!("  !! Failed to merge branch {}: {}", branch_name, e);
+            }
         }
     }
 
@@ -238,7 +264,9 @@ fn ensure_dev_branch() -> anyhow::Result<()> {
         .status()?;
 
     if !status.success() {
-        info!("  !! dev branch missing. Creating from main...");
+        if cfg!(debug_assertions) {
+            info!("  !! dev branch missing. Creating from main...");
+        }
         Command::new("git").args(["checkout", "-b", "dev"]).status()?;
         Command::new("git").args(["checkout", "main"]).status()?;
     }
@@ -267,7 +295,9 @@ fn setup_worktree(branch: &str, path: &Path) -> anyhow::Result<()> {
 }
 
 fn cleanup_worktree(path: &Path) -> anyhow::Result<()> {
-    debug!("  >> Cleaning up worktree: {}", path.display());
+    if cfg!(debug_assertions) {
+        debug!("  >> Cleaning up worktree: {}", path.display());
+    }
     Command::new("git")
         .args(["worktree", "remove", path.to_str().unwrap(), "--force"])
         .status()?;
@@ -283,7 +313,9 @@ fn run_phase(
     model: Option<String>,
     worktree_dir: Option<&Path>,
 ) -> anyhow::Result<()> {
-    debug!("  >> DDS Lifecycle: {} (Idea: {})", phase, idea);
+    if cfg!(debug_assertions) {
+        debug!("  >> DDS Lifecycle: {} (Idea: {})", phase, idea);
+    }
     let output_file = match phase {
         "UserStory" => working_dir.join("STORY.md"),
         "BacklogRefinement" => working_dir.join("AC_CRITERIA.md"),
@@ -356,7 +388,9 @@ fn run_phase(
     let output = cmd.output()?;
     if !output.status.success() {
         let err = String::from_utf8_lossy(&output.stderr);
-        warn!("  !! {} Phase failed for idea '{}': {}", phase, idea, err);
+        if cfg!(debug_assertions) {
+            warn!("  !! {} Phase failed for idea '{}': {}", phase, idea, err);
+        }
         return Err(anyhow::anyhow!("Phase {} failed", phase));
     }
 
@@ -365,7 +399,9 @@ fn run_phase(
 }
 
 fn inject_supervisor(working_dir: &Path) -> anyhow::Result<()> {
-    debug!("  >> Injecting Supervisor Guardrails...");
+    if cfg!(debug_assertions) {
+        debug!("  >> Injecting Supervisor Guardrails...");
+    }
     let gemini_dir = working_dir.join(".gemini");
     let hooks_dir = gemini_dir.join("hooks");
     fs::create_dir_all(&hooks_dir)?;
