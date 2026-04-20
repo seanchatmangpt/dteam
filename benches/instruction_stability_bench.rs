@@ -1,8 +1,35 @@
+use dteam::utils::dense_kernel::KBitSet;
+use dteam::utils::scc::compute_sccs_branchless;
 use dteam::ref_conformance::ref_token_replay::apply_token_based_replay_bcinr;
 use dteam::ref_models::ref_event_log::EventLogActivityProjection;
 use dteam::ref_models::ref_petri_net::{ArcType, PetriNet};
 use iai_callgrind::{library_benchmark, library_benchmark_group, main};
 use std::collections::HashMap;
+
+fn generate_random_graph<const WORDS: usize>(density: f64) -> Vec<KBitSet<WORDS>> {
+    let mut adj = vec![KBitSet::<WORDS>::zero(); WORDS * 64];
+    for i in 0..WORDS * 64 {
+        for j in 0..WORDS * 64 {
+            // Using a simple deterministic "random" for density
+            if ((i * 31 + j * 7) % 100) < (density * 100.0) as usize {
+                let _ = adj[i].set(j).unwrap();
+            }
+        }
+    }
+    adj
+}
+
+#[library_benchmark]
+fn bench_scc_branchless_sparse() -> Vec<KBitSet<1>> {
+    let adj = generate_random_graph::<1>(0.1);
+    compute_sccs_branchless(&adj)
+}
+
+#[library_benchmark]
+fn bench_scc_branchless_dense() -> Vec<KBitSet<1>> {
+    let adj = generate_random_graph::<1>(0.9);
+    compute_sccs_branchless(&adj)
+}
 
 fn setup_model() -> PetriNet {
     let mut net = PetriNet::new();
@@ -49,7 +76,7 @@ fn bench_replayer_noisy() -> u64 {
 
 library_benchmark_group!(
     name = stability_group;
-    benchmarks = bench_replayer_sound, bench_replayer_noisy
+    benchmarks = bench_replayer_sound, bench_replayer_noisy, bench_scc_branchless_sparse, bench_scc_branchless_dense
 );
 
 main!(library_benchmark_groups = stability_group);
