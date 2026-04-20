@@ -330,10 +330,12 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
     }
 
     fn infer(&self) -> AutonomicState {
-        debug!(
-            "Vision 2030 Inferring state: health={}, conformance={}, throughput={}",
-            self.state.process_health, self.state.conformance_score, self.state.throughput
-        );
+        if cfg!(debug_assertions) {
+            debug!(
+                "Vision 2030 Inferring state: health={}, conformance={}, throughput={}",
+                self.state.process_health, self.state.conformance_score, self.state.throughput
+            );
+        }
         self.state.clone()
     }
 
@@ -351,10 +353,12 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
             ((0.5 * 1000.0) as u64) << 32 | 500, // Q=0.5, visits=500
             1000,
         );
-        debug!(
-            "MCTS Scores: Repair={}, Optimize={}",
-            uct_score_repair, uct_score_opt
-        );
+        if cfg!(debug_assertions) {
+            debug!(
+                "MCTS Scores: Repair={}, Optimize={}",
+                uct_score_repair, uct_score_opt
+            );
+        }
 
         if state.drift_detected {
             // If MCTS UCT favors repair (it should given the scores above)
@@ -378,11 +382,15 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
 
         match action_idx {
             0 => {
-                debug!("Bandit proposing throughput optimization");
+                if cfg!(debug_assertions) {
+                    debug!("Bandit proposing throughput optimization");
+                }
                 vec![AutonomicAction::recommend(101, "Throughput optimization")]
             }
             1 => {
-                debug!("Bandit proposing trace buffer patch");
+                if cfg!(debug_assertions) {
+                    debug!("Bandit proposing trace buffer patch");
+                }
                 vec![AutonomicAction::new(
                     102,
                     ActionType::Repair,
@@ -391,7 +399,9 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
                 )]
             }
             _ => {
-                warn!("Bandit proposing critical escalation");
+                if cfg!(debug_assertions) {
+                    warn!("Bandit proposing critical escalation");
+                }
                 vec![AutonomicAction::new(
                     103,
                     ActionType::Escalate,
@@ -405,18 +415,22 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
     fn accept(&self, action: &AutonomicAction, state: &AutonomicState) -> bool {
         let sim = Simulator::new(state.clone());
         let (_, expected_reward) = sim.evaluate_action(action);
-        debug!(
-            "Simulator evaluated action '{}': expected_reward={}",
-            action.parameters, expected_reward
-        );
+        if cfg!(debug_assertions) {
+            debug!(
+                "Simulator evaluated action '{}': expected_reward={}",
+                action.parameters, expected_reward
+            );
+        }
 
         if action.risk_profile >= ActionRisk::High {
             let accepted = expected_reward > 0.0;
             if !accepted {
-                warn!(
-                    "Rejecting high-risk action due to negative expected reward: {}",
-                    action.parameters
-                );
+                if cfg!(debug_assertions) {
+                    warn!(
+                        "Rejecting high-risk action due to negative expected reward: {}",
+                        action.parameters
+                    );
+                }
             }
             return accepted;
         }
@@ -432,7 +446,9 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
     }
 
     fn execute(&mut self, action: AutonomicAction) -> AutonomicResult {
-        info!("Vision 2030 executing action: {}", action.parameters);
+        if cfg!(debug_assertions) {
+            info!("Vision 2030 executing action: {}", action.parameters);
+        }
         let old_drift = self.state.drift_detected;
         let is_repair = (action.action_type == ActionType::Repair) as u64;
 
@@ -456,15 +472,17 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
             self.state.conformance_score =
                 (self.state.conformance_score + CONFORMANCE_REWARD_REPAIR).min(1.0);
             self.state.process_health = (self.state.process_health + HEALTH_REWARD_REPAIR).min(1.0);
-            debug!(
-                "Repair complete. Drift: {} -> {}, Health: {} -> {}, Conf: {} -> {}",
-                old_drift,
-                self.state.drift_detected,
-                old_health,
-                self.state.process_health,
-                old_conf,
-                self.state.conformance_score
-            );
+            if cfg!(debug_assertions) {
+                debug!(
+                    "Repair complete. Drift: {} -> {}, Health: {} -> {}, Conf: {} -> {}",
+                    old_drift,
+                    self.state.drift_detected,
+                    old_health,
+                    self.state.process_health,
+                    old_conf,
+                    self.state.conformance_score
+                );
+            }
         }
 
         let result = AutonomicResult {
@@ -472,10 +490,12 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
             execution_latency_ms: 1,
             manifest_hash: 0x2030_ABCD,
         };
-        debug!(
-            "Vision 2030 execution complete. Manifest: {:X}, Latency: {}ms",
-            result.manifest_hash, result.execution_latency_ms
-        );
+        if cfg!(debug_assertions) {
+            debug!(
+                "Vision 2030 execution complete. Manifest: {:X}, Latency: {}ms",
+                result.manifest_hash, result.execution_latency_ms
+            );
+        }
         result
     }
 
@@ -487,10 +507,12 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
     }
 
     fn adapt(&mut self, feedback: AutonomicFeedback) {
-        info!(
-            "Vision 2030 adapting with feedback: reward={}",
-            feedback.reward
-        );
+        if cfg!(debug_assertions) {
+            info!(
+                "Vision 2030 adapting with feedback: reward={}",
+                feedback.reward
+            );
+        }
         let context = self.extract_context("adaptation");
         self.bandit.update(&context, feedback.reward);
 
@@ -501,9 +523,11 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
             -HEALTH_IMPROVEMENT_POSITIVE_REWARD
         };
         self.state.process_health = (self.state.process_health - decay).clamp(0.0, 1.0);
-        debug!(
-            "Health decay/improvement: {} -> {}",
-            old_health, self.state.process_health
-        );
+        if cfg!(debug_assertions) {
+            debug!(
+                "Health decay/improvement: {} -> {}",
+                old_health, self.state.process_health
+            );
+        }
     }
 }
