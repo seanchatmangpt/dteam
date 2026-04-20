@@ -1,21 +1,23 @@
-# DOD_VERIFICATION.md
+# DDS_VERIFICATION.md
 
-## Objective
-Branchless State Equation Calculus Implementation for Petri Net Verification.
+## DDS Deterministic Perturbation Verification Report
 
-## DoD Verification
-1. **ADMISSIBILITY**:
-    - The implementation uses a closed-form bitwise update $M' = (M \& \neg I) | O$, ensuring that state transitions are always well-defined for all valid markings.
-    - No unreachable states; transitions remain within the defined K-tier capacity.
-    - No panics in the `apply_branchless_update` path.
-2. **MINIMALITY**:
-    - The implementation uses a flat contiguous incidence matrix, minimizing memory access and overhead.
-    - $\Phi(N) = |T| + (|A| \cdot \log_2 |T|)$ remains compliant as no new structures were added.
-3. **PERFORMANCE**:
-    - Zero-heap: The kernel operates strictly on stack-allocated primitives (`u64`, `FlatIncidenceMatrix` buffer).
-    - Branchless: The transition kernel `apply_branchless_update` eliminates data-dependent `if/else` conditions by using bitwise mask calculus.
-4. **PROVENANCE**:
-    - The manifest `M = {H(L), \pi, H(N)}` generation remains intact in `dteam::orchestration::Engine::run`.
-5. **RIGOR**:
-    - Proptests in `src/proptest_kernel_verification.rs` pass, confirming determinism ($Var(\tau) = 0$).
-    - `tests/branchless_kernel_tests.rs` confirms correct behavioral parity with Petri net state equation $M' = M + Wx$.
+### 1. ADMISSIBILITY (No unreachable states/panics)
+- `Perturbator` implemented with branchless Xorshift64*.
+- Input seed protection (non-zero enforcement).
+- All bitwise operations are safe, no division/modulo.
+
+### 2. MINIMALITY (MDL Φ(N))
+- Perturbation logic is $O(1)$ stack-allocated.
+- Removed dependency on `fastrand` in the hot path.
+
+### 3. PERFORMANCE (Zero-heap, branchless)
+- `Perturbator` is `Copy` and stack-allocated.
+- Logic is pure bitwise arithmetic, eliminating `if` branches in hot paths.
+
+### 4. PROVENANCE (Manifest)
+- Agent state now includes deterministic `perturbation_seed` for manifestation.
+
+### 5. RIGOR (Proptests)
+- Added `proptest` for `Perturbator` in `src/reinforcement_tests.rs`.
+- Validated state transitions in `QLearning` to ensure deterministic execution given same seed.
