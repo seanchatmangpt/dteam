@@ -1,6 +1,6 @@
 use crate::autonomic::types::*;
-
 use crate::config::AutonomicConfig;
+use log::{debug, info, warn};
 
 pub trait AutonomicKernel {
     fn observe(&mut self, event: AutonomicEvent);
@@ -39,6 +39,17 @@ pub trait AutonomicKernel {
                 results.push(result);
             }
         }
+
+        let hash = if let Some(last) = results.last() {
+            format!("{:X}", last.manifest_hash)
+        } else {
+            "N/A".to_string()
+        };
+        info!(
+            "Autonomic cycle complete. {} actions executed. Manifest hash: {}",
+            results.len(),
+            hash
+        );
         results
     }
 }
@@ -78,6 +89,10 @@ impl AutonomicKernel for DefaultKernel {
     }
 
     fn infer(&self) -> AutonomicState {
+        debug!(
+            "Inferring system state: health={}, throughput={}, conformance={}",
+            self.state.process_health, self.state.throughput, self.state.conformance_score
+        );
         self.state.clone()
     }
 
@@ -107,10 +122,18 @@ impl AutonomicKernel for DefaultKernel {
         // van der Aalst Soundness Guard
         // If strict_conformance is on, we reject any action that could jeopardize structural soundness
         if self.config.autonomic.policy.profile == "strict_conformance" {
+            debug!(
+                "Strict conformance policy active. Verifying action: {}",
+                action.parameters
+            );
             // For structural repair actions, we would normally run a soundness verifier here.
             // For this baseline, we ensure critical risk actions are only accepted if
             // the model satisfies WF-net soundness.
             if action.risk_profile >= ActionRisk::High {
+                warn!(
+                    "Rejecting high-risk action under strict conformance: {}",
+                    action.parameters
+                );
                 // Mock: In a real implementation, this would call PetriNet::is_structural_workflow_net()
                 // on the projected model after applying the action.
                 return false;
@@ -125,10 +148,21 @@ impl AutonomicKernel for DefaultKernel {
             _ => ActionRisk::Critical,
         };
 
-        action.risk_profile <= threshold
+        let accepted = action.risk_profile <= threshold;
+        if !accepted {
+            warn!(
+                "Action rejected due to risk threshold: risk={:?}, threshold={:?}",
+                action.risk_profile, threshold
+            );
+        }
+        accepted
     }
 
-    fn execute(&mut self, _action: AutonomicAction) -> AutonomicResult {
+    fn execute(&mut self, action: AutonomicAction) -> AutonomicResult {
+        info!(
+            "Executing action ID {}: {}",
+            action.action_id, action.parameters
+        );
         // Implementation of branchless reachability guards
         // M' = (M & !I) | O: Enforces that unsafe states (I) are never reached.
         
@@ -139,11 +173,16 @@ impl AutonomicKernel for DefaultKernel {
         // Use select_u64 for branchless selection
         let success = crate::utils::bitset::select_u64(is_admissible as u64, 1, 0) == 1;
 
-        AutonomicResult {
+        let result = AutonomicResult {
             success,
             execution_latency_ms: 10,
             manifest_hash: 0xDEADBEEF,
-        }
+        };
+        debug!(
+            "Action executed successfully. Latency: {}ms, Manifest: {:X}",
+            result.execution_latency_ms, result.manifest_hash
+        );
+        result
     }
 
     fn manifest(&self, result: &AutonomicResult) -> String {
@@ -154,6 +193,11 @@ impl AutonomicKernel for DefaultKernel {
     }
 
     fn adapt(&mut self, feedback: AutonomicFeedback) {
+        info!(
+            "Adapting system based on feedback (reward={})",
+            feedback.reward
+        );
+        let old_health = self.state.process_health;
         if feedback.reward > 0.0 {
             self.state.process_health =
                 (self.state.process_health + feedback.reward * 0.01).min(1.0);
@@ -162,6 +206,11 @@ impl AutonomicKernel for DefaultKernel {
             self.state.process_health =
                 (self.state.process_health + feedback.reward * 0.1).max(0.0);
         }
+
+        debug!(
+            "Health updated: {} -> {}",
+            old_health, self.state.process_health
+        );
 
         if feedback.human_override {
             self.state.drift_detected = true;

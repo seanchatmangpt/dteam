@@ -180,6 +180,7 @@ fn process_idea(
 
     // Git branch management
     let branch_name = format!("wreckit/{}", slug);
+    debug!("  >> Branch: {}", branch_name);
     let worktree_path = working_dir.join("worktree");
 
     setup_worktree(&branch_name, &worktree_path)?;
@@ -364,6 +365,7 @@ fn run_phase(
 }
 
 fn inject_supervisor(working_dir: &Path) -> anyhow::Result<()> {
+    debug!("  >> Injecting Supervisor Guardrails...");
     let gemini_dir = working_dir.join(".gemini");
     let hooks_dir = gemini_dir.join("hooks");
     fs::create_dir_all(&hooks_dir)?;
@@ -449,10 +451,7 @@ fn merge_into_dev(branch: &str) -> anyhow::Result<()> {
 
     if !status.success() {
         Command::new("git").args(["merge", "--abort"]).status()?;
-        Command::new("git").args(["checkout", "main"]).status()?;
         return Err(anyhow::anyhow!("Merge conflict"));
     }
-
-    Command::new("git").args(["checkout", "main"]).status()?;
     Ok(())
 }

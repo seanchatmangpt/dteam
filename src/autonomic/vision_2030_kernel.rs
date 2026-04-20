@@ -11,6 +11,7 @@ use crate::probabilistic::CountMinSketch;
 use crate::simd::SwarMarking;
 use crate::utils::bitset::select_u64;
 use crate::utils::dense_kernel::{fnv1a_64, KBitSet, PackedKeyTable};
+use log::{debug, info, warn};
 
 /// Operational dimensions for the LinUCB bandit
 const CONTEXT_DIM: usize = 10;
@@ -179,6 +180,10 @@ impl<const WORDS: usize> Vision2030Kernel<WORDS> {
 
 impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
     fn observe(&mut self, event: AutonomicEvent) {
+        debug!(
+            "Vision 2030 Observing event: {} from {}",
+            event.payload, event.source
+        );
         self.sketch.add(&event.payload);
 
         let p = event.payload.to_lowercase();
@@ -249,6 +254,10 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
             self.oc_dfg
                 .observe_object_change(fnv1a_64(event.source.as_bytes()), fnv1a_64(b"amount"));
             if p.contains("critical") {
+                warn!(
+                    "Critical object change detected for source: {}",
+                    event.source
+                );
                 ocpm_drift = true;
             }
         }
@@ -263,6 +272,10 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
             if self.oc_dfg.binding_frequencies[binding_idx] > OCPM_DIVERGENCE_THRESHOLD
                 && p.contains("divergence")
             {
+                warn!(
+                    "OCPM Binding frequency threshold exceeded at index: {}",
+                    binding_idx
+                );
                 ocpm_drift = true;
             }
         }
@@ -295,6 +308,10 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
             );
 
             if !is_valid {
+                warn!(
+                    "Semantic violation (POWL) detected for activity index: {}",
+                    idx
+                );
                 self.state.process_health =
                     (self.state.process_health - HEALTH_PENALTY_POWL_VIOLATION).max(0.0);
             }
@@ -319,6 +336,11 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
                     (self.state.conformance_score - CONFORMANCE_PENALTY_SWAR_VIOLATION).max(0.0);
                 self.state.process_health =
                     (self.state.process_health - HEALTH_PENALTY_SWAR_VIOLATION).max(0.0);
+            } else {
+                debug!(
+                    "Token replay fired successfully. New marking: {:X}",
+                    self.marking.words[0]
+                );
             }
 
             // Phase 2 State tracking: active cases
@@ -329,6 +351,10 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
     }
 
     fn infer(&self) -> AutonomicState {
+        debug!(
+            "Vision 2030 Inferring state: health={}, conformance={}, throughput={}",
+            self.state.process_health, self.state.conformance_score, self.state.throughput
+        );
         self.state.clone()
     }
 
@@ -345,6 +371,10 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
         let uct_score_opt = crate::utils::math::monte_carlo_tree_search_mcts(
             ((0.5 * 1000.0) as u64) << 32 | 500, // Q=0.5, visits=500
             1000,
+        );
+        debug!(
+            "MCTS Scores: Repair={}, Optimize={}",
+            uct_score_repair, uct_score_opt
         );
 
         if state.drift_detected {
@@ -368,28 +398,48 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
         }
 
         match action_idx {
-            0 => vec![AutonomicAction::recommend(101, "Throughput optimization")],
-            1 => vec![AutonomicAction::new(
-                102,
-                ActionType::Repair,
-                ActionRisk::Medium,
-                "Patching trace buffer",
-            )],
-            _ => vec![AutonomicAction::new(
-                103,
-                ActionType::Escalate,
-                ActionRisk::High,
-                "Critical escalation",
-            )],
+            0 => {
+                debug!("Bandit proposing throughput optimization");
+                vec![AutonomicAction::recommend(101, "Throughput optimization")]
+            }
+            1 => {
+                debug!("Bandit proposing trace buffer patch");
+                vec![AutonomicAction::new(
+                    102,
+                    ActionType::Repair,
+                    ActionRisk::Medium,
+                    "Patching trace buffer",
+                )]
+            }
+            _ => {
+                warn!("Bandit proposing critical escalation");
+                vec![AutonomicAction::new(
+                    103,
+                    ActionType::Escalate,
+                    ActionRisk::High,
+                    "Critical escalation",
+                )]
+            }
         }
     }
 
     fn accept(&self, action: &AutonomicAction, state: &AutonomicState) -> bool {
         let sim = Simulator::new(state.clone());
         let (_, expected_reward) = sim.evaluate_action(action);
+        debug!(
+            "Simulator evaluated action '{}': expected_reward={}",
+            action.parameters, expected_reward
+        );
 
         if action.risk_profile >= ActionRisk::High {
-            return expected_reward > 0.0;
+            let accepted = expected_reward > 0.0;
+            if !accepted {
+                warn!(
+                    "Rejecting high-risk action due to negative expected reward: {}",
+                    action.parameters
+                );
+            }
+            return accepted;
         }
 
         let threshold = match self.config.autonomic.guards.risk_threshold.as_str() {
@@ -403,6 +453,8 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
     }
 
     fn execute(&mut self, action: AutonomicAction) -> AutonomicResult {
+        info!("Vision 2030 executing action: {}", action.parameters);
+        let old_drift = self.state.drift_detected;
         let is_repair = (action.action_type == ActionType::Repair) as u64;
 
         // Branchless state mutation via BCINR select
@@ -420,16 +472,32 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
             // self.powl_executed_mask remains as is (context preservation)
             // self.powl_prev_idx remains (context preservation)
 
+            let old_conf = self.state.conformance_score;
+            let old_health = self.state.process_health;
             self.state.conformance_score =
                 (self.state.conformance_score + CONFORMANCE_REWARD_REPAIR).min(1.0);
             self.state.process_health = (self.state.process_health + HEALTH_REWARD_REPAIR).min(1.0);
+            debug!(
+                "Repair complete. Drift: {} -> {}, Health: {} -> {}, Conf: {} -> {}",
+                old_drift,
+                self.state.drift_detected,
+                old_health,
+                self.state.process_health,
+                old_conf,
+                self.state.conformance_score
+            );
         }
 
-        AutonomicResult {
+        let result = AutonomicResult {
             success: true,
             execution_latency_ms: 1,
             manifest_hash: 0x2030_ABCD,
-        }
+        };
+        debug!(
+            "Vision 2030 execution complete. Manifest: {:X}, Latency: {}ms",
+            result.manifest_hash, result.execution_latency_ms
+        );
+        result
     }
 
     fn manifest(&self, result: &AutonomicResult) -> String {
@@ -440,14 +508,23 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
     }
 
     fn adapt(&mut self, feedback: AutonomicFeedback) {
+        info!(
+            "Vision 2030 adapting with feedback: reward={}",
+            feedback.reward
+        );
         let context = self.extract_context("adaptation");
         self.bandit.update(&context, feedback.reward);
 
+        let old_health = self.state.process_health;
         let decay = if feedback.reward < 0.0 {
             HEALTH_DECAY_NEGATIVE_REWARD
         } else {
             -HEALTH_IMPROVEMENT_POSITIVE_REWARD
         };
         self.state.process_health = (self.state.process_health - decay).clamp(0.0, 1.0);
+        debug!(
+            "Health decay/improvement: {} -> {}",
+            old_health, self.state.process_health
+        );
     }
 }
