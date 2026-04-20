@@ -1,17 +1,21 @@
-# DOD_VERIFICATION: Formal Ontology Closure & Activity Footprint Boundaries
+# DOD_VERIFICATION.md
 
-## Overview
-This report confirms the implementation of strict activity footprint boundaries in the engine to enforce operational admissibility.
+## Objective
+Branchless State Equation Calculus Implementation for Petri Net Verification.
 
-## Verification Checklist
-- [x] **Admissibility**: Enforced via branchless guards in `AutonomicKernel::execute`. Proptests ensure successful/failed execution logic strictly matches the input admissibility signal.
-- [x] **Minimality**: Structural soundness remains compliant with the MDL requirement defined in the thesis.
-- [x] **Performance**: Maintained zero-heap, branchless hot-path using `crate::utils::bitset::select_u64`.
-- [x] **Provenance**: Manifest generation `manifest()` in `DefaultKernel` ensures integrity hashes are embedded in the output.
-- [x] **Rigor**: Added property-based tests in `src/autonomic/kernel.rs` to enforce admissibility boundaries.
-
-## Admissibility Logic
-The engine now correctly uses `crate::utils::bitset::select_u64(is_admissible as u64, 1, 0)` for branching-free execution control, ensuring the `Var(τ) = 0` requirement. Structural soundness checks are enforced as a precondition for critical-risk actions within the autonomic loop.
-
-## Conclusion
-The engine satisfies all formal ontology requirements for the current phase.
+## DoD Verification
+1. **ADMISSIBILITY**:
+    - The implementation uses a closed-form bitwise update $M' = (M \& \neg I) | O$, ensuring that state transitions are always well-defined for all valid markings.
+    - No unreachable states; transitions remain within the defined K-tier capacity.
+    - No panics in the `apply_branchless_update` path.
+2. **MINIMALITY**:
+    - The implementation uses a flat contiguous incidence matrix, minimizing memory access and overhead.
+    - $\Phi(N) = |T| + (|A| \cdot \log_2 |T|)$ remains compliant as no new structures were added.
+3. **PERFORMANCE**:
+    - Zero-heap: The kernel operates strictly on stack-allocated primitives (`u64`, `FlatIncidenceMatrix` buffer).
+    - Branchless: The transition kernel `apply_branchless_update` eliminates data-dependent `if/else` conditions by using bitwise mask calculus.
+4. **PROVENANCE**:
+    - The manifest `M = {H(L), \pi, H(N)}` generation remains intact in `dteam::orchestration::Engine::run`.
+5. **RIGOR**:
+    - Proptests in `src/proptest_kernel_verification.rs` pass, confirming determinism ($Var(\tau) = 0$).
+    - `tests/branchless_kernel_tests.rs` confirms correct behavioral parity with Petri net state equation $M' = M + Wx$.

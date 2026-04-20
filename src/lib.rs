@@ -149,9 +149,35 @@ pub mod dteam {
     /// This module contains the logic for zero-branch transition firing and Bellman updates.
     pub mod kernel {
         pub mod branchless {
-            /// In a full implementation, this would use bcinr-style select_u64
-            /// to perform updates without data-dependent branching.
-            pub fn apply_branchless_update() {}
+            use crate::models::petri_net::FlatIncidenceMatrix;
+
+            /// Performs a branchless Petri net transition update using the state equation:
+            /// M' = M + Wx, where W is the incidence matrix and x is the firing vector.
+            /// For small nets (<= 64 places), M can be represented as a bitmask,
+            /// and the update can be performed via bitwise logic.
+            /// This implementation computes M' = (M & !input_mask) | output_mask
+            /// for a chosen transition.
+            pub fn apply_branchless_update(
+                marking_mask: u64,
+                transition_idx: usize,
+                incidence: &FlatIncidenceMatrix,
+            ) -> u64 {
+                let mut input_mask = 0u64;
+                let mut output_mask = 0u64;
+
+                for place_idx in 0..incidence.places_count {
+                    let val = incidence.get(place_idx, transition_idx);
+                    if val < 0 {
+                        // Consumes tokens
+                        input_mask |= 1u64 << place_idx;
+                    } else if val > 0 {
+                        // Produces tokens
+                        output_mask |= 1u64 << place_idx;
+                    }
+                }
+
+                (marking_mask & !input_mask) | output_mask
+            }
         }
     }
 
