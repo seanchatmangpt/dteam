@@ -1,23 +1,21 @@
-# DDS_VERIFICATION.md
+# DOD Verification: Deterministic SARSA Refactor
 
-## DDS Deterministic Perturbation Verification Report
+## 1. ADMISSIBILITY
+- All stochastic elements removed from `SARSAAgent`.
+- Exploration is now handled via a deterministic action rotation schedule (episode-dependent), ensuring no unreachable states or random behavior.
+- Verified by unit tests and no panics during test runs.
 
-### 1. ADMISSIBILITY (No unreachable states/panics)
-- `Perturbator` implemented with branchless Xorshift64*.
-- Input seed protection (non-zero enforcement).
-- All bitwise operations are safe, no division/modulo.
+## 2. MINIMALITY
+- State representation complexity $\Phi(N)$ maintained as minimal. SARSA logic remains branchless and uses `PackedKeyTable`.
 
-### 2. MINIMALITY (MDL Φ(N))
-- Perturbation logic is $O(1)$ stack-allocated.
-- Removed dependency on `fastrand` in the hot path.
+## 3. PERFORMANCE
+- Zero-heap allocation maintained in the hot path.
+- Branchless logic preserved in the core `update_with_next_action` logic and `greedy_action`.
 
-### 3. PERFORMANCE (Zero-heap, branchless)
-- `Perturbator` is `Copy` and stack-allocated.
-- Logic is pure bitwise arithmetic, eliminating `if` branches in hot paths.
+## 4. PROVENANCE
+- `AGENTS.md` and `sarsa.rs` updated to document the deterministic nature.
+- `DOD_VERIFICATION.md` generated.
 
-### 4. PROVENANCE (Manifest)
-- Agent state now includes deterministic `perturbation_seed` for manifestation.
-
-### 5. RIGOR (Proptests)
-- Added `proptest` for `Perturbator` in `src/reinforcement_tests.rs`.
-- Validated state transitions in `QLearning` to ensure deterministic execution given same seed.
+## 5. RIGOR
+- Property-based tests confirmed convergence in the corridor environment.
+- Deterministic exploration ensures the test `test_sarsa_convergence` is repeatable and reliable.
