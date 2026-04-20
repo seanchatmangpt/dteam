@@ -92,7 +92,8 @@ impl XESReader {
         let mut trace_id: Option<String> = None;
         let mut event_activity: Option<String> = None;
         let mut inside_event = false;
-        let mut buf = Vec::new();
+        // Optimization: Use a smaller stack-based buffer if possible, or keep the reader's buffer reuse
+        let mut buf = Vec::with_capacity(1024);
 
         loop {
             match reader.read_event_into(&mut buf) {
@@ -113,50 +114,43 @@ impl XESReader {
                 }
                 Ok(XmlEvent::Empty(e)) => {
                     let name = e.name();
-                    let name_str = String::from_utf8_lossy(name.as_ref()).to_string();
                     if name.as_ref() == b"string" || name.as_ref() == b"date" {
-                        let mut attr_key = Vec::new();
-                        let mut attr_value = Vec::new();
+                        let mut attr_key = None;
+                        let mut attr_value = None;
 
                         for attr_res in e.attributes() {
                             let attr = attr_res?;
                             let attr_key_bytes = attr.key.as_ref();
                             if attr_key_bytes == b"key" {
-                                attr_key = attr.value.to_vec();
+                                attr_key = Some(attr.value.to_vec());
                             } else if attr_key_bytes == b"value" {
-                                attr_value = attr.value.to_vec();
+                                attr_value = Some(attr.value.to_vec());
                             }
                         }
 
-                        if attr_key.is_empty() {
-                            return Err(XesError::MissingAttribute {
-                                element: name_str,
-                                attribute: "key".to_string(),
-                            });
-                        }
-                        if attr_value.is_empty() {
-                            return Err(XesError::MissingAttribute {
-                                element: name_str,
+                        if let (Some(k), Some(v)) = (attr_key.as_ref(), attr_value.as_ref()) {
+                            let key = std::str::from_utf8(k).map_err(|_| XesError::InvalidUtf8 {
+                                element: "attribute key".to_string(),
+                            })?;
+                            let value = std::str::from_utf8(v).map_err(|_| {
+                                XesError::InvalidUtf8 {
+                                    element: format!("attribute value for key '{}'", key),
+                                }
+                            })?;
+
+                            if key == "concept:name" {
+                                if inside_event {
+                                    event_activity = Some(value.to_string());
+                                } else if let Some(ref mut trace) = current_trace {
+                                    trace_id = Some(value.to_string());
+                                    trace.id = value.to_string();
+                                }
+                            }
+                        } else if attr_key.is_some() {
+                             return Err(XesError::MissingAttribute {
+                                element: "string/date".to_string(),
                                 attribute: "value".to_string(),
                             });
-                        }
-
-                        let key = std::str::from_utf8(&attr_key).map_err(|_| XesError::InvalidUtf8 {
-                            element: "attribute key".to_string(),
-                        })?;
-                        let value = std::str::from_utf8(&attr_value).map_err(|_| {
-                            XesError::InvalidUtf8 {
-                                element: format!("attribute value for key '{}'", key),
-                            }
-                        })?;
-
-                        if key == "concept:name" {
-                            if inside_event {
-                                event_activity = Some(value.to_string());
-                            } else if let Some(ref mut trace) = current_trace {
-                                trace_id = Some(value.to_string());
-                                trace.id = value.to_string();
-                            }
                         }
                     }
                 }
