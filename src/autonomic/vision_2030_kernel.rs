@@ -180,10 +180,6 @@ impl<const WORDS: usize> Vision2030Kernel<WORDS> {
 
 impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
     fn observe(&mut self, event: AutonomicEvent) {
-        debug!(
-            "Vision 2030 Observing event: {} from {}",
-            event.payload, event.source
-        );
         self.sketch.add(&event.payload);
 
         let p = event.payload.to_lowercase();
@@ -254,10 +250,6 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
             self.oc_dfg
                 .observe_object_change(fnv1a_64(event.source.as_bytes()), fnv1a_64(b"amount"));
             if p.contains("critical") {
-                warn!(
-                    "Critical object change detected for source: {}",
-                    event.source
-                );
                 ocpm_drift = true;
             }
         }
@@ -272,10 +264,6 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
             if self.oc_dfg.binding_frequencies[binding_idx] > OCPM_DIVERGENCE_THRESHOLD
                 && p.contains("divergence")
             {
-                warn!(
-                    "OCPM Binding frequency threshold exceeded at index: {}",
-                    binding_idx
-                );
                 ocpm_drift = true;
             }
         }
@@ -308,10 +296,6 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
             );
 
             if !is_valid {
-                warn!(
-                    "Semantic violation (POWL) detected for activity index: {}",
-                    idx
-                );
                 self.state.process_health =
                     (self.state.process_health - HEALTH_PENALTY_POWL_VIOLATION).max(0.0);
             }
@@ -336,11 +320,6 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
                     (self.state.conformance_score - CONFORMANCE_PENALTY_SWAR_VIOLATION).max(0.0);
                 self.state.process_health =
                     (self.state.process_health - HEALTH_PENALTY_SWAR_VIOLATION).max(0.0);
-            } else {
-                debug!(
-                    "Token replay fired successfully. New marking: {:X}",
-                    self.marking.words[0]
-                );
             }
 
             // Phase 2 State tracking: active cases

@@ -221,6 +221,7 @@ impl PetriNet {
     }
 
     /// Verifies the structural bounds of the workflow net state equation.
+    /// A transition must have at least one input place and one output place.
     pub fn verifies_state_equation_calculus(&self) -> bool {
         if !self.is_structural_workflow_net() {
             return false;
