@@ -11,6 +11,7 @@ mod tests {
         fs::write(ideas_path, "Test Improvement: Add doc comments to bitset\n").expect("Failed to write IDEAS_TEST.md");
         
         // 2. Run ralph in test mode
+        // We use a temporary IDEAS.md for the main script
         fs::copy(ideas_path, "IDEAS.md").expect("Failed to copy IDEAS.md");
         
         let output = Command::new("cargo")
@@ -18,16 +19,13 @@ mod tests {
             .output()
             .expect("Failed to execute ralph");
         
-        if !output.status.success() {
-            println!("STDOUT: {}", String::from_utf8_lossy(&output.stdout));
-            println!("STDERR: {}", String::from_utf8_lossy(&output.stderr));
-        }
-        assert!(output.status.success(), "Ralph execution failed");
+        assert!(output.status.success(), "Ralph execution failed: {}", String::from_utf8_lossy(&output.stderr));
         
         // 3. Verify directory structure
         let wreckit_dir = Path::new(".wreckit");
         assert!(wreckit_dir.exists(), ".wreckit directory should exist");
         
+        // Find the idea directory (slug might vary slightly)
         let entries = fs::read_dir(wreckit_dir).expect("Failed to read .wreckit");
         let mut found_idea = false;
         for entry in entries {
