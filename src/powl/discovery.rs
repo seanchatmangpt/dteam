@@ -1,5 +1,5 @@
 use crate::powl::core::{PowlNode, PowlOperator};
-use bcinr_core::dense_kernel::KBitSet;
+use crate::utils::dense_kernel::KBitSet;
 
 /// High-performance Nanosecond Inductive Miner over BCINR Bitsets
 /// Partitions a Directly Follows Graph (DFG) into a hierarchical POWL AST.
@@ -95,7 +95,7 @@ pub fn mine_powl<const WORDS: usize>(
     }
 
     // BCINR Maximization: Use high-speed bitset-based SCC detection from utils
-    let scc_masks = bcinr_core::scc::compute_sccs_generic::<WORDS>(&tdfg);
+    let scc_masks = crate::utils::scc::compute_sccs_generic::<WORDS>(&tdfg);
 
     // Filter scc_masks to only those in our current footprint and size > 1
     for mask in scc_masks {

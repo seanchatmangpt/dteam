@@ -1,7 +1,7 @@
 //! Core traits and utilities for reinforcement learning
 //! in single-threaded WASM environments.
 
-pub use bcinr_core::dense_kernel::PackedKeyTable;
+pub use crate::utils::dense_kernel::PackedKeyTable;
 use std::hash::{Hash, Hasher};
 
 pub const DEFAULT_LEARNING_RATE: f32 = 0.1;

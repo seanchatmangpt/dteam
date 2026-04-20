@@ -1,6 +1,6 @@
 use divan::black_box;
-use dteam::models::{EventLog, Trace, Event};
 use dteam::dteam::orchestration::Engine;
+use dteam::models::{Event, EventLog, Trace};
 
 fn main() {
     divan::main();

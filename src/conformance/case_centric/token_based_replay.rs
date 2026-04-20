@@ -3,7 +3,7 @@
 
 use crate::models::petri_net::PetriNet;
 use crate::models::EventLog;
-use bcinr_core::dense_kernel::{fnv1a_64, PackedKeyTable};
+use crate::utils::dense_kernel::{fnv1a_64, PackedKeyTable};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

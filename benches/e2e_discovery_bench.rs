@@ -1,6 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use dteam::dteam::orchestration::Engine;
-use dteam::models::{EventLog, Trace, Event};
+use dteam::models::{Event, EventLog, Trace};
 
 fn create_large_log(n: usize) -> EventLog {
     let mut log = EventLog::new();
@@ -14,15 +14,13 @@ fn create_large_log(n: usize) -> EventLog {
 
 fn bench_e2e_discovery(c: &mut Criterion) {
     let mut group = c.benchmark_group("E2E_Orchestration");
-    
-    let log = create_large_log(50); // Small but representative for 1 epoch
-    let engine = Engine::builder()
-        .with_k_tier(64)
-        .build();
 
-    group.bench_function("Engine::run/1_epoch", |b| b.iter(|| {
-        engine.run(black_box(&log))
-    }));
+    let log = create_large_log(50); // Small but representative for 1 epoch
+    let engine = Engine::builder().with_k_tier(64).build();
+
+    group.bench_function("Engine::run/1_epoch", |b| {
+        b.iter(|| engine.run(black_box(&log)))
+    });
 
     group.finish();
 }

@@ -26,7 +26,7 @@ impl CountMinSketch {
     /// Eliminates all steady-state heap allocations.
     #[inline(always)]
     pub fn add(&mut self, item: &str) {
-        let h1 = bcinr_core::dense_kernel::fnv1a_64(item.as_bytes());
+        let h1 = crate::utils::dense_kernel::fnv1a_64(item.as_bytes());
         let h2 = h1.wrapping_mul(0x9E3779B185EBCA87); // Weyl mix for second hash
 
         let width = self.width_mask + 1;
@@ -42,7 +42,7 @@ impl CountMinSketch {
     /// Estimate frequency of an item using pure branchless minimum selection.
     #[inline(always)]
     pub fn estimate(&self, item: &str) -> u32 {
-        let h1 = bcinr_core::dense_kernel::fnv1a_64(item.as_bytes());
+        let h1 = crate::utils::dense_kernel::fnv1a_64(item.as_bytes());
         let h2 = h1.wrapping_mul(0x9E3779B185EBCA87);
 
         let mut min_val = u32::MAX;

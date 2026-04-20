@@ -1,7 +1,7 @@
 //! Counterfactual simulation engine for evaluating proposed actions before commitment.
 //! Implements a safe "What-If" shadow state.
 use crate::autonomic::types::{ActionType, AutonomicAction, AutonomicState};
-use bcinr_core::bitset::select_u64;
+use crate::utils::bitset::select_u64;
 
 const REWARD_REPAIR: f32 = 0.8;
 const REWARD_RECOMMEND: f32 = 0.2;

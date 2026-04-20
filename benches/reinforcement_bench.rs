@@ -1,6 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use dteam::reinforcement::{Agent, QLearning, SARSAAgent, DoubleQLearning};
-use dteam::{RlState, RlAction};
+use dteam::reinforcement::{Agent, DoubleQLearning, QLearning, SARSAAgent};
+use dteam::{RlAction, RlState};
 
 fn create_mock_state(h: i8) -> RlState {
     RlState {
@@ -19,7 +19,7 @@ fn create_mock_state(h: i8) -> RlState {
 
 fn bench_rl_ops(c: &mut Criterion) {
     let mut group = c.benchmark_group("ReinforcementLearning");
-    
+
     let state = create_mock_state(2);
     let next_state = create_mock_state(3);
     let action = RlAction::Optimize;
@@ -27,30 +27,54 @@ fn bench_rl_ops(c: &mut Criterion) {
 
     // 1. Q-Learning
     let q_agent = QLearning::<RlState, RlAction>::with_hyperparams(0.1, 0.9, 0.1);
-    group.bench_function("QLearning/select_action", |b| b.iter(|| {
-        q_agent.select_action(black_box(state))
-    }));
-    group.bench_function("QLearning/update", |b| b.iter(|| {
-        q_agent.update(black_box(state), black_box(action), reward, black_box(next_state), false)
-    }));
+    group.bench_function("QLearning/select_action", |b| {
+        b.iter(|| q_agent.select_action(black_box(state)))
+    });
+    group.bench_function("QLearning/update", |b| {
+        b.iter(|| {
+            q_agent.update(
+                black_box(state),
+                black_box(action),
+                reward,
+                black_box(next_state),
+                false,
+            )
+        })
+    });
 
     // 2. SARSA
     let sarsa_agent = SARSAAgent::<RlState, RlAction>::new();
-    group.bench_function("SARSA/select_action", |b| b.iter(|| {
-        sarsa_agent.select_action(black_box(state))
-    }));
-    group.bench_function("SARSA/update", |b| b.iter(|| {
-        sarsa_agent.update(black_box(state), black_box(action), reward, black_box(next_state), false)
-    }));
+    group.bench_function("SARSA/select_action", |b| {
+        b.iter(|| sarsa_agent.select_action(black_box(state)))
+    });
+    group.bench_function("SARSA/update", |b| {
+        b.iter(|| {
+            sarsa_agent.update(
+                black_box(state),
+                black_box(action),
+                reward,
+                black_box(next_state),
+                false,
+            )
+        })
+    });
 
     // 3. Double Q-Learning
     let double_q = DoubleQLearning::<RlState, RlAction>::with_hyperparams(0.1, 0.9, 0.1);
-    group.bench_function("DoubleQLearning/select_action", |b| b.iter(|| {
-        double_q.select_action(black_box(state))
-    }));
-    group.bench_function("DoubleQLearning/update", |b| b.iter(|| {
-        double_q.update(black_box(state), black_box(action), reward, black_box(next_state), false)
-    }));
+    group.bench_function("DoubleQLearning/select_action", |b| {
+        b.iter(|| double_q.select_action(black_box(state)))
+    });
+    group.bench_function("DoubleQLearning/update", |b| {
+        b.iter(|| {
+            double_q.update(
+                black_box(state),
+                black_box(action),
+                reward,
+                black_box(next_state),
+                false,
+            )
+        })
+    });
 
     group.finish();
 }

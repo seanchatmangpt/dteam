@@ -9,8 +9,8 @@ use crate::ocpm::StreamingOcDfg;
 use crate::powl::core::PowlModel;
 use crate::probabilistic::CountMinSketch;
 use crate::simd::SwarMarking;
-use bcinr_core::bitset::select_u64;
-use bcinr_core::dense_kernel::{fnv1a_64, KBitSet, PackedKeyTable};
+use crate::utils::bitset::select_u64;
+use crate::utils::dense_kernel::{fnv1a_64, KBitSet, PackedKeyTable};
 
 /// Operational dimensions for the LinUCB bandit
 const CONTEXT_DIM: usize = 10;
@@ -339,12 +339,12 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
 
         // BCINR Optimization: Use MCTS UCT to weight recovery vs optimization
         let uct_score_repair =
-            bcinr_core::math::monte_carlo_tree_search_mcts(
+            crate::utils::math::monte_carlo_tree_search_mcts(
                 ((0.8 * 1000.0) as u64) << 32 | 100, // Q=0.8, visits=100
                 1000,                                // total visits
             );
         let uct_score_opt =
-            bcinr_core::math::monte_carlo_tree_search_mcts(
+            crate::utils::math::monte_carlo_tree_search_mcts(
                 ((0.5 * 1000.0) as u64) << 32 | 500, // Q=0.5, visits=500
                 1000,
             );

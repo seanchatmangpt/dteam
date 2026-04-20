@@ -1,6 +1,6 @@
 use crate::models::petri_net::{Arc, PetriNet};
 use crate::models::{EventLog, Trace};
-use bcinr_core::dense_kernel::{fnv1a_64, PackedKeyTable};
+use crate::utils::dense_kernel::{fnv1a_64, PackedKeyTable};
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 

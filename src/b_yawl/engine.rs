@@ -78,7 +78,7 @@ impl BYawlEngine {
             JoinType::XOR => (self.state_mask & task.consume_mask).count_ones() == 1,
             JoinType::OR => {
                 // WCP-37 Synchronizing Merge: Use BCINR primitive for O(1) reunion logic
-                bcinr_core::math::synchronizing_merge_wcp37(
+                crate::utils::math::synchronizing_merge_wcp37(
                     self.state_mask & task.consume_mask,
                     self.state_mask & task.reachability_mask,
                 ) != 0

@@ -1,9 +1,9 @@
 use divan::{black_box, Bencher};
-use dteam::simd::SwarMarking;
-use dteam::probabilistic::CountMinSketch;
-use dteam::ml::LinUcb;
 use dteam::agentic::Simulator;
 use dteam::autonomic::AutonomicState;
+use dteam::ml::LinUcb;
+use dteam::probabilistic::CountMinSketch;
+use dteam::simd::SwarMarking;
 
 fn main() {
     divan::main();
@@ -11,13 +11,11 @@ fn main() {
 
 #[divan::bench]
 fn bench_swar_fire(bencher: Bencher) {
-    let marking = SwarMarking(0x0000_0000_0000_000F);
-    let req = 0x0000_0000_0000_0003;
-    let out = 0x0000_0000_0000_0030;
-    
-    bencher.bench(|| {
-        black_box(marking).try_fire_branchless(black_box(req), black_box(out))
-    });
+    let marking = SwarMarking::<1>::new(0x0000_0000_0000_000F);
+    let req = [0x0000_0000_0000_0003u64];
+    let out = [0x0000_0000_0000_0030u64];
+
+    bencher.bench(|| black_box(marking).try_fire_branchless(black_box(&req), black_box(&out)));
 }
 
 #[divan::bench]
@@ -33,10 +31,8 @@ fn bench_count_min_add(bencher: Bencher) {
 fn bench_linucb_select(bencher: Bencher) {
     let bandit: LinUcb<16, 256> = LinUcb::new(0.1);
     let context = [0.5; 16];
-    
-    bencher.bench(|| {
-        bandit.select_action(black_box(&context), black_box(5))
-    });
+
+    bencher.bench(|| bandit.select_action(black_box(&context), black_box(5)));
 }
 
 #[divan::bench]
@@ -50,8 +46,6 @@ fn bench_counterfactual_sim(bencher: Bencher) {
     };
     let sim = Simulator::new(state);
     let action = dteam::autonomic::AutonomicAction::recommend(1, "test");
-    
-    bencher.bench(|| {
-        sim.evaluate_action(black_box(&action))
-    });
+
+    bencher.bench(|| sim.evaluate_action(black_box(&action)));
 }

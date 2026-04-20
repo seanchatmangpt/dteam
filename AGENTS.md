@@ -30,7 +30,7 @@ This file summarizes how the **dteam** (Deterministic Process Intelligence Engin
 | Diagnostics example | `cargo run --example doctor` |
 | Autonomic simulation | `cargo run --example autonomic_runner` |
 
-The root **`Makefile`** still names “DPIE” in comments and its `doc` target builds `docs/thesis/main.tex`; prefer the **dteam** naming for new work.
+**`make doc`** runs `pdflatex` twice on [`docs/thesis/main.tex`](docs/thesis/main.tex) and renames the output to **`docs/thesis/dteam-whitepaper.pdf`**.
 
 ## 4. Cargo features
 
@@ -166,7 +166,7 @@ Registered in **`Cargo.toml`**: `reinforcement_bench`, `real_data_bench`, `algor
 ## 12. Data, artifacts, and thesis assets
 
 - **Config-relative dirs**: `data/pdc2025/{training_logs,test_logs,ground_truth}` (see `dteam.toml`); **`artifacts/`**, **`tmp/dmanifest_bus`** for manifests.
-- **`docs/thesis/`**: LaTeX sources; **`make doc`** runs `pdflatex` twice on `docs/thesis/main.tex` (output naming in Makefile may still say `dpie-whitepaper.pdf` — verify on disk after build).
+- **`docs/thesis/`**: LaTeX sources; **`make doc`** produces **`docs/thesis/dteam-whitepaper.pdf`** (via two `pdflatex` passes on `main.tex`).
 
 ---
 

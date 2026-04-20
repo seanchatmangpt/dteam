@@ -1,5 +1,5 @@
-use divan::black_box;
 use bcinr::int::popcount_u64;
+use divan::black_box;
 
 fn main() {
     divan::main();

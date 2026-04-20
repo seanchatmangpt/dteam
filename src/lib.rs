@@ -6,7 +6,6 @@ pub mod models;
 pub mod reinforcement;
 pub mod reinforcement_tests;
 pub mod utils;
-pub use bcinr_core;
 
 // Re-export models for easier access
 pub use conformance::*;

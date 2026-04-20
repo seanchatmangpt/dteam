@@ -9,7 +9,7 @@ fn main() {
 #[divan::bench]
 fn bench_pure_rust_engine_run_batch() {
     let engine = Engine::builder().build();
-    let logs = vec![EventLog::default(); 100]; 
+    let logs = vec![EventLog::default(); 100];
     black_box(engine.run_batch(black_box(&logs)));
 }
 

@@ -1,7 +1,7 @@
-use iai_callgrind::{library_benchmark, library_benchmark_group, main};
 use dteam::ref_conformance::ref_token_replay::apply_token_based_replay_bcinr;
-use dteam::ref_models::ref_petri_net::{PetriNet, ArcType};
 use dteam::ref_models::ref_event_log::EventLogActivityProjection;
+use dteam::ref_models::ref_petri_net::{ArcType, PetriNet};
+use iai_callgrind::{library_benchmark, library_benchmark_group, main};
 use std::collections::HashMap;
 
 fn setup_model() -> PetriNet {
@@ -9,11 +9,11 @@ fn setup_model() -> PetriNet {
     let p1 = net.add_place(None);
     let t1 = net.add_transition(Some("A".into()), None);
     net.add_arc(ArcType::PlaceTransition(p1.0, t1.0), None);
-    
+
     let mut initial_marking = HashMap::new();
     initial_marking.insert(p1, 1);
     net.initial_marking = Some(initial_marking);
-    
+
     let mut final_marking = HashMap::new();
     final_marking.insert(p1, 0);
     net.final_markings = Some(vec![final_marking]);

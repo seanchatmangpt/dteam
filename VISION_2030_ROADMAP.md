@@ -1,53 +1,57 @@
 # dteam Vision 2030: Autonomic Enterprise Roadmap
 
 ## 1. Executive Summary
-The `dteam` engine, currently optimized for bounded WASM and deterministic K-Tier execution, requires a structural evolution to handle petabyte-scale, messy enterprise event streams. This roadmap leverages the advanced algorithms from the `pictl` and `bcinr` research repositories to transition `dteam` from a fast academic tool into a hardware-accelerated, autonomic enterprise intelligence platform.
+The `dteam` engine, currently optimized for bounded WASM and deterministic K-Tier execution, requires a structural evolution to handle petabyte-scale, messy enterprise event streams. This roadmap builds on the **`bcinr`** crate (dependency), prior research trajectories (POWL, streaming mining, GPU offload), and **this repository’s** implementations under `src/` to move from a fast, auditable kernel toward a hardware-accelerated, autonomic enterprise intelligence platform.
 
 ## 2. Phase 1: Hardware-Sympathetic Kernel (Q1 2027)
 **Goal:** Saturate modern CPU and GPU architectures by eliminating branching and utilizing SIMD/SWAR instructions for petabyte-scale token replay and marking updates.
 
 *   **SIMD & SWAR Integration**: Replace scalar bitset operations with vectorized equivalents.
-    *   *Reference Files*: `/Users/sac/chatmangpt/bcinr/crates/bcinr-logic/src/simd.rs`, `/Users/sac/chatmangpt/bcinr/crates/bcinr-logic/src/swar.rs`, `/Users/sac/chatmangpt/pictl/wasm4pm/src/simd_token_replay.rs`
+    *   *In-repo*: [`src/simd/swar.rs`](src/simd/swar.rs), [`src/simd/mod.rs`](src/simd/mod.rs); conformance hot path [`src/conformance/case_centric/token_based_replay.rs`](src/conformance/case_centric/token_based_replay.rs), [`src/conformance/mod.rs`](src/conformance/mod.rs).
+    *   *External crate*: `bcinr` (see `Cargo.toml`) supplies bitset primitives used across the engine.
 *   **GPU Offloading**: Utilize WebGPU bindings for massively parallel matrix operations (e.g., incidence matrix calculations, ILP constraints).
-    *   *Reference Files*: `/Users/sac/chatmangpt/pictl/wasm4pm/src/gpu/wgpu_binding.rs`
+    *   *Status*: **Not in this repository yet** (backlog; no `wgpu` module under `src/`).
 *   **Constant Latency Loops**: Ensure WCET (Worst-Case Execution Time) guarantees for real-time edge processing.
-    *   *Reference Files*: `/Users/sac/chatmangpt/pictl/wasm4pm/benches/constant_latency_loops.rs`
+    *   *In-repo benches*: [`benches/instruction_stability_bench.rs`](benches/instruction_stability_bench.rs), [`benches/zero_allocation_bench.rs`](benches/zero_allocation_bench.rs).
 
 ## 3. Phase 2: Infinite Stream Mining (Q3 2027)
 **Goal:** Break free from static `.xes` batch processing. Enable real-time process discovery over unbounded event streams using probabilistic data structures.
 
 *   **Streaming DFG & Heuristics**: Incrementally update process models without holding the entire log in memory.
-    *   *Reference Files*: `/Users/sac/chatmangpt/pictl/wasm4pm/src/streaming/streaming_dfg.rs`, `/Users/sac/chatmangpt/pictl/wasm4pm/src/streaming/streaming_heuristic.rs`
+    *   *Status*: **Not in this repository yet** (backlog; XES batch path lives under [`src/io/xes.rs`](src/io/xes.rs)).
 *   **Probabilistic Bounding**: Use sketches to estimate footprint matrices and activity frequencies within the strict K-Tier memory limits.
-    *   *Reference Files*: `/Users/sac/chatmangpt/pictl/wasm4pm/src/probabilistic/bloom.rs`, `/Users/sac/chatmangpt/pictl/wasm4pm/src/probabilistic/hyperloglog.rs`, `/Users/sac/chatmangpt/bcinr/crates/bcinr-logic/src/sketch.rs`
+    *   *In-repo*: [`src/probabilistic/count_min.rs`](src/probabilistic/count_min.rs), [`src/probabilistic/mod.rs`](src/probabilistic/mod.rs).
+    *   *External crate*: additional sketch logic may live in `bcinr` (dependency); extend here as needed.
 
 ## 4. Phase 3: Advanced Formalisms (POWL) (Q1 2028)
 **Goal:** Solve the "Spaghetti Process" problem. Move beyond strict Petri nets to Partially Ordered Workflow Models (POWL) to handle concurrency, complex choices, and unstructured enterprise reality without deadlocks.
 
 *   **POWL Core & Discovery**: Implement the POWL data structures and discover them from event logs.
-    *   *Reference Files*: `/Users/sac/chatmangpt/pictl/wasm4pm/src/powl_models.rs`, `/Users/sac/chatmangpt/pictl/wasm4pm/src/powl/discovery/mod.rs`
+    *   *In-repo*: [`src/powl/core.rs`](src/powl/core.rs), [`src/powl/discovery.rs`](src/powl/discovery.rs), [`src/powl/mod.rs`](src/powl/mod.rs).
 *   **POWL to Petri Net Conversion**: Maintain backward compatibility with the high-speed token replayer by compiling POWL back to WF-nets.
-    *   *Reference Files*: `/Users/sac/chatmangpt/pictl/wasm4pm/src/powl/conversion/to_petri_net.rs`
+    *   *Status*: **Not in this repository yet** (backlog; Petri net model: [`src/models/petri_net.rs`](src/models/petri_net.rs)).
 *   **Genetic & ILP Metaheuristics**: For complex structural repairs when greedy RL fails.
-    *   *Reference Files*: `/Users/sac/chatmangpt/pictl/wasm4pm/src/genetic_discovery.rs`, `/Users/sac/chatmangpt/pictl/wasm4pm/src/ilp_discovery.rs`
+    *   *Status*: **Not in this repository yet** (backlog).
 
 ## 5. Phase 4: Predictive & Agentic Autonomy (Q3 2028)
 **Goal:** Upgrade the RL agent from a reactive model-builder to a proactive, contextual AI that anticipates bottlenecks and simulates interventions.
 
 *   **Contextual Bandits (LinUCB)**: Replace basic Q-Learning with contextual bandits that adapt to streaming drift.
-    *   *Reference Files*: `/Users/sac/chatmangpt/pictl/wasm4pm/src/ml/linucb.rs`, `/Users/sac/chatmangpt/pictl/wasm4pm/src/prediction_drift.rs`
+    *   *In-repo*: [`src/ml/linucb.rs`](src/ml/linucb.rs), [`src/ml/mod.rs`](src/ml/mod.rs).
+    *   *Dedicated drift module*: **Not in tree yet** — use [`src/config.rs`](src/config.rs) / discovery `drift_window` and [`src/autonomic/vision_2030_kernel.rs`](src/autonomic/vision_2030_kernel.rs) until a standalone predictor lands.
 *   **Counterfactual Simulation**: Allow the "Digital Team" to simulate "what-if" scenarios (e.g., "If I reroute this invoice, what happens to throughput?") before executing an action.
-    *   *Reference Files*: `/Users/sac/chatmangpt/pictl/wasm4pm/src/agentic/counterfactual.rs`, `/Users/sac/chatmangpt/pictl/wasm4pm/src/simulation.rs`
+    *   *In-repo*: [`src/agentic/counterfactual.rs`](src/agentic/counterfactual.rs), [`src/agentic/mod.rs`](src/agentic/mod.rs).
+    *   *Full simulation harness*: **Not in tree yet** (extend agentic module as needed).
 *   **Agentic Handoff & Escalation**: Formalize when the engine must defer to a human operator.
-    *   *Reference Files*: `/Users/sac/chatmangpt/pictl/wasm4pm/src/agentic/handoff.rs`, `/Users/sac/chatmangpt/pictl/wasm4pm/src/agentic/escalation.rs`
+    *   *Status*: **Not in this repository yet** (backlog; related: autonomic guards in [`dteam.toml`](dteam.toml), [`src/autonomic/kernel.rs`](src/autonomic/kernel.rs)).
 
 ## 6. Phase 5: Object-Centric Process Mining (OCPM) (Q1 2029)
 **Goal:** Handle real-world 1:N and N:M object relationships (e.g., Sales Orders to Deliveries) natively, without flattening data.
 
 *   **OCEL Ingestion & Flattening**: Read Object-Centric Event Logs.
-    *   *Reference Files*: `/Users/sac/chatmangpt/pictl/wasm4pm/src/ocel_io.rs`, `/Users/sac/chatmangpt/pictl/wasm4pm/src/ocel_flatten.rs`
+    *   *In-repo*: [`src/ocpm/ocel.rs`](src/ocpm/ocel.rs), [`src/ocpm/mod.rs`](src/ocpm/mod.rs).
 *   **Object-Centric Petri Nets**: Discover and replay over multi-object models.
-    *   *Reference Files*: `/Users/sac/chatmangpt/pictl/wasm4pm/src/oc_petri_net.rs`, `/Users/sac/chatmangpt/pictl/wasm4pm/src/oc_conformance.rs`
+    *   *Status*: **Not in this repository yet** (backlog; classic net + replay: [`src/models/petri_net.rs`](src/models/petri_net.rs), [`src/conformance/mod.rs`](src/conformance/mod.rs)).
 
 ## 7. Quality Assurance: Autonomic Acceptance Suite (dteam-jtbd-suite)
 **Goal:** Verify that all hyper-optimized algorithms (SWAR, CMS, LinUCB, Simulator, OCPM) combine successfully into a coherent "Digital Team" closure. We move beyond isolated micro-benches to combinatorial end-to-end Jobs-To-Be-Done (JTBD) scenarios.

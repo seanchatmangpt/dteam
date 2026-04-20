@@ -1,7 +1,7 @@
 //! Hyper-optimized branchless SWAR (SIMD Within A Register) token replay kernel.
 //! Exploits 64-bit word parallelism to replay multiple tokens simultaneously without data-dependent branching.
 
-use bcinr_core::bitset::select_u64;
+use crate::utils::bitset::select_u64;
 
 #[derive(Clone, Copy)]
 pub struct SwarMarking<const WORDS: usize> {

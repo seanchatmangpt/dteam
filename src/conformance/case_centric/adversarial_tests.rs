@@ -3,7 +3,7 @@ mod tests {
     use crate::conformance::case_centric::token_based_replay::apply_token_based_replay;
     use crate::models::petri_net::{Arc, PetriNet, Place, Transition};
     use crate::models::{Attribute, AttributeValue, Event, EventLog, Trace};
-    use bcinr_core::dense_kernel::{fnv1a_64, PackedKeyTable};
+    use crate::utils::dense_kernel::{fnv1a_64, PackedKeyTable};
 
     #[test]
     fn test_adversarial_replay_missing_tokens() {

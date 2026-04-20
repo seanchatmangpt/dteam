@@ -1,6 +1,6 @@
 use crate::models::petri_net::{Arc, PetriNet, Place, Transition};
 use crate::powl::core::{PowlNode, PowlOperator};
-use bcinr_core::dense_kernel::{fnv1a_64, PackedKeyTable};
+use crate::utils::dense_kernel::{fnv1a_64, PackedKeyTable};
 
 pub fn powl_to_wf_net(node: &PowlNode) -> PetriNet {
     let mut net = PetriNet::default();

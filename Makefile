@@ -1,4 +1,4 @@
-# Makefile for DPIE Project
+# Makefile for dteam
 # Targets: build, test, bench, doc, lint, fmt, check, doctor
 
 .PHONY: build test bench doc clean lint fmt check doctor
@@ -33,7 +33,7 @@ check:
 doc:
 	pdflatex -interaction=nonstopmode -halt-on-error -output-directory=docs/thesis docs/thesis/main.tex
 	pdflatex -interaction=nonstopmode -halt-on-error -output-directory=docs/thesis docs/thesis/main.tex
-	mv docs/thesis/main.pdf docs/thesis/dpie-whitepaper.pdf
+	mv docs/thesis/main.pdf docs/thesis/dteam-whitepaper.pdf
 
 clean:
 	cargo clean

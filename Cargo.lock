@@ -105,7 +105,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "20fed0336e25ac6fd51e26d5ce0d0d75f36374ad2c1701563dbe529a40b02694"
 dependencies = [
  "bcinr-api",
- "bcinr-core 26.4.17",
+ "bcinr-core",
  "bcinr-logic",
 ]
 
@@ -120,29 +120,12 @@ dependencies = [
 
 [[package]]
 name = "bcinr-core"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde-wasm-bindgen",
- "wasm-bindgen",
-]
-
-[[package]]
-name = "bcinr-core"
 version = "26.4.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3cf60679fd19054b7f9a5f865c55dc1b2ac02382c4b93801ed9ff3e67339816f"
 dependencies = [
  "bcinr-api",
  "bcinr-logic",
-]
-
-[[package]]
-name = "bcinr-extended"
-version = "0.1.0"
-dependencies = [
- "bcinr-core 0.1.0",
- "proptest",
 ]
 
 [[package]]
@@ -476,8 +459,6 @@ version = "1.3.0"
 dependencies = [
  "anyhow",
  "bcinr",
- "bcinr-core 0.1.0",
- "bcinr-extended",
  "chrono",
  "criterion",
  "dhat",

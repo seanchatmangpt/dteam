@@ -3,7 +3,7 @@ mod tests {
     use crate::agentic::Simulator;
     use crate::autonomic::{AutonomicAction, AutonomicEvent, AutonomicKernel, Vision2030Kernel};
     use crate::simd::SwarMarking;
-    use bcinr_core::dense_kernel::KBitSet;
+    use crate::utils::dense_kernel::KBitSet;
     use std::time::SystemTime;
 
     fn setup_violation(events: Vec<&str>) -> Vision2030Kernel<1> {

@@ -3,7 +3,7 @@
 [meta]
 version = "2026.04.18"
 environment = "autonomous"
-identity = "DPIE-Alpha-01"
+identity = "dteam-alpha-01"
 
 [kernel]
 # K-Tier selection: K64, K128, K256, K512, K1024

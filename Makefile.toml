@@ -1,0 +1,125 @@
+[config]
+default_to_workspace = false
+skip_core_tasks = true
+
+[env]
+RUST_BACKTRACE = "1"
+CARGO_TERM_COLOR = "always"
+
+[tasks.default]
+alias = "help"
+
+[tasks.help]
+description = "List all available tasks."
+command = "cargo"
+args = ["make", "--list-all-steps"]
+
+# --- CI & Pipelines ---
+
+[tasks.ci]
+description = "Standard CI pipeline: formatting, linting, building, and testing."
+dependencies = ["fmt-check", "lint", "check", "test"]
+
+[tasks.pre-merge]
+description = "Comprehensive pre-merge verification pipeline (CI + Doc)."
+dependencies = ["ci", "doc"]
+
+# --- Code Quality ---
+
+[tasks.fmt]
+description = "Format the codebase."
+install_crate = "rustfmt"
+command = "cargo"
+args = ["fmt", "--all"]
+
+[tasks.fmt-check]
+description = "Check formatting without making changes."
+install_crate = "rustfmt"
+command = "cargo"
+args = ["fmt", "--all", "--", "--check"]
+
+[tasks.lint]
+description = "Lint the codebase and deny warnings."
+install_crate = "clippy"
+command = "cargo"
+args = ["clippy", "--all-targets", "--", "-D", "warnings"]
+
+[tasks.audit]
+description = "Audit dependencies for security vulnerabilities."
+install_crate = "cargo-audit"
+command = "cargo"
+args = ["audit"]
+
+# --- Build & Check ---
+
+[tasks.check]
+description = "Run fast compilation check."
+command = "cargo"
+args = ["check", "--all-targets"]
+
+[tasks.build]
+description = "Build the project in release mode."
+command = "cargo"
+args = ["build", "--release"]
+
+[tasks.build-debug]
+description = "Build the project in debug mode."
+command = "cargo"
+args = ["build"]
+
+# --- Testing & Benchmarking ---
+
+[tasks.test]
+description = "Run the library test suite."
+command = "cargo"
+args = ["test", "--lib", "--", "--nocapture"]
+
+[tasks.test-all]
+description = "Run all tests including doc tests and integration tests."
+command = "cargo"
+args = ["test", "--all-targets", "--", "--nocapture"]
+
+[tasks.bench]
+description = "Run the performance benchmarks."
+command = "cargo"
+args = ["bench"]
+
+# --- Project Specific ---
+
+[tasks.doctor]
+description = "Run professional dteam doctor diagnostic checks."
+script_runner = "@shell"
+script = '''
+cargo run --example doctor 2>/dev/null || echo "Running internal diagnostics..."
+cargo check --all-targets
+'''
+
+[tasks.run]
+description = "Start the autonomic live loop simulation."
+command = "cargo"
+args = ["run", "--example", "autonomic_runner"]
+
+[tasks.doc]
+description = "Generate the whitepaper PDF using pdflatex."
+script_runner = "@shell"
+script = '''
+if ! command -v pdflatex > /dev/null 2>&1; then
+    echo "pdflatex not found. Skipping PDF generation."
+    exit 0
+fi
+echo "Generating dteam whitepaper..."
+pdflatex -interaction=nonstopmode -halt-on-error -output-directory=docs/thesis docs/thesis/main.tex > /dev/null
+pdflatex -interaction=nonstopmode -halt-on-error -output-directory=docs/thesis docs/thesis/main.tex > /dev/null
+mv docs/thesis/main.pdf docs/thesis/dteam-whitepaper.pdf
+echo "Whitepaper successfully generated at docs/thesis/dteam-whitepaper.pdf"
+'''
+
+[tasks.clean]
+description = "Clean cargo artifacts and generated documentation."
+script_runner = "@shell"
+script = '''
+cargo clean
+echo "Cleaning thesis artifacts..."
+rm -f docs/thesis/*.aux docs/thesis/*.log docs/thesis/*.out docs/thesis/*.toc docs/thesis/*.pdf docs/thesis/*.lot docs/thesis/*.swp
+echo "Clean complete."
+'''

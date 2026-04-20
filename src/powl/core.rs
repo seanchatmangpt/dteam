@@ -2,7 +2,7 @@
 //! Ported and enhanced from PM4Py Python implementation for Digital Team Process Intelligence.
 //! Incorporates Choice Graphs for Non-Block-Structured Decisions (van der Aalst, 2025).
 
-use bcinr_core::dense_kernel::KBitSet;
+use crate::utils::dense_kernel::KBitSet;
 use std::collections::HashSet;
 
 pub const MAX_POWL_NODES: usize = 64;
