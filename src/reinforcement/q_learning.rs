@@ -14,6 +14,7 @@ pub struct QLearning<S: WorkflowState, A: WorkflowAction> {
     pub(crate) episodes: RefCell<usize>,
     pub(crate) total_reward: RefCell<f32>,
     pub(crate) rng: RefCell<Rng>,
+    pub(crate) deterministic: bool,
     pub(crate) _phantom: PhantomData<A>,
 }
 
@@ -29,6 +30,7 @@ impl<S: WorkflowState, A: WorkflowAction> QLearning<S, A> {
             episodes: RefCell::new(0),
             total_reward: RefCell::new(0.0),
             rng: RefCell::new(Rng::new()),
+            deterministic: false,
             _phantom: PhantomData,
         }
     }
@@ -44,6 +46,7 @@ impl<S: WorkflowState, A: WorkflowAction> QLearning<S, A> {
             episodes: RefCell::new(0),
             total_reward: RefCell::new(0.0),
             rng: RefCell::new(Rng::with_seed(seed)),
+            deterministic: false,
             _phantom: PhantomData,
         }
     }
@@ -58,9 +61,13 @@ impl<S: WorkflowState, A: WorkflowAction> QLearning<S, A> {
         }
     }
 
+    pub fn set_deterministic(&mut self, deterministic: bool) {
+        self.deterministic = deterministic;
+    }
+
     #[allow(dead_code)]
     pub fn select_action(&self, state: S) -> A {
-        if self.rng.borrow_mut().f32() < self.exploration_rate {
+        if !self.deterministic && self.rng.borrow_mut().f32() < self.exploration_rate {
             let idx = self.rng.borrow_mut().usize(..A::ACTION_COUNT);
             A::from_index(idx).unwrap()
         } else {

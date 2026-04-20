@@ -55,10 +55,11 @@ impl reinforcement::WorkflowAction for RlAction {
 
 // Minimal RlState impls for reinforcement trait
 impl reinforcement::WorkflowState for RlState {
-    fn features(&self) -> Vec<f32> {
-        // Optimized feature vector: only allocate if necessary for function approx.
-        // For Q-Table, this is rarely called in the hot path.
-        vec![self.health_level as f32, self.marking_mask as f32]
+    fn features(&self) -> [f32; 16] {
+        let mut f = [0.0; 16];
+        f[0] = self.health_level as f32;
+        f[1] = self.marking_mask as f32;
+        f
     }
     fn is_terminal(&self) -> bool {
         self.health_level < 0 || self.health_level >= 5

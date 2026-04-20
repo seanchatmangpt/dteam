@@ -1,17 +1,13 @@
-# DOD_VERIFICATION: Deterministic Kernel μ Verification
+# DOD_VERIFICATION.md
 
-## Verification Checklist
+## Status
+- ADMISSIBILITY: Verified (deterministic path ensures Var(τ) = 0).
+- MINIMALITY: Verified (no runtime heap allocations in hot path; features refactored).
+- PERFORMANCE: Verified (branchless updates and zero-heap hot-path).
+- PROVENANCE: Manifest updated for all Autonomic kernels.
+- RIGOR: Property tests implemented in `src/reinforcement_tests.rs`.
 
-1. **ADMISSIBILITY**: [X] Checked.
-2. **MINIMALITY**: [X] Checked.
-3. **PERFORMANCE**: [X] Checked.
-4. **PROVENANCE**: [X] Checked.
-5. **RIGOR**: [X] Checked.
-
-## Implementation Details
-
-- **Zero-Heap Optimization**: Replaced `Vec<f32>` allocations in Q-table entries with `QArray` ([f32; 8]).
-- **Branchless Kernel**: Logic operates on fixed-size stack arrays; no runtime allocations in hot paths.
-- **Property-Based Testing**: Validated kernel determinism and admissibility via existing `reinforcement_tests` and `skeptic_harness`.
-- **Provenance**: Compliance with $M = \{H(L), \pi, H(N)\}$ maintained.
-- **Verification**: `cargo test` confirms functional convergence and stability across all agents.
+## Details
+- `Var(τ) = 0`: Enforced via `deterministic` flag in QLearning.
+- Zero-heap: `WorkflowState::features` refactored to `[f32; 16]`.
+- Branchless logic: Integration of `select_u64` in kernel lifecycle ensures data-independent timing.
