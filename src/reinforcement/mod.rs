@@ -24,8 +24,8 @@ pub use sarsa::SARSAAgent;
 
 /// State for reinforcement learning (must be hashable and copyable)
 pub trait WorkflowState: Clone + Copy + Eq + Hash {
-    /// State features for function approximation
-    fn features(&self) -> Vec<f32>;
+    /// State features for function approximation (zero-heap)
+    fn features(&self) -> [f32; 16];
 
     /// Is this a terminal state?
     fn is_terminal(&self) -> bool;
