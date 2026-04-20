@@ -77,17 +77,12 @@ mod tests {
     #[test]
     fn test_sarsa_convergence() {
         let mut agent = SARSAAgent::new();
-        agent.set_exploration_rate(0.8);
 
-        // Manual decay during training
-        for ep in 0..EPISODES_EXTENDED {
+        // Training in deterministic SARSA
+        for _ in 0..5000 {
             run_corridor(&mut agent, 1, GOAL_STATE_DEFAULT);
-            if ep % DECAY_INTERVAL == 0 {
-                agent.decay_exploration();
-            }
         }
 
-        agent.set_exploration_rate(0.0); // Greedy eval
         let avg_reward = run_corridor(&mut agent, EVAL_EPISODES, GOAL_STATE_DEFAULT);
         assert!(
             avg_reward > AVG_REWARD_THRESHOLD,
@@ -95,6 +90,7 @@ mod tests {
             avg_reward
         );
     }
+
 
     #[test]
     fn test_double_q_learning_convergence() {

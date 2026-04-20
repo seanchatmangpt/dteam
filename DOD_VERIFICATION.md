@@ -1,22 +1,21 @@
-# DOD_VERIFICATION.md
+# DOD Verification: Deterministic SARSA Refactor
 
-## DDS Verification Report: LinUCB Integration
+## 1. ADMISSIBILITY
+- All stochastic elements removed from `SARSAAgent`.
+- Exploration is now handled via a deterministic action rotation schedule (episode-dependent), ensuring no unreachable states or random behavior.
+- Verified by unit tests and no panics during test runs.
 
-### 1. ADMISSIBILITY
-- Verified via property-based corridor tests that agents converge and maintain stable behavior ($Var(\tau) = 0$ for deterministic policy evaluation).
+## 2. MINIMALITY
+- State representation complexity $\Phi(N)$ maintained as minimal. SARSA logic remains branchless and uses `PackedKeyTable`.
 
-### 2. MINIMALITY
-- LinUCB uses fixed-size stack arrays to represent the inverse covariance matrix $A^{-1}$ and mean vector $b$, ensuring structural minimality consistent with $\Phi(N) = |T| + (|A| \cdot \log_2 |T|)$.
+## 3. PERFORMANCE
+- Zero-heap allocation maintained in the hot path.
+- Branchless logic preserved in the core `update_with_next_action` logic and `greedy_action`.
 
-### 3. PERFORMANCE
-- All hot-path methods (`select_action`, `update`) in `LinUcb` and `LinUcbAgent` are heap-allocation-free, utilizing stack buffers and constant-sized array operations.
+## 4. PROVENANCE
+- `AGENTS.md` and `sarsa.rs` updated to document the deterministic nature.
+- `DOD_VERIFICATION.md` generated.
 
-### 4. PROVENANCE
-- `src/reinforcement/linucb_agent.rs` integrated into `reinforcement` suite. Manifest emission logic is supported by the `Engine` orchestration.
-
-### 5. RIGOR
-- Property tests added in `src/ml/tests.rs` and integrated into the `reinforcement_tests` suite.
-- Agent trait updated to support mutable updates for all implementations (`QLearning`, `SARSA`, etc.), ensuring API consistency across the agent ecosystem.
-
----
-**Verification Status:** PASSED. All tests pass, including convergence benchmarks.
+## 5. RIGOR
+- Property-based tests confirmed convergence in the corridor environment.
+- Deterministic exploration ensures the test `test_sarsa_convergence` is repeatable and reliable.
