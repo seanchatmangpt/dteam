@@ -56,3 +56,46 @@ fn dense_index_dense_id() -> Option<u32> {
     let index = DenseIndex::compile(symbols).unwrap();
     black_box(&index).dense_id(black_box("task1"))
 }
+
+#[divan::bench]
+fn petri_net_incidence_matrix_small() {
+    let mut net = dteam::models::petri_net::PetriNet::default();
+    for i in 0..10 {
+        net.places.push(dteam::models::petri_net::Place {
+            id: format!("p{}", i),
+        });
+        net.transitions.push(dteam::models::petri_net::Transition {
+            id: format!("t{}", i),
+            label: format!("t{}", i),
+            is_invisible: None,
+        });
+        net.arcs.push(dteam::models::petri_net::Arc {
+            from: format!("p{}", i),
+            to: format!("t{}", i),
+            weight: None,
+        });
+    }
+    black_box(&net).incidence_matrix();
+}
+
+#[divan::bench]
+fn petri_net_incidence_matrix_cached() {
+    let mut net = dteam::models::petri_net::PetriNet::default();
+    for i in 0..10 {
+        net.places.push(dteam::models::petri_net::Place {
+            id: format!("p{}", i),
+        });
+        net.transitions.push(dteam::models::petri_net::Transition {
+            id: format!("t{}", i),
+            label: format!("t{}", i),
+            is_invisible: None,
+        });
+        net.arcs.push(dteam::models::petri_net::Arc {
+            from: format!("p{}", i),
+            to: format!("t{}", i),
+            weight: None,
+        });
+    }
+    net.compile_incidence();
+    black_box(&net).incidence_matrix();
+}

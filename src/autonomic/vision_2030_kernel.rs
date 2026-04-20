@@ -338,16 +338,14 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
         let action_idx = self.bandit.select_action(&context, 3);
 
         // BCINR Optimization: Use MCTS UCT to weight recovery vs optimization
-        let uct_score_repair =
-            crate::utils::math::monte_carlo_tree_search_mcts(
-                ((0.8 * 1000.0) as u64) << 32 | 100, // Q=0.8, visits=100
-                1000,                                // total visits
-            );
-        let uct_score_opt =
-            crate::utils::math::monte_carlo_tree_search_mcts(
-                ((0.5 * 1000.0) as u64) << 32 | 500, // Q=0.5, visits=500
-                1000,
-            );
+        let uct_score_repair = crate::utils::math::monte_carlo_tree_search_mcts(
+            ((0.8 * 1000.0) as u64) << 32 | 100, // Q=0.8, visits=100
+            1000,                                // total visits
+        );
+        let uct_score_opt = crate::utils::math::monte_carlo_tree_search_mcts(
+            ((0.5 * 1000.0) as u64) << 32 | 500, // Q=0.5, visits=500
+            1000,
+        );
 
         if state.drift_detected {
             // If MCTS UCT favors repair (it should given the scores above)

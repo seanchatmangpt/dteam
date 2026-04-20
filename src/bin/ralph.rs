@@ -1,7 +1,7 @@
+use serde_json::json;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use serde_json::json;
 
 fn main() -> anyhow::Result<()> {
     println!("--- Ralph Wiggum Loop: Rust Orchestrator ---");
@@ -16,7 +16,10 @@ fn main() -> anyhow::Result<()> {
     let ideas_path = Path::new("IDEAS.md");
     if !ideas_path.exists() {
         println!("No IDEAS.md found. Creating a sample...");
-        fs::write(ideas_path, "1. Implement a basic health check endpoint\n2. Add logging to the autonomic cycle\n")?;
+        fs::write(
+            ideas_path,
+            "1. Implement a basic health check endpoint\n2. Add logging to the autonomic cycle\n",
+        )?;
     }
 
     let content = fs::read_to_string(ideas_path)?;
@@ -24,13 +27,14 @@ fn main() -> anyhow::Result<()> {
 
     for (i, idea) in ideas.iter().enumerate() {
         let id = format!("{:03}", i + 1);
-        let slug = idea.to_lowercase()
+        let slug = idea
+            .to_lowercase()
             .replace(|c: char| !c.is_alphanumeric(), "-")
             .split('-')
             .filter(|s| !s.is_empty())
             .collect::<Vec<_>>()
             .join("-");
-        
+
         let working_dir = PathBuf::from(".wreckit").join(format!("{}-{}", id, slug));
         fs::create_dir_all(&working_dir)?;
 
@@ -48,15 +52,23 @@ fn main() -> anyhow::Result<()> {
 
         // Check if branch exists
         let branch_exists = Command::new("git")
-            .args(["show-ref", "--verify", &format!("refs/heads/{}", branch_name)])
+            .args([
+                "show-ref",
+                "--verify",
+                &format!("refs/heads/{}", branch_name),
+            ])
             .status()
             .map(|s| s.success())
             .unwrap_or(false);
 
         if branch_exists {
-            Command::new("git").args(["checkout", &branch_name]).status()?;
+            Command::new("git")
+                .args(["checkout", &branch_name])
+                .status()?;
         } else {
-            Command::new("git").args(["checkout", "-b", &branch_name]).status()?;
+            Command::new("git")
+                .args(["checkout", "-b", &branch_name])
+                .status()?;
         }
 
         // 1. Research
@@ -75,22 +87,36 @@ fn main() -> anyhow::Result<()> {
         commit_changes(&id, idea)?;
 
         // Return to original branch
-        let _ = Command::new("git").args(["checkout", &original_branch]).status();
-        }
+        let _ = Command::new("git")
+            .args(["checkout", &original_branch])
+            .status();
+    }
 
     println!("\n--- All ideas processed! ---");
     Ok(())
 }
 
-fn run_phase(_id: &str, phase: &str, idea: &str, working_dir: &Path, is_test: bool) -> anyhow::Result<()> {
+fn run_phase(
+    _id: &str,
+    phase: &str,
+    idea: &str,
+    working_dir: &Path,
+    is_test: bool,
+) -> anyhow::Result<()> {
     println!("  >> Phase: {}", phase);
     let output_file = working_dir.join(format!("{}.md", phase.to_lowercase()));
-    
+
     if is_test {
         let mock_content = match phase {
-            "Research" => format!("MOCK RESEARCH for idea: {}\nPatterns: bitset, branchless\nFiles: src/lib.rs", idea),
+            "Research" => format!(
+                "MOCK RESEARCH for idea: {}\nPatterns: bitset, branchless\nFiles: src/lib.rs",
+                idea
+            ),
             "Plan" => format!("MOCK PLAN for idea: {}\n1. Step A\n2. Step B", idea),
-            "Implement" => format!("MOCK IMPLEMENTATION for idea: {}\nSuccess signal: <promise>COMPLETE</promise>", idea),
+            "Implement" => format!(
+                "MOCK IMPLEMENTATION for idea: {}\nSuccess signal: <promise>COMPLETE</promise>",
+                idea
+            ),
             _ => "MOCK CONTENT".to_string(),
         };
         fs::write(output_file, mock_content)?;
@@ -101,7 +127,7 @@ fn run_phase(_id: &str, phase: &str, idea: &str, working_dir: &Path, is_test: bo
         "Research" => format!(
             "RESEARCH DIRECTIVE: Research the codebase for the following idea: '{}'. \
              Analyze existing patterns, file paths, and integration points. \
-             Output a detailed research.md report.", 
+             Output a detailed research.md report.",
             idea
         ),
         "Plan" => {
@@ -112,17 +138,18 @@ fn run_phase(_id: &str, phase: &str, idea: &str, working_dir: &Path, is_test: bo
                  [RESEARCH]\n@{}\n\nOutput a detailed plan.md report.", 
                 idea, research_path.display()
             )
-        },
+        }
         "Implement" => {
             let plan_path = working_dir.join("plan.md");
             format!(
                 "IMPLEMENTATION DIRECTIVE: You are an autonomous agent. \
                  Execute the following implementation plan for the idea: '{}'. \
                  Modify the files directly on the filesystem and run standard checks. \
-                 \n\n[PLAN]\n@{}", 
-                idea, plan_path.display()
+                 \n\n[PLAN]\n@{}",
+                idea,
+                plan_path.display()
             )
-        },
+        }
         _ => unreachable!(),
     };
 
@@ -142,7 +169,7 @@ fn run_phase(_id: &str, phase: &str, idea: &str, working_dir: &Path, is_test: bo
 
 fn inject_supervisor(_working_dir: &Path) -> anyhow::Result<()> {
     println!("  >> Injecting Supervisor Guardrails...");
-    
+
     let gemini_dir = Path::new(".gemini");
     let hooks_dir = gemini_dir.join("hooks");
     fs::create_dir_all(&hooks_dir)?;
@@ -166,7 +193,7 @@ fn inject_supervisor(_working_dir: &Path) -> anyhow::Result<()> {
 
     fs::write(
         gemini_dir.join("settings.json"),
-        serde_json::to_string_pretty(&settings)?
+        serde_json::to_string_pretty(&settings)?,
     )?;
 
     let hook_script = r#"#!/usr/bin/env bash
@@ -198,7 +225,7 @@ echo '{"decision": "allow"}'
 
     let hook_path = hooks_dir.join("supervisor.sh");
     fs::write(&hook_path, hook_script)?;
-    
+
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;

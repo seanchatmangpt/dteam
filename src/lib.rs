@@ -385,7 +385,7 @@ pub mod dteam {
 
         #[derive(Debug)]
         pub enum EngineResult {
-            Success(PetriNet, ExecutionManifest),
+            Success(Box<PetriNet>, ExecutionManifest),
             PartitionRequired { required: usize, configured: usize },
         }
 
@@ -425,7 +425,7 @@ pub mod dteam {
                     latency_ns: execution_time_ns,
                 };
 
-                EngineResult::Success(net, manifest)
+                EngineResult::Success(Box::new(net), manifest)
             }
 
             pub fn run_batch(&self, logs: &[EventLog]) -> Vec<EngineResult> {

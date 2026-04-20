@@ -94,6 +94,7 @@ pub fn train_with_provenance_projected(
                 });
         }
     }
+    model.compile_incidence();
     (model, trajectory)
 }
 
