@@ -325,14 +325,20 @@ impl PetriNet {
         score
     }
 
-    /// Computes the MDL score of the model as: transitions + (arcs * log2(transitions))
+    /// Computes the MDL score of the model as: transitions + (arcs * log2(vocabulary_size))
+    /// AC 3.1: Ontology size |O*| is treated as the theoretical upper bound for |T|.
     pub fn mdl_score(&self) -> f64 {
+        self.mdl_score_with_ontology(None)
+    }
+
+    pub fn mdl_score_with_ontology(&self, ontology_size: Option<usize>) -> f64 {
         let t = self.transitions.len() as f64;
         let a = self.arcs.len() as f64;
         if t == 0.0 {
             return 0.0;
         }
-        t + (a * t.log2())
+        let vocabulary_size = ontology_size.map(|s| s as f64).unwrap_or(t);
+        t + (a * vocabulary_size.log2())
     }
 
     pub fn explain(&self) -> String {

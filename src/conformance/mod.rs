@@ -24,11 +24,18 @@ pub struct ConformanceResult {
 pub struct ProjectedLog {
     pub activities: Vec<String>,
     pub traces: Vec<(Vec<usize>, u64)>, // (activity indices, frequency)
+    pub violation_count: usize,
 }
 
-impl From<&EventLog> for ProjectedLog {
-    fn from(log: &EventLog) -> Self {
+impl ProjectedLog {
+    pub fn generate(log: &EventLog) -> Self {
+        Self::generate_with_ontology(log, None)
+    }
+
+    pub fn generate_with_ontology(log: &EventLog, ontology: Option<&crate::models::Ontology>) -> Self {
         let mut unique_activities = std::collections::HashSet::new();
+        let mut violation_count = 0;
+
         for trace in &log.traces {
             for event in &trace.events {
                 let activity = event
@@ -43,6 +50,13 @@ impl From<&EventLog> for ProjectedLog {
                         }
                     })
                     .unwrap_or("No Activity");
+
+                if let Some(ont) = ontology {
+                    if !ont.contains(activity) {
+                        violation_count += 1;
+                        continue; // Prune out-of-ontology events (AC 1.2 option b)
+                    }
+                }
                 unique_activities.insert(activity.to_string());
             }
         }
@@ -70,8 +84,18 @@ impl From<&EventLog> for ProjectedLog {
                     })
                     .unwrap_or("No Activity");
 
-                trace_acts.push(activity_index.dense_id_by_symbol(activity).unwrap() as usize);
+                if let Some(ont) = ontology {
+                    if !ont.contains(activity) {
+                        continue;
+                    }
+                }
+
+                if let Some(idx) = activity_index.dense_id_by_symbol(activity) {
+                    trace_acts.push(idx as usize);
+                }
             }
+
+            if trace_acts.is_empty() { continue; }
 
             let mut hasher = rustc_hash::FxHasher::default();
             trace_acts.hash(&mut hasher);
@@ -86,7 +110,14 @@ impl From<&EventLog> for ProjectedLog {
         Self {
             activities,
             traces: traces_map.iter().map(|(_, k, v)| (k.clone(), *v)).collect(),
+            violation_count,
         }
+    }
+}
+
+impl From<&EventLog> for ProjectedLog {
+    fn from(log: &EventLog) -> Self {
+        Self::generate(log)
     }
 }
 

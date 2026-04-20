@@ -186,6 +186,51 @@ pub struct KBitSet<const WORDS: usize> {
     pub words: [u64; WORDS],
 }
 
+impl<const WORDS: usize> Serialize for KBitSet<WORDS> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeTuple;
+        let mut tup = serializer.serialize_tuple(WORDS)?;
+        for w in &self.words {
+            tup.serialize_element(w)?;
+        }
+        tup.end()
+    }
+}
+
+impl<'de, const WORDS: usize> Deserialize<'de> for KBitSet<WORDS> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct KBitSetVisitor<const W: usize>;
+
+        impl<'de, const W: usize> serde::de::Visitor<'de> for KBitSetVisitor<W> {
+            type Value = [u64; W];
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("a bitset array")
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: serde::de::SeqAccess<'de>,
+            {
+                let mut words = [0u64; W];
+                for (i, word) in words.iter_mut().enumerate() {
+                    *word = seq.next_element()?.ok_or_else(|| serde::de::Error::invalid_length(i, &self))?;
+                }
+                Ok(words)
+            }
+        }
+
+        let words = deserializer.deserialize_tuple(WORDS, KBitSetVisitor::<WORDS>)?;
+        Ok(KBitSet { words })
+    }
+}
+
 impl<const WORDS: usize> Default for KBitSet<WORDS> {
     #[inline]
     fn default() -> Self {

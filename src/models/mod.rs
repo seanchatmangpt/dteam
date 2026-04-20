@@ -2,6 +2,7 @@ pub mod petri_net;
 /// Data structures derived from `rust4pm` (MIT/Apache-2.0).
 /// See ATTRIBUTION.md for details.
 use serde::{Deserialize, Serialize};
+use crate::utils::dense_kernel::{KBitSet, DenseIndex, NodeKind};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "type", content = "content")]
@@ -36,6 +37,41 @@ pub struct Trace {
 pub struct EventLog {
     pub traces: Vec<Trace>,
     pub attributes: Attributes,
+}
+
+/// A formal ontology defining authorized activities for discovery.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Ontology {
+    pub bitset: KBitSet<16>, // K1024 capacity for universal alignment
+    pub index: DenseIndex,
+}
+
+impl Ontology {
+    pub fn new(activities: Vec<String>) -> Self {
+        let mut symbols = Vec::with_capacity(activities.len());
+        for act in activities {
+            symbols.push((act, NodeKind::Transition));
+        }
+        let index = DenseIndex::compile(symbols).expect("Failed to compile ontology index");
+        let mut bitset = KBitSet::<16>::zero();
+        for i in 0..index.len() {
+            bitset.set(i).unwrap();
+        }
+        Self { bitset, index }
+    }
+
+    pub fn contains(&self, activity: &str) -> bool {
+        self.index.dense_id(activity).map_or(false, |id| self.bitset.contains(id as usize))
+    }
+
+    pub fn hash(&self) -> u64 {
+        let mut h = 0xcbf29ce484222325u64;
+        for w in &self.bitset.words {
+            h ^= *w;
+            h = h.wrapping_mul(0x100000001b3);
+        }
+        h
+    }
 }
 
 impl Event {
