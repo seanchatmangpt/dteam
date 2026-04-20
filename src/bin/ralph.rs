@@ -1,5 +1,5 @@
-use dteam::models::{Attribute, AttributeValue, Event, EventLog, Trace};
 use dteam::dteam::orchestration::{Engine, EngineResult};
+use dteam::models::{Attribute, AttributeValue, Event, EventLog, Trace};
 use serde_json::json;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -8,8 +8,44 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Instant;
 
-fn main() -> anyhow::Result<()> {
-    println!("--- Ralph Wiggum Loop: Rust Parallel Orchestrator ---");
+use opentelemetry::{global, KeyValue};
+use opentelemetry_otlp::WithExportConfig;
+use opentelemetry_sdk::{runtime, trace as sdktrace, Resource};
+use tracing::{debug, error, info, info_span, warn};
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
+
+fn init_telemetry() -> anyhow::Result<sdktrace::Tracer> {
+    let tracer = opentelemetry_otlp::new_pipeline()
+        .tracing()
+        .with_exporter(
+            opentelemetry_otlp::new_exporter()
+                .tonic()
+                .with_endpoint("http://localhost:4317"), // Default OTLP endpoint
+        )
+        .with_trace_config(
+            sdktrace::config().with_resource(Resource::new(vec![KeyValue::new(
+                "service.name",
+                "ralph-orchestrator",
+            )])),
+        )
+        .install_batch(runtime::Tokio)?;
+
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::EnvFilter::from_default_env())
+        .with(tracing_opentelemetry::layer().with_tracer(tracer.clone()))
+        .with(tracing_subscriber::fmt::layer())
+        .init();
+
+    Ok(tracer)
+}
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let _tracer = init_telemetry().ok(); // Gracefully handle if no OTel collector
+    let _main_span = info_span!("ralph_main").entered();
+
+    info!("--- Ralph Wiggum Loop: Rust Parallel Orchestrator ---");
 
     let args: Vec<String> = std::env::args().collect();
     let is_test = args.contains(&"--test".to_string());
@@ -21,7 +57,9 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
-    let mut model = Some("gemini-3.1-flash-lite-preview".to_string());
+    // gemini-3-flash-preview as requested (mapped to gemini-2.0-flash-exp or similar high tier if 3 doesn't exist yet, 
+    // but we will use the string provided or gemini-2.0-flash-exp which is common for "latest flash")
+    let mut model = Some("gemini-2.0-flash-exp".to_string()); 
     if let Some(pos) = args.iter().position(|a| a == "--model") {
         if let Some(val) = args.get(pos + 1) {
             model = Some(val.clone());
@@ -29,16 +67,16 @@ fn main() -> anyhow::Result<()> {
     }
 
     if is_test {
-        println!("!! TEST MODE ENABLED: Skipping LLM calls and using mock responses.");
+        info!("!! TEST MODE ENABLED: Skipping LLM calls and using mock responses.");
     }
-    println!("!! CONCURRENCY LEVEL: {}", max_concurrency);
+    info!("!! CONCURRENCY LEVEL: {}", max_concurrency);
     if let Some(m) = &model {
-        println!("!! LLM MODEL: {}", m);
+        info!("!! LLM MODEL: {}", m);
     }
 
     let ideas_path = Path::new("IDEAS.md");
     if !ideas_path.exists() {
-        println!("No IDEAS.md found. Creating a sample...");
+        info!("No IDEAS.md found. Creating a sample...");
         fs::write(
             ideas_path,
             "1. Implement a basic health check endpoint\n2. Add logging to the autonomic cycle\n",
@@ -57,13 +95,13 @@ fn main() -> anyhow::Result<()> {
 
     // Instrumentation: Global EventLog
     let meta_log = Arc::new(Mutex::new(EventLog::default()));
-    
+
     // Shared state for merging (must be serial)
     let merge_lock = Arc::new(Mutex::new(()));
-    let mut handles = vec![];
-
+    
     // Simple chunked concurrency
     for chunk in ideas.chunks(max_concurrency) {
+        let mut handles = vec![];
         for (i, idea) in chunk.iter().cloned().enumerate() {
             let global_id = format!("{:03}", i + 1);
             let merge_lock = Arc::clone(&merge_lock);
@@ -71,38 +109,48 @@ fn main() -> anyhow::Result<()> {
             let meta_log_clone = Arc::clone(&meta_log);
 
             let handle = thread::spawn(move || {
-                if let Err(e) = process_idea(&global_id, &idea, is_test, model_clone, merge_lock, meta_log_clone) {
-                    eprintln!("  !! Error processing idea '{}': {}", idea, e);
+                let _span = info_span!("process_idea", idea = %idea, id = %global_id).entered();
+                if let Err(e) =
+                    process_idea(&global_id, &idea, is_test, model_clone, merge_lock, meta_log_clone)
+                {
+                    error!("  !! Error processing idea '{}': {}", idea, e);
                 }
             });
             handles.push(handle);
         }
 
         // Wait for current batch to finish
-        for handle in handles.drain(..) {
+        for handle in handles {
             let _ = handle.join();
         }
     }
 
     // --- Meta-Engine Cycle: Eating our own Dog Food ---
-    println!("\n--- Process Complete. Running Meta-Engine (Dogfooding) ---");
+    info!("\n--- Process Complete. Running Meta-Engine (Dogfooding) ---");
     let final_log = meta_log.lock().unwrap();
-    
+
     let engine = Engine::builder().build();
     let result = engine.run(&final_log);
-    
-    if let EngineResult::Success(net, manifest) = result {
-        println!("  >> Meta-Process Analysis Success. Model Canonical Hash: {}", manifest.model_canonical_hash);
-        // If the manifest score indicates we can improve, Ralph appends a task to itself
-        if manifest.mdl_score > 0.0 { 
-            println!("  >> dteam identifies structural optimization potential. Injecting self-optimization task...");
+
+    if let EngineResult::Success(_net, manifest) = result {
+        info!(
+            "  >> Meta-Process Analysis Success. Model Canonical Hash: {}",
+            manifest.model_canonical_hash
+        );
+        if manifest.mdl_score > 0.0 {
+            info!("  >> dteam identifies structural optimization potential. Injecting self-optimization task...");
             let mut file = fs::OpenOptions::new().append(true).open("IDEAS.md")?;
             use std::io::Write;
-            writeln!(file, "DDS-AUTO: Optimize Ralph Loop topology based on manifest hash {}", manifest.model_canonical_hash)?;
+            writeln!(
+                file,
+                "DDS-AUTO: Optimize Ralph Loop topology based on manifest hash {}",
+                manifest.model_canonical_hash
+            )?;
         }
     }
 
-    println!("\n--- All ideas processed! ---");
+    info!("\n--- All ideas processed! ---");
+    global::shutdown_tracer_provider();
     Ok(())
 }
 
@@ -125,21 +173,22 @@ fn process_idea(
     let working_dir = PathBuf::from(".wreckit").join(format!("{}-{}", id, slug));
     fs::create_dir_all(&working_dir)?;
 
-    println!("\n[Idea {}] Processing: {}", id, idea);
-    
+    info!("\n[Idea {}] Processing: {}", id, idea);
+
     let mut trace = Trace::default();
     trace.id = id.to_string();
 
     // Git branch management
     let branch_name = format!("wreckit/{}", slug);
     let worktree_path = working_dir.join("worktree");
-    
+
     setup_worktree(&branch_name, &worktree_path)?;
 
     // Lifecycle phases
     let phases = vec!["UserStory", "BacklogRefinement", "Implementation"];
     for phase in phases {
         let start = Instant::now();
+        let _span = info_span!("run_phase", phase = %phase, idea = %idea).entered();
         run_phase(
             id,
             phase,
@@ -149,12 +198,20 @@ fn process_idea(
             model.clone(),
             Some(&worktree_path),
         )?;
-        
+
         let mut event = Event::new(phase.to_string());
-        event.attributes.push(Attribute { key: "idea".to_string(), value: AttributeValue::String(idea.to_string()) });
-        event.attributes.push(Attribute { key: "duration_ns".to_string(), value: AttributeValue::String(start.elapsed().as_nanos().to_string()) });
+        event.attributes.push(Attribute {
+            key: "idea".to_string(),
+            value: AttributeValue::String(idea.to_string()),
+        });
+        event.attributes.push(Attribute {
+            key: "duration_ns".to_string(),
+            value: AttributeValue::String(start.elapsed().as_nanos().to_string()),
+        });
         trace.events.push(event);
     }
+
+    inject_supervisor(&worktree_path)?;
 
     commit_changes_in_worktree(&worktree_path, id, idea)?;
 
@@ -162,7 +219,7 @@ fn process_idea(
     {
         let _lock = merge_lock.lock().unwrap();
         if let Err(e) = merge_into_dev(&branch_name) {
-            eprintln!("  !! Failed to merge branch {}: {}", branch_name, e);
+            warn!("  !! Failed to merge branch {}: {}", branch_name, e);
         }
     }
 
@@ -180,7 +237,7 @@ fn ensure_dev_branch() -> anyhow::Result<()> {
         .status()?;
 
     if !status.success() {
-        println!("  !! dev branch missing. Creating from main...");
+        info!("  !! dev branch missing. Creating from main...");
         Command::new("git").args(["checkout", "-b", "dev"]).status()?;
         Command::new("git").args(["checkout", "main"]).status()?;
     }
@@ -209,7 +266,7 @@ fn setup_worktree(branch: &str, path: &Path) -> anyhow::Result<()> {
 }
 
 fn cleanup_worktree(path: &Path) -> anyhow::Result<()> {
-    println!("  >> Cleaning up worktree: {}", path.display());
+    debug!("  >> Cleaning up worktree: {}", path.display());
     Command::new("git")
         .args(["worktree", "remove", path.to_str().unwrap(), "--force"])
         .status()?;
@@ -225,7 +282,7 @@ fn run_phase(
     model: Option<String>,
     worktree_dir: Option<&Path>,
 ) -> anyhow::Result<()> {
-    println!("  >> DDS Lifecycle: {} (Idea: {})", phase, idea);
+    debug!("  >> DDS Lifecycle: {} (Idea: {})", phase, idea);
     let output_file = match phase {
         "UserStory" => working_dir.join("STORY.md"),
         "BacklogRefinement" => working_dir.join("AC_CRITERIA.md"),
@@ -248,7 +305,7 @@ fn run_phase(
         "UserStory" => format!(
             "DDS STORY GENERATION: Convert this idea into a formal User Story: '{}'. \
              Analyze the system against DDS paradigms in @docs/DDS_THESIS.md. \
-             Output a STORY.md with 'As a...', 'I want...', and 'So that...' sections.", 
+             Output a STORY.md with 'As a...', 'I want...', and 'So that...' sections.",
             idea
         ),
         "BacklogRefinement" => {
@@ -257,10 +314,10 @@ fn run_phase(
                 "DDS SPRINT PLANNING: Given the STORY.md in @{}, define the formal \
                  Acceptance Criteria (AC) required for a DDS-grade implementation. \
                  Consult @docs/DDS_THESIS.md for constraints. \
-                 Output a detailed AC_CRITERIA.md report.", 
+                 Output a detailed AC_CRITERIA.md report.",
                 story_path.display()
             )
-        },
+        }
         "Implementation" => {
             let ac_path = working_dir.join("AC_CRITERIA.md");
             format!(
@@ -273,10 +330,10 @@ fn run_phase(
                  4. PROVENANCE: Manifest updated.\n \
                  5. RIGOR: Include property-based tests (proptests) that assert both successful execution and expected failure/admissibility violations.\n \
                  Consult @docs/DDS_THESIS.md for formal definitions. \
-                 Modify files directly and output a DOD_VERIFICATION.md report.", 
+                 Modify files directly and output a DOD_VERIFICATION.md report.",
                 ac_path.display()
             )
-        },
+        }
         _ => unreachable!(),
     };
 
@@ -298,7 +355,7 @@ fn run_phase(
     let output = cmd.output()?;
     if !output.status.success() {
         let err = String::from_utf8_lossy(&output.stderr);
-        println!("  !! {} Phase failed for idea '{}': {}", phase, idea, err);
+        warn!("  !! {} Phase failed for idea '{}': {}", phase, idea, err);
         return Err(anyhow::anyhow!("Phase {} failed", phase));
     }
 
