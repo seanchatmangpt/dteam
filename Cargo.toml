@@ -113,3 +113,7 @@ harness = false
 [[bench]]
 name = "vision_2030_bench"
 harness = false
+
+[[bench]]
+name = "scc_bench"
+harness = false
