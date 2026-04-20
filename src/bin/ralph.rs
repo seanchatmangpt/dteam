@@ -2,15 +2,35 @@ use serde_json::json;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::{Arc, Mutex};
+use std::thread;
 
 fn main() -> anyhow::Result<()> {
-    println!("--- Ralph Wiggum Loop: Rust Orchestrator ---");
+    println!("--- Ralph Wiggum Loop: Rust Parallel Orchestrator ---");
 
     let args: Vec<String> = std::env::args().collect();
     let is_test = args.contains(&"--test".to_string());
 
+    let mut max_concurrency = 1;
+    if let Some(pos) = args.iter().position(|a| a == "--concurrency") {
+        if let Some(val) = args.get(pos + 1) {
+            max_concurrency = val.parse::<usize>().unwrap_or(1);
+        }
+    }
+
+    let mut model = Some("gemini-3.1-flash-lite-preview".to_string());
+    if let Some(pos) = args.iter().position(|a| a == "--model") {
+        if let Some(val) = args.get(pos + 1) {
+            model = Some(val.clone());
+        }
+    }
+
     if is_test {
         println!("!! TEST MODE ENABLED: Skipping LLM calls and using mock responses.");
+    }
+    println!("!! CONCURRENCY LEVEL: {}", max_concurrency);
+    if let Some(m) = &model {
+        println!("!! LLM MODEL: {}", m);
     }
 
     let ideas_path = Path::new("IDEAS.md");
@@ -23,79 +43,121 @@ fn main() -> anyhow::Result<()> {
     }
 
     let content = fs::read_to_string(ideas_path)?;
-    let ideas: Vec<&str> = content.lines().filter(|l| !l.trim().is_empty()).collect();
+    let ideas: Vec<String> = content
+        .lines()
+        .filter(|l| !l.trim().is_empty())
+        .map(|s| s.to_string())
+        .collect();
 
     // Ensure dev branch exists
     ensure_dev_branch()?;
 
-    for (i, idea) in ideas.iter().enumerate() {
-        let id = format!("{:03}", i + 1);
-        let slug = idea
-            .to_lowercase()
-            .replace(|c: char| !c.is_alphanumeric(), "-")
-            .split('-')
-            .filter(|s| !s.is_empty())
-            .collect::<Vec<_>>()
-            .join("-");
+    // Shared state for merging (must be serial)
+    let merge_lock = Arc::new(Mutex::new(()));
+    let mut handles = vec![];
 
-        let working_dir = PathBuf::from(".wreckit").join(format!("{}-{}", id, slug));
-        fs::create_dir_all(&working_dir)?;
+    // Simple chunked concurrency
+    for chunk in ideas.chunks(max_concurrency) {
+        for (i, idea) in chunk.iter().cloned().enumerate() {
+            let id = format!("{:03}", i + 1); // Per-chunk ID
+            let merge_lock = Arc::clone(&merge_lock);
+            let model_clone = model.clone();
 
-        println!("\n[Idea {}] Processing: {}", id, idea);
+            let handle = thread::spawn(move || {
+                if let Err(e) = process_idea(&id, &idea, is_test, model_clone, merge_lock) {
+                    eprintln!("  !! Error processing idea '{}': {}", idea, e);
+                }
+            });
+            handles.push(handle);
+        }
 
-        // Git branch management
-        let branch_name = format!("wreckit/{}", slug);
-        let worktree_path = working_dir.join("worktree");
-        println!("  >> Branch: {}", branch_name);
-        println!("  >> Worktree: {}", worktree_path.display());
-
-        // 1. Setup Branch and Worktree
-        setup_worktree(&branch_name, &worktree_path)?;
-
-        // 2. Research (Run inside worktree)
-        run_phase(
-            &id,
-            "Research",
-            idea,
-            &working_dir,
-            is_test,
-            Some(&worktree_path),
-        )?;
-
-        // 3. Plan (Run inside worktree)
-        run_phase(
-            &id,
-            "Plan",
-            idea,
-            &working_dir,
-            is_test,
-            Some(&worktree_path),
-        )?;
-
-        // 4. Inject Supervisor Hook (In the worktree)
-        inject_supervisor(&worktree_path)?;
-
-        // 5. Implement (Run inside worktree)
-        run_phase(
-            &id,
-            "Implement",
-            idea,
-            &working_dir,
-            is_test,
-            Some(&worktree_path),
-        )?;
-
-        // 6. Commit inside worktree
-        commit_changes_in_worktree(&worktree_path, &id, idea)?;
-
-        // 7. Merge into dev
-        merge_into_dev(&branch_name)?;
-
-        // 8. Cleanup Worktree
-        cleanup_worktree(&worktree_path)?;
+        // Wait for current batch to finish to keep concurrency at max_concurrency
+        for handle in handles.drain(..) {
+            let _ = handle.join();
+        }
     }
 
     println!("\n--- All ideas processed! ---");
+    Ok(())
+}
+
+fn process_idea(
+    id: &str,
+    idea: &str,
+    is_test: bool,
+    model: Option<String>,
+    merge_lock: Arc<Mutex<()>>,
+) -> anyhow::Result<()> {
+    let slug = idea
+        .to_lowercase()
+        .replace(|c: char| !c.is_alphanumeric(), "-")
+        .split('-')
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>()
+        .join("-");
+
+    let working_dir = PathBuf::from(".wreckit").join(format!("{}-{}", id, slug));
+    fs::create_dir_all(&working_dir)?;
+
+    println!("\n[Idea {}] Processing: {}", id, idea);
+
+    // Git branch management
+    let branch_name = format!("wreckit/{}", slug);
+    let worktree_path = working_dir.join("worktree");
+    println!("  >> Branch: {}", branch_name);
+    println!("  >> Worktree: {}", worktree_path.display());
+
+    // 1. Setup Branch and Worktree
+    setup_worktree(&branch_name, &worktree_path)?;
+
+    // 2. STORY GENERATION (Atlassian)
+    run_phase(
+        id,
+        "UserStory",
+        idea,
+        &working_dir,
+        is_test,
+        model.clone(),
+        Some(&worktree_path),
+    )?;
+
+    // 3. SPRINT PLANNING (Atlassian)
+    run_phase(
+        id,
+        "BacklogRefinement",
+        idea,
+        &working_dir,
+        is_test,
+        model.clone(),
+        Some(&worktree_path),
+    )?;
+
+    // 4. Inject Supervisor Hook (In the worktree)
+    inject_supervisor(&worktree_path)?;
+
+    // 5. DEVELOPMENT & DOD (Atlassian)
+    run_phase(
+        id,
+        "Implementation",
+        idea,
+        &working_dir,
+        is_test,
+        model,
+        Some(&worktree_path),
+    )?;
+
+    // 6. Commit inside worktree
+    commit_changes_in_worktree(&worktree_path, id, idea)?;
+
+    // 7. Merge into dev (SERIALIZED)
+    {
+        let _lock = merge_lock.lock().unwrap();
+        merge_into_dev(&branch_name)?;
+    }
+
+    // 8. Cleanup Worktree
+    cleanup_worktree(&worktree_path)?;
+
     Ok(())
 }
 
@@ -140,7 +202,7 @@ fn setup_worktree(branch: &str, path: &Path) -> anyhow::Result<()> {
 }
 
 fn cleanup_worktree(path: &Path) -> anyhow::Result<()> {
-    println!("  >> Cleaning up worktree...");
+    println!("  >> Cleaning up worktree: {}", path.display());
     Command::new("git")
         .args(["worktree", "remove", path.to_str().unwrap(), "--force"])
         .status()?;
@@ -153,22 +215,30 @@ fn run_phase(
     idea: &str,
     working_dir: &Path,
     is_test: bool,
+    model: Option<String>,
     worktree_dir: Option<&Path>,
 ) -> anyhow::Result<()> {
-    println!("  >> Phase: {}", phase);
-    let output_file = working_dir.join(format!("{}.md", phase.to_lowercase()));
+    println!("  >> DDS Lifecycle: {} (Idea: {})", phase, idea);
+    let output_file = match phase {
+        "UserStory" => working_dir.join("STORY.md"),
+        "BacklogRefinement" => working_dir.join("AC_CRITERIA.md"),
+        "Implementation" => working_dir.join("DOD_VERIFICATION.md"),
+        _ => working_dir.join(format!("{}.md", phase.to_lowercase())),
+    };
 
     if is_test {
         let mock_content = match phase {
-            "Research" => format!(
-                "MOCK RESEARCH for idea: {}\nPatterns: bitset, branchless\nFiles: src/lib.rs",
+            "UserStory" => format!(
+                "AS A: Process Architect\nI WANT: {}\nSO THAT: DDS paradigms are satisfied.",
                 idea
             ),
-            "Plan" => format!("MOCK PLAN for idea: {}\n1. Step A\n2. Step B", idea),
-            "Implement" => format!(
-                "MOCK IMPLEMENTATION for idea: {}\nSuccess signal: <promise>COMPLETE</promise>",
-                idea
-            ),
+            "BacklogRefinement" => {
+                "ACCEPTANCE CRITERIA:\n1. Zero-heap verified\n2. Branchless logic confirmed."
+                    .to_string()
+            }
+            "Implementation" => {
+                "DEFINITION OF DONE:\n- [x] Code compiled\n- [x] MDL Score verified.".to_string()
+            }
             _ => "MOCK CONTENT".to_string(),
         };
         fs::write(output_file, mock_content)?;
@@ -176,39 +246,48 @@ fn run_phase(
     }
 
     let prompt = match phase {
-        "Research" => format!(
-            "RESEARCH DIRECTIVE: Research the codebase for the following idea: '{}'. \
-             Analyze existing patterns, file paths, and integration points. \
-             Output a detailed research.md report.",
+        "UserStory" => format!(
+            "DDS STORY GENERATION: Convert this idea into a formal User Story: '{}'. \
+             Analyze the system against DDS paradigms in @docs/DDS_THESIS.md. \
+             Output a STORY.md with 'As a...', 'I want...', and 'So that...' sections.", 
             idea
         ),
-        "Plan" => {
-            let research_path = working_dir.join("research.md");
+        "BacklogRefinement" => {
+            let story_path = working_dir.join("STORY.md");
             format!(
-                "PLANNING DIRECTIVE: Given the following idea: '{}' and the research findings below, \
-                 write a detailed implementation plan. \
-                 [RESEARCH]\n@{}\n\nOutput a detailed plan.md report.", 
-                idea, research_path.display()
+                "DDS SPRINT PLANNING: Given the STORY.md in @{}, define the formal \
+                 Acceptance Criteria (AC) required for a DDS-grade implementation. \
+                 Consult @docs/DDS_THESIS.md for constraints. \
+                 Output a detailed AC_CRITERIA.md report.", 
+                story_path.display()
             )
-        }
-        "Implement" => {
-            let plan_path = working_dir.join("plan.md");
+        },
+        "Implementation" => {
+            let ac_path = working_dir.join("AC_CRITERIA.md");
             format!(
-                "IMPLEMENTATION DIRECTIVE: You are an autonomous agent. \
-                 Execute the following implementation plan for the idea: '{}'. \
-                 Modify the files directly on the filesystem and run standard checks. \
-                 \n\n[PLAN]\n@{}",
-                idea,
-                plan_path.display()
+                "DDS DEVELOPMENT PHASE: You are a DDS Synthesis Agent. \
+                 Implement the solution such that it meets all Acceptance Criteria in @{}. \
+                 You MUST satisfy the following Definition of Done (DoD):\n \
+                 1. ADMISSIBILITY: No unreachable states or unsafe panics.\n \
+                 2. MINIMALITY: Satisfy MDL Φ(N) formula.\n \
+                 3. PERFORMANCE: Zero-heap, branchless hot-path.\n \
+                 4. PROVENANCE: Manifest updated.\n \
+                 Consult @docs/DDS_THESIS.md for formal definitions. \
+                 Modify files directly and output a DOD_VERIFICATION.md report.", 
+                ac_path.display()
             )
-        }
+        },
         _ => unreachable!(),
     };
 
     let mut cmd = Command::new("gemini");
     cmd.arg("-p").arg(prompt);
 
-    if phase == "Implement" {
+    if let Some(m) = model {
+        cmd.arg("-m").arg(m);
+    }
+
+    if phase == "Implementation" {
         cmd.arg("--yolo");
     }
 
@@ -219,7 +298,7 @@ fn run_phase(
     let output = cmd.output()?;
     if !output.status.success() {
         let err = String::from_utf8_lossy(&output.stderr);
-        println!("  !! {} Phase failed: {}", phase, err);
+        println!("  !! {} Phase failed for idea '{}': {}", phase, idea, err);
         return Err(anyhow::anyhow!("Phase {} failed", phase));
     }
 
@@ -228,8 +307,6 @@ fn run_phase(
 }
 
 fn inject_supervisor(working_dir: &Path) -> anyhow::Result<()> {
-    println!("  >> Injecting Supervisor Guardrails...");
-
     let gemini_dir = working_dir.join(".gemini");
     let hooks_dir = gemini_dir.join("hooks");
     fs::create_dir_all(&hooks_dir)?;
@@ -261,18 +338,14 @@ input=$(cat)
 tool_name=$(echo "$input" | jq -r '.tool_name')
 tool_input=$(echo "$input" | jq -r '.tool_input')
 
-# 1. Secret Scanner
 if [[ "$tool_input" == *"AKIA"* || "$tool_input" == *"sk-ant"* || "$tool_input" == *"AIza"* ]]; then
     echo '{"decision": "deny", "reason": "SECURITY ALERT: Potential API Key detected in payload."}'
     exit 0
 fi
 
-# 2. Syntax Validation for Rust (Experimental)
 if [[ "$tool_name" == "write_file" || "$tool_name" == "replace" ]]; then
     file_path=$(echo "$tool_input" | jq -r '.file_path')
     if [[ "$file_path" == *.rs ]]; then
-        # We can't easily perform a dry-run here without applying the tool logic manually.
-        # For now, we block writes to sensitive files or known-bad patterns.
         if [[ "$file_path" == *"lib.rs"* && "$tool_input" == *"syntax error"* ]]; then
              echo '{"decision": "deny", "reason": "SYNTAX VALIDATION: Prevented writing deliberate syntax error."}'
              exit 0
@@ -298,7 +371,6 @@ echo '{"decision": "allow"}'
 }
 
 fn commit_changes_in_worktree(path: &Path, id: &str, idea: &str) -> anyhow::Result<()> {
-    println!("  >> Committing changes in worktree...");
     Command::new("git")
         .arg("-C")
         .arg(path)
