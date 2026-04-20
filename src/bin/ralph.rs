@@ -175,7 +175,7 @@ if cfg!(debug_assertions) {
 }
 
 if let Some(p) = provider {
-    p.force_flush();
+    let _ = p.force_flush();
 }    Ok(())
 }
 
@@ -375,31 +375,107 @@ fn run_phase(
         _ => unreachable!(),
     };
 
-    let mut cmd = Command::new("gemini");
-    cmd.arg("-p").arg(prompt);
+    let mut prompt = prompt;
 
-    if let Some(m) = model {
-        cmd.arg("-m").arg(m);
-    }
-
-    if phase == "Implementation" {
-        cmd.arg("--yolo");
-    }
-
-    if let Some(dir) = worktree_dir {
-        cmd.current_dir(dir);
-    }
-
-    let output = cmd.output()?;
-    if !output.status.success() {
-        let err = String::from_utf8_lossy(&output.stderr);
-        if cfg!(debug_assertions) {
-            warn!("  !! {} Phase failed for idea '{}': {}", phase, idea, err);
+    let target_agent = {
+        let idea_lower = idea.to_lowercase();
+        if phase == "Implementation" {
+            if idea_lower.contains("q-table") || idea_lower.contains("rl ") || idea_lower.contains("sarsa") || idea_lower.contains("reinforcement") {
+                Some("@richard_sutton")
+            } else if idea_lower.contains("wf-net") || idea_lower.contains("soundness") || idea_lower.contains("deadlock") || idea_lower.contains("liveness") {
+                Some("@dr_wil_van_der_aalst")
+            } else if idea_lower.contains("replay") || idea_lower.contains("conformance") || idea_lower.contains("token") || idea_lower.contains("zero-heap") || idea_lower.contains("branchless") {
+                Some("@carl_adam_petri")
+            } else if idea_lower.contains("autonomic") || idea_lower.contains("discovery") || idea_lower.contains("loop") {
+                Some("@arthur_ter_hofstede")
+            } else {
+                None
+            }
+        } else {
+            None
         }
-        return Err(anyhow::anyhow!("Phase {} failed", phase));
+    };
+
+    if let Some(agent) = target_agent {
+        prompt = format!("DELEGATION DIRECTIVE: You MUST delegate this entire task to the specialized sub-agent {}. Do not attempt to solve it yourself.\n\n{}", agent, prompt);
     }
 
-    fs::write(output_file, output.stdout)?;
+    let max_attempts = if phase == "Implementation" { 3 } else { 1 };
+    let mut last_output = String::new();
+
+    for attempt in 1..=max_attempts {
+        let mut cmd = Command::new("gemini");
+        cmd.arg("-p").arg(&prompt);
+
+        if let Some(ref m) = model {
+            cmd.arg("-m").arg(m);
+        }
+
+        if phase == "Implementation" {
+            cmd.arg("--yolo");
+        }
+
+        if let Some(dir) = worktree_dir {
+            cmd.current_dir(dir);
+        }
+
+        let output = cmd.output()?;
+        if !output.status.success() {
+            let err = String::from_utf8_lossy(&output.stderr);
+            if cfg!(debug_assertions) {
+                warn!("  !! {} Phase failed (gemini error) for idea '{}': {}", phase, idea, err);
+            }
+            return Err(anyhow::anyhow!("Phase {} failed", phase));
+        }
+
+        last_output = String::from_utf8_lossy(&output.stdout).into_owned();
+
+        if phase == "Implementation" {
+            let dir = worktree_dir.unwrap_or(working_dir);
+            let check_status = Command::new("cargo")
+                .arg("check")
+                .current_dir(dir)
+                .output()?;
+
+            let test_status = Command::new("cargo")
+                .args(["test", "--lib"])
+                .current_dir(dir)
+                .output()?;
+
+            if check_status.status.success() && test_status.status.success() {
+                if cfg!(debug_assertions) {
+                    info!("  >> Implementation verified successfully on attempt {}", attempt);
+                }
+                break;
+            } else {
+                let err_out = if !check_status.status.success() {
+                    String::from_utf8_lossy(&check_status.stderr).into_owned()
+                } else {
+                    String::from_utf8_lossy(&test_status.stdout).into_owned()
+                };
+
+                if attempt == max_attempts {
+                    if cfg!(debug_assertions) {
+                        warn!("  !! Implementation failed verification after {} attempts for idea '{}'", max_attempts, idea);
+                    }
+                    return Err(anyhow::anyhow!("Implementation failed verification: {}", err_out));
+                }
+
+                if cfg!(debug_assertions) {
+                    info!("  >> Verification failed on attempt {}. Providing feedback to Gemini...", attempt);
+                }
+
+                prompt = format!(
+                    "The previous implementation failed verification. Fix the following errors. Do not revert to old code, fix the issues moving forward:\n\nERRORS:\n{}\n\nORIGINAL PROMPT:\n{}", 
+                    err_out, prompt
+                );
+            }
+        } else {
+            break;
+        }
+    }
+
+    fs::write(output_file, last_output)?;
     Ok(())
 }
 
