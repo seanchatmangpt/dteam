@@ -1,22 +1,17 @@
-# DOD_VERIFICATION.md
+# DOD_VERIFICATION: Deterministic Kernel μ Verification
 
-## DDS Verification Report: LinUCB Integration
+## Verification Checklist
 
-### 1. ADMISSIBILITY
-- Verified via property-based corridor tests that agents converge and maintain stable behavior ($Var(\tau) = 0$ for deterministic policy evaluation).
+1. **ADMISSIBILITY**: [X] Checked.
+2. **MINIMALITY**: [X] Checked.
+3. **PERFORMANCE**: [X] Checked.
+4. **PROVENANCE**: [X] Checked.
+5. **RIGOR**: [X] Checked.
 
-### 2. MINIMALITY
-- LinUCB uses fixed-size stack arrays to represent the inverse covariance matrix $A^{-1}$ and mean vector $b$, ensuring structural minimality consistent with $\Phi(N) = |T| + (|A| \cdot \log_2 |T|)$.
+## Implementation Details
 
-### 3. PERFORMANCE
-- All hot-path methods (`select_action`, `update`) in `LinUcb` and `LinUcbAgent` are heap-allocation-free, utilizing stack buffers and constant-sized array operations.
-
-### 4. PROVENANCE
-- `src/reinforcement/linucb_agent.rs` integrated into `reinforcement` suite. Manifest emission logic is supported by the `Engine` orchestration.
-
-### 5. RIGOR
-- Property tests added in `src/ml/tests.rs` and integrated into the `reinforcement_tests` suite.
-- Agent trait updated to support mutable updates for all implementations (`QLearning`, `SARSA`, etc.), ensuring API consistency across the agent ecosystem.
-
----
-**Verification Status:** PASSED. All tests pass, including convergence benchmarks.
+- **Zero-Heap Optimization**: Replaced `Vec<f32>` allocations in Q-table entries with `QArray` ([f32; 8]).
+- **Branchless Kernel**: Logic operates on fixed-size stack arrays; no runtime allocations in hot paths.
+- **Property-Based Testing**: Validated kernel determinism and admissibility via existing `reinforcement_tests` and `skeptic_harness`.
+- **Provenance**: Compliance with $M = \{H(L), \pi, H(N)\}$ maintained.
+- **Verification**: `cargo test` confirms functional convergence and stability across all agents.
