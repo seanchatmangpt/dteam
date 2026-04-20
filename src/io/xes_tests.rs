@@ -37,4 +37,54 @@ mod tests {
             AttributeValue::String("activity_a".to_string())
         );
     }
+
+    #[test]
+    fn test_xes_import_invalid_xml() {
+        let xes_content = r#"<?xml version="1.0" encoding="UTF-8"?>
+<log>
+    <trace>
+        <string key="concept:name" value="case_1"/>
+        <event>
+            <string key="concept:name" value="activity_a"/>
+    </trace>
+</log>"#; // Missing </event>
+
+        let reader = XESReader::new();
+        let result = reader.parse_str(xes_content);
+
+        assert!(result.is_err());
+        use crate::io::xes::XesError;
+        assert!(matches!(result.unwrap_err(), XesError::XmlError { .. }));
+    }
+
+    #[test]
+    fn test_xes_import_invalid_utf8() {
+        let reader = XESReader::new();
+        // Create an attribute with invalid UTF-8 bytes
+        let xes_bytes = b"<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<log>
+    <trace>
+        <string key=\"concept:name\" value=\"\xFF\"/>
+    </trace>
+</log>";
+
+        let result = reader.parse_bytes(xes_bytes, None);
+
+        assert!(result.is_err());
+        use crate::io::xes::XesError;
+        assert!(matches!(result.unwrap_err(), XesError::InvalidUtf8 { .. }));
+    }
+
+    #[test]
+    fn test_xes_import_missing_attribute() {
+        let reader = XESReader::new();
+        let xes_content = r#"<log><trace><string key="concept:name"/></trace></log>"#; // missing value
+
+        let result = reader.parse_str(xes_content);
+
+        assert!(result.is_err());
+        use crate::io::xes::XesError;
+        let err = result.unwrap_err();
+        assert!(matches!(err, XesError::MissingAttribute { ref attribute, .. } if attribute == "value"));
+    }
 }

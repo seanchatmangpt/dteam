@@ -2,11 +2,62 @@
 ///
 /// Proper XML parsing implementation using quick-xml
 use crate::models::{Attribute, AttributeValue, Event, EventLog, Trace};
-use anyhow::Result;
+use quick_xml::events::attributes::AttrError;
 use quick_xml::events::Event as XmlEvent;
 use quick_xml::Reader;
+use serde::{Deserialize, Serialize};
+use std::fmt;
 use std::fs;
 use std::path::Path;
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum XesError {
+    IoError { message: String },
+    XmlError { message: String },
+    MissingAttribute { element: String, attribute: String },
+    InvalidUtf8 { element: String },
+    MalformedFormat { reason: String },
+}
+
+impl fmt::Display for XesError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            XesError::IoError { message } => write!(f, "IO error: {}", message),
+            XesError::XmlError { message } => write!(f, "XML parsing error: {}", message),
+            XesError::MissingAttribute { element, attribute } => {
+                write!(f, "Missing attribute '{}' in element '{}'", attribute, element)
+            }
+            XesError::InvalidUtf8 { element } => write!(f, "Invalid UTF-8 in element '{}'", element),
+            XesError::MalformedFormat { reason } => write!(f, "Malformed XES format: {}", reason),
+        }
+    }
+}
+
+impl std::error::Error for XesError {}
+
+impl From<std::io::Error> for XesError {
+    fn from(err: std::io::Error) -> Self {
+        XesError::IoError {
+            message: err.to_string(),
+        }
+    }
+}
+
+impl From<quick_xml::Error> for XesError {
+    fn from(err: quick_xml::Error) -> Self {
+        XesError::XmlError {
+            message: err.to_string(),
+        }
+    }
+}
+
+impl From<AttrError> for XesError {
+    fn from(err: AttrError) -> Self {
+        XesError::XmlError {
+            message: err.to_string(),
+        }
+    }
+}
 
 pub struct XESReader;
 
@@ -22,16 +73,12 @@ impl XESReader {
     }
 
     /// Parse XES XML from a string
-    pub fn parse_str(&self, content: &str) -> Result<EventLog> {
-        self.parse_content(content, None)
+    pub fn parse_str(&self, content: &str) -> Result<EventLog, XesError> {
+        self.parse_bytes(content.as_bytes(), None)
     }
 
-    pub fn read(&self, path: &Path) -> Result<EventLog> {
-        let content = fs::read_to_string(path)?;
-        self.parse_content(&content, Some(path))
-    }
-
-    fn parse_content(&self, content: &str, source_path: Option<&Path>) -> Result<EventLog> {
+    /// Parse XES XML from bytes
+    pub fn parse_bytes(&self, content: &[u8], source_path: Option<&Path>) -> Result<EventLog, XesError> {
         let mut log = EventLog::new();
         if let Some(p) = source_path {
             log.attributes.push(Attribute {
@@ -40,7 +87,7 @@ impl XESReader {
             });
         }
 
-        let mut reader = Reader::from_str(content);
+        let mut reader = Reader::from_reader(content);
         let mut current_trace: Option<Trace> = None;
         let mut trace_id: Option<String> = None;
         let mut event_activity: Option<String> = None;
@@ -66,11 +113,13 @@ impl XESReader {
                 }
                 Ok(XmlEvent::Empty(e)) => {
                     let name = e.name();
+                    let name_str = String::from_utf8_lossy(name.as_ref()).to_string();
                     if name.as_ref() == b"string" || name.as_ref() == b"date" {
                         let mut attr_key = Vec::new();
                         let mut attr_value = Vec::new();
 
-                        for attr in e.attributes().flatten() {
+                        for attr_res in e.attributes() {
+                            let attr = attr_res?;
                             let attr_key_bytes = attr.key.as_ref();
                             if attr_key_bytes == b"key" {
                                 attr_key = attr.value.to_vec();
@@ -79,8 +128,27 @@ impl XESReader {
                             }
                         }
 
-                        let key = std::str::from_utf8(&attr_key).unwrap_or("");
-                        let value = std::str::from_utf8(&attr_value).unwrap_or("");
+                        if attr_key.is_empty() {
+                            return Err(XesError::MissingAttribute {
+                                element: name_str,
+                                attribute: "key".to_string(),
+                            });
+                        }
+                        if attr_value.is_empty() {
+                            return Err(XesError::MissingAttribute {
+                                element: name_str,
+                                attribute: "value".to_string(),
+                            });
+                        }
+
+                        let key = std::str::from_utf8(&attr_key).map_err(|_| XesError::InvalidUtf8 {
+                            element: "attribute key".to_string(),
+                        })?;
+                        let value = std::str::from_utf8(&attr_value).map_err(|_| {
+                            XesError::InvalidUtf8 {
+                                element: format!("attribute value for key '{}'", key),
+                            }
+                        })?;
 
                         if key == "concept:name" {
                             if inside_event {
@@ -123,14 +191,16 @@ impl XESReader {
                     }
                 }
                 Ok(XmlEvent::Eof) => break,
-                Err(e) => {
-                    eprintln!("XML parsing error: {:?}", e);
-                    break;
-                }
+                Err(e) => return Err(e.into()),
                 _ => {}
             }
             buf.clear();
         }
         Ok(log)
+    }
+
+    pub fn read(&self, path: &Path) -> Result<EventLog, XesError> {
+        let content = fs::read(path)?;
+        self.parse_bytes(&content, Some(path))
     }
 }
