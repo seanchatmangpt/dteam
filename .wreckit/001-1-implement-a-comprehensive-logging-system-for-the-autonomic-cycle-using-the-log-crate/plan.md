@@ -1,53 +1,56 @@
-I will now research the current state of `Cargo.toml`, `src/autonomic/kernel.rs`, `src/autonomic/vision_2030_kernel.rs`, and `examples/autonomic_runner.rs` to prepare the detailed implementation plan.
-I have developed a detailed implementation plan for integrating a comprehensive logging system into the autonomic cycle of the `dteam` project. This plan focuses on replacing `println!` with structured logging using the `log` crate, ensuring high-level observability and detailed diagnostic capabilities without compromising the engine's performance.
+# Implementation Plan: Comprehensive Logging System for Autonomic Cycle
 
-# Implementation Plan: Comprehensive Logging for Autonomic Cycle
+## 1. Objective
+Integrate the `log` crate to provide a comprehensive and robust logging system across the autonomic cycle in the `dteam` project. This replaces `println!` and provides granular observability into state transitions, inference, and execution logic.
 
-## 1. Phase 1: Dependency Management
-Add the `log` crate as a primary dependency and `env_logger` as a development dependency for local testing and example execution.
+## 2. Key Files & Context
+- `Cargo.toml`: Dependency management.
+- `src/autonomic/kernel.rs`: Core trait (`AutonomicKernel`), cycle orchestration (`run_cycle`), and `DefaultKernel` implementation.
+- `src/autonomic/vision_2030_kernel.rs`: Advanced context-bandit and MCTS implementation.
+- `examples/autonomic_runner.rs`: Example runner needing logger initialization.
 
-- **Action:** Update `Cargo.toml`.
-    - Add `log = "0.4"` to `[dependencies]`.
-    - Add `env_logger = "0.11"` to `[dev-dependencies]`.
+## 3. Implementation Steps
 
-## 2. Phase 2: Core Infrastructure Instrumentation
-Update the primary `AutonomicKernel` trait and its default implementation to provide standard lifecycle visibility.
+### Step 1: Add Dependencies
+Modify `Cargo.toml` to include the required crates.
+- Add `log = "0.4"` to `[dependencies]`.
+- Add `env_logger = "0.11"` to `[dev-dependencies]` for testing and examples.
 
-- **File:** `src/autonomic/kernel.rs`
-- **Instrumentation Points:**
-    - `run_cycle`: Log the start of a cycle, state inference results, safety threshold checks (warnings if thresholds are breached), and the final count of executed actions.
-    - `DefaultKernel::observe`: Log incoming event sources and basic payload summaries.
-    - `DefaultKernel::propose`: Log the number of proposed actions and the rationale (e.g., "recommend" mode).
-    - `DefaultKernel::accept`: Log rejection reasons (e.g., Soundness Guard violation or risk threshold exceeded).
-    - `DefaultKernel::execute`: Log successful execution and latency.
-    - `DefaultKernel::adapt`: Log health updates following feedback rewards.
+### Step 2: Instrument `AutonomicKernel::run_cycle`
+Update `src/autonomic/kernel.rs` to include logging at high-level phase transitions inside `run_cycle`.
+- Add `log` imports: `use log::{info, debug, warn, error};`.
+- Wrap the entire cycle flow with logging statements:
+    - **INFO**: "Starting autonomic cycle..."
+    - **DEBUG**: Log the inferred state.
+    - **INFO**: Log the number of proposed actions.
+    - **WARN**: Log when an action is rejected.
+    - **INFO**: Log when an action is accepted and executed, along with the result.
+    - **INFO**: "Cycle complete. Manifest hash: {hash}"
 
-## 3. Phase 3: Advanced Vision 2030 Instrumentation
-Instrument the advanced `Vision 2030` kernel to provide deep insights into its multi-dimensional logic (Bandits, OCPM, POWL).
+### Step 3: Instrument Core Kernels
+Add contextual logs within specific methods of both `DefaultKernel` (`src/autonomic/kernel.rs`) and `Vision2030Kernel` (`src/autonomic/vision_2030_kernel.rs`).
+- `observe`: **DEBUG** level logs for incoming payloads, specific metrics updates (e.g., OCPM binding frequencies).
+- `infer`: **DEBUG** level logs for calculated health, throughput, and conformance metrics.
+- `propose`: **DEBUG** and **INFO** level logs describing logic for deciding on an action, highlighting MCTS/Bandit context in `Vision2030Kernel`.
+- `accept`: **INFO** and **WARN** level logs detailing why actions are accepted or rejected based on safety/soundness guards.
+- `execute`: **DEBUG** and **INFO** level logs capturing state mutation, execution latency, and conformance delta.
+- `adapt`: **DEBUG** logs representing feedback integration, reward adaptation, and health progression.
 
-- **File:** `src/autonomic/vision_2030_kernel.rs`
-- **Instrumentation Points:**
-    - **OCPM 2.0:** Log object binding anomalies and divergence triggers.
-    - **POWL/SWAR:** Log semantic violations (POWL) and token replay failures (SWAR).
-    - **Contextual Bandits:** Log the extracted context and the selected action index.
-    - **MCTS:** Log UCT scores for repair vs. optimization branches.
-    - **Execution:** Log branchless state mutation outcomes and marking migrations during repairs.
+### Step 4: Refactor Examples and Testing
+Update `examples/autonomic_runner.rs` to initialize the logging framework.
+- Import `log` macros.
+- Add `env_logger::init();` at the beginning of `main()`.
+- Replace instances of `println!` with `info!` or `debug!` as appropriate.
 
-## 4. Phase 4: Example & Simulation Refactoring
-Enable logging in the main simulation example to allow users to observe internal engine state transitions via environment variables.
+## 4. Verification & Testing
+1. **Compilation**: Run `cargo check` to ensure `log` usage is correct and no typing issues occur.
+2. **Tests**: Run `cargo test` to ensure tests compile. Tests will remain quiet by default.
+3. **Execution**: Run the `autonomic_runner` example using the `RUST_LOG` environment variable:
+   `RUST_LOG=info cargo run --example autonomic_runner`
+   `RUST_LOG=debug cargo run --example autonomic_runner`
+   Verify that logs are correctly formatted and printed without crashing.
+4. **Performance Validation**: (Optional but recommended) Run `cargo bench` to confirm that the `log` crate macros (especially `debug!` and `trace!`) do not introduce measurable latency overhead on the zero-heap hot paths. Ensure any expensive formatting parameters inside logs are conditionally checked via `log_enabled!` if strictly necessary.
 
-- **File:** `examples/autonomic_runner.rs`
-- **Action:**
-    - Initialize `env_logger` at the start of `main()`.
-    - Replace or augment `println!` calls with `info!`, `warn!`, and `error!` macros.
-    - Use `debug!` for verbose operational details that would otherwise clutter the console.
-
-## 5. Phase 5: Verification & Validation
-Ensure the logging system is correctly integrated and does not introduce regressions.
-
-1. **Compilation Check:** Run `cargo check` to ensure all macros are correctly imported and used.
-2. **Unit Tests:** Run `cargo test` to verify that logging doesn't interfere with existing logic.
-3. **Integration Verification:** Run the autonomic simulation with different log levels:
-   - `RUST_LOG=info cargo run --example autonomic_runner` (Standard visibility).
-   - `RUST_LOG=debug cargo run --example autonomic_runner` (Full diagnostic visibility).
-4. **Performance Check:** Run `cargo bench` to ensure the "zero-heap" hot paths remain efficient when logging is disabled (standard `log` crate behavior).
+## 5. Migration & Rollback Strategies
+- **Rollback**: To rollback, simply remove the `log` and `env_logger` dependencies from `Cargo.toml` and run `git revert` or perform a hard reset on `src/autonomic` and `examples/`.
+- **WASM Compatibility**: The `log` crate is naturally compatible with WASM. Applications interacting with WASM will need to hook a web-compatible backend (like `wasm-logger` or `console_error_panic_hook`) on the client side, but the Rust codebase itself only relies on the abstract `log` macros.
