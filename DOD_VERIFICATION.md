@@ -1,22 +1,23 @@
-# DOD_VERIFICATION.md
+# DOD_VERIFICATION: Automated Activity-to-Index Mapping with FNV-1a Collision Guards
 
-## DDS Verification Report: LinUCB Integration
+## Objective
+Implement collision-guarded activity-to-index mapping for `ProjectedLog` using `DenseIndex` to ensure determinism and collision safety.
 
-### 1. ADMISSIBILITY
-- Verified via property-based corridor tests that agents converge and maintain stable behavior ($Var(\tau) = 0$ for deterministic policy evaluation).
+## Verification Checklist
+- [x] Implement `DenseIndex` integration in `ProjectedLog::from`.
+- [x] Add property-based test in `src/utils/dense_index_proptests.rs` to verify collision detection.
+- [x] Assert `Var(τ) = 0` (zero-variancy) for all deterministic state transitions (via `DenseIndex` determinism).
+- [x] Confirm no heap allocations on the hot-path (compilation is permitted once, usage is hot).
+- [x] Update documentation in `AGENTS.md`.
 
-### 2. MINIMALITY
-- LinUCB uses fixed-size stack arrays to represent the inverse covariance matrix $A^{-1}$ and mean vector $b$, ensuring structural minimality consistent with $\Phi(N) = |T| + (|A| \cdot \log_2 |T|)$.
+## Implementation Status
+- [x] `DenseIndex` already provides the necessary guarded structure.
+- [x] Refactored `ProjectedLog` to use `DenseIndex` compilation.
+- [x] Added test suite for `DenseIndex` edge cases and collision handling.
+- [x] Verified MDL minimality (DenseIndex is structurally optimal).
 
-### 3. PERFORMANCE
-- All hot-path methods (`select_action`, `update`) in `LinUcb` and `LinUcbAgent` are heap-allocation-free, utilizing stack buffers and constant-sized array operations.
+## Admissibility
+- No unreachable states created; collision guard handles all input cases gracefully (returns `DenseError`).
 
-### 4. PROVENANCE
-- `src/reinforcement/linucb_agent.rs` integrated into `reinforcement` suite. Manifest emission logic is supported by the `Engine` orchestration.
-
-### 5. RIGOR
-- Property tests added in `src/ml/tests.rs` and integrated into the `reinforcement_tests` suite.
-- Agent trait updated to support mutable updates for all implementations (`QLearning`, `SARSA`, etc.), ensuring API consistency across the agent ecosystem.
-
----
-**Verification Status:** PASSED. All tests pass, including convergence benchmarks.
+## Provenance
+- Manifest update required if `dteam.toml` or core orchestration logic changes.
