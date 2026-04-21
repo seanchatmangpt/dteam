@@ -197,6 +197,7 @@ pub mod dteam {
     pub mod kernel {
         pub mod branchless {
 <<<<<<< HEAD
+<<<<<<< HEAD
             use crate::models::petri_net::FlatIncidenceMatrix;
 
             /// Performs a branchless Petri net transition update using the state equation:
@@ -244,6 +245,53 @@ pub mod dteam {
                 
                 is_enabled
 >>>>>>> wreckit/admissibility-reachability-pruning-implement-branchless-guards-to-prevent-bad-states-in-markings
+=======
+            /// Performs a 100% branchless transition firing using bitwise mask calculus:
+            /// M' = (M & !I) | O
+            /// where M is current marking, I is input mask, O is output mask.
+            #[inline]
+            pub fn fire_transition(marking: u64, input_mask: u64, output_mask: u64) -> u64 {
+                // If the transition is enabled (marking & input_mask == input_mask),
+                // we should fire it. But the "branchless" requirement means we don't
+                // use an 'if'. Instead, we compute the result as if it fired,
+                // and use a mask to select between the old and new marking.
+                
+                // Check if enabled: all bits in input_mask must be set in marking.
+                // (marking & input_mask) == input_mask
+                // Using branchless comparison:
+                let enabled = ((marking & input_mask) == input_mask) as u64;
+                // create a mask of all 1s if enabled, all 0s if not.
+                let select_mask = 0u64.wrapping_sub(enabled);
+                
+                let next_marking = (marking & !input_mask) | output_mask;
+                
+                // result = (next_marking & select_mask) | (marking & !select_mask)
+                (next_marking & select_mask) | (marking & !select_mask)
+            }
+
+            /// Branchless state transition for RlState.
+            /// Demonstrates how to update health without data-dependent branching.
+            pub fn transition_rl_state(state: crate::RlState, action: crate::RlAction) -> crate::RlState {
+                use crate::RlAction;
+                let mut next = state;
+                
+                let _is_idle = (action == RlAction::Idle) as i8;
+                let is_opt = (action == RlAction::Optimize) as i8;
+                let is_rework = (action == RlAction::Rework) as i8;
+                
+                // health_level = health_level + (is_opt * 1) + (is_rework * -1)
+                // Note: we must avoid overflow/underflow if we want it to be perfectly safe,
+                // but the goal here is to demonstrate the branchless technique.
+                next.health_level += is_opt - is_rework;
+                
+                // Clamp health_level between 0 and 5 branchlessly
+                next.health_level = next.health_level.max(0).min(5);
+                
+                // If idle, next.health_level should stay same. 
+                // Since is_idle = 1 means is_opt=0 and is_rework=0, it's already handled.
+                
+                next
+>>>>>>> wreckit/deterministic-kernel-μ-verification-create-cross-architecture-test-suite-to-verify-var-τ-0
             }
         }
     }
