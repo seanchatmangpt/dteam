@@ -3,6 +3,7 @@ mod tests {
     use crate::reinforcement::{
         Agent, DoubleQLearning, ExpectedSARSAAgent, QLearning, ReinforceAgent, SARSAAgent,
     };
+    use crate::ml::linucb::LinUcb;
     use crate::{RlAction, RlState};
 
     const MAX_STEPS: usize = 100;
@@ -13,6 +14,37 @@ mod tests {
     const EVAL_EPISODES: usize = 100;
     const DECAY_INTERVAL: usize = 200;
     const AVG_REWARD_THRESHOLD: f32 = 0.5;
+
+    #[test]
+    fn test_linucb_convergence() {
+        let mut agent: LinUcb<3, 9, 3> = LinUcb::new(2.0); // Higher alpha
+        let avg_reward = run_corridor(&mut agent, EPISODES_EXTENDED, GOAL_STATE_DEFAULT);
+        assert!(
+            avg_reward > AVG_REWARD_THRESHOLD,
+            "LinUCB should learn to reach the goal (avg_reward: {})",
+            avg_reward
+        );
+    }
+
+    #[test]
+    fn test_linucb_determinism() {
+        let mut agent1: LinUcb<3, 9, 3> = LinUcb::new(0.1);
+        let mut agent2: LinUcb<3, 9, 3> = LinUcb::new(0.1);
+        
+        let state = create_state(0);
+        let next_state = create_state(1);
+        
+        for _ in 0..1000 {
+            agent1.update(state, RlAction::Optimize, 1.0, next_state, false);
+            agent2.update(state, RlAction::Optimize, 1.0, next_state, false);
+        }
+        
+        assert_eq!(agent1.a_inv, agent2.a_inv);
+        assert_eq!(agent1.b, agent2.b);
+        let action1: RlAction = agent1.select_action(state);
+        let action2: RlAction = agent2.select_action(state);
+        assert_eq!(action1, action2);
+    }
 
     fn create_state(h: i32) -> RlState {
         RlState {

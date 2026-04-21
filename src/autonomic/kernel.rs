@@ -209,6 +209,7 @@ mod tests {
 
         // 7. Adapt
         kernel.adapt(AutonomicFeedback {
+            action_id: 1,
             reward: 1.0,
             human_override: false,
             side_effects: vec![],

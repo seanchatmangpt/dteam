@@ -60,6 +60,7 @@ fn main() {
             // Adapt with a small penalty to simulate operational decay
             debug!("Applying simulated operational decay penalty.");
             kernel.adapt(dteam::autonomic::AutonomicFeedback {
+                action_id: 1,
                 reward: -0.5,
                 human_override: false,
                 side_effects: vec![],

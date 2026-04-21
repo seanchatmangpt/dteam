@@ -144,6 +144,7 @@ impl fmt::Display for AutonomicResult {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AutonomicFeedback {
+    pub action_id: u64,
     pub reward: f32,
     pub human_override: bool,
     pub side_effects: Vec<String>,

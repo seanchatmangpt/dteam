@@ -335,7 +335,7 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
     fn propose(&self, state: &AutonomicState) -> Vec<AutonomicAction> {
         // Phase 4: Contextual Bandit Action Selection (Zero-Heap)
         let context = self.extract_context("current_state");
-        let action_idx = self.bandit.select_action(&context, 3);
+        let action_idx = self.bandit.select_action_raw(&context, 3);
 
         // BCINR Optimization: Use MCTS UCT to weight recovery vs optimization
         let uct_score_repair = crate::utils::math::monte_carlo_tree_search_mcts(
@@ -441,7 +441,8 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
 
     fn adapt(&mut self, feedback: AutonomicFeedback) {
         let context = self.extract_context("adaptation");
-        self.bandit.update(&context, feedback.reward);
+        let arm = (feedback.action_id.saturating_sub(101) % 3) as usize;
+        self.bandit.update_arm(arm, &context, feedback.reward);
 
         let decay = if feedback.reward < 0.0 {
             HEALTH_DECAY_NEGATIVE_REWARD

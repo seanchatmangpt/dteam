@@ -48,6 +48,7 @@ mod tests {
             } // Penalize extreme bottlenecks
 
             kernel.adapt(crate::autonomic::AutonomicFeedback {
+                action_id: 1,
                 reward,
                 human_override: false,
                 side_effects: vec![],

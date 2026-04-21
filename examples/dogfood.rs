@@ -59,6 +59,7 @@ fn main() {
 
         self_log.push("Kernel:Adapt".to_string());
         kernel.adapt(AutonomicFeedback {
+            action_id: 1,
             reward: 0.1,
             human_override: false,
             side_effects: vec![],
