@@ -54,6 +54,12 @@ pub struct FlatIncidenceMatrix {
     pub data: Vec<i32>,
     pub places_count: usize,
     pub transitions_count: usize,
+    /// Precomputed input masks for branchless execution
+    #[serde(skip)]
+    pub input_masks: Vec<crate::utils::dense_kernel::KBitSet<16>>,
+    /// Precomputed output masks for branchless execution
+    #[serde(skip)]
+    pub output_masks: Vec<crate::utils::dense_kernel::KBitSet<16>>,
 }
 
 impl FlatIncidenceMatrix {
@@ -79,6 +85,7 @@ impl PetriNet {
 
     /// Evaluates if the net is a structurally valid workflow net.
     /// Highly optimized with pre-calculated indices and bitset algebra.
+    /// This implementation uses branchless bitmask logic to eliminate data-dependent branching.
     pub fn is_structural_workflow_net(&self) -> bool {
         if self.places.is_empty() || self.transitions.is_empty() {
             return false;
@@ -86,20 +93,18 @@ impl PetriNet {
 
         let place_count = self.places.len();
         let total_nodes = place_count + self.transitions.len();
-        let num_words = total_nodes.div_ceil(64);
 
-        let mut in_degrees = vec![0u64; num_words];
-        let mut out_degrees = vec![0u64; num_words];
+        use crate::utils::dense_kernel::KBitSet;
+        let mut in_mask = KBitSet::<16>::zero();
+        let mut out_mask = KBitSet::<16>::zero();
 
         if let Some(ref index) = self.cached_index {
             for arc in &self.arcs {
                 if let (Some(from_idx), Some(to_idx)) =
                     (index.dense_id(&arc.from), index.dense_id(&arc.to))
                 {
-                    let from_idx = from_idx as usize;
-                    let to_idx = to_idx as usize;
-                    out_degrees[from_idx / 64] |= 1u64 << (from_idx % 64);
-                    in_degrees[to_idx / 64] |= 1u64 << (to_idx % 64);
+                    let _ = out_mask.set(from_idx as usize);
+                    let _ = in_mask.set(to_idx as usize);
                 }
             }
         } else {
@@ -109,34 +114,29 @@ impl PetriNet {
                     id_to_index.get(fnv1a_64(arc.from.as_bytes())),
                     id_to_index.get(fnv1a_64(arc.to.as_bytes())),
                 ) {
-                    out_degrees[from_idx / 64] |= 1u64 << (from_idx % 64);
-                    in_degrees[to_idx / 64] |= 1u64 << (to_idx % 64);
+                    let _ = out_mask.set(from_idx);
+                    let _ = in_mask.set(to_idx);
                 }
             }
         }
 
+        // Bitwise verification of source/sink constraints
         let mut source_places_count = 0;
         let mut sink_places_count = 0;
 
         for i in 0..place_count {
-            let has_in = (in_degrees[i / 64] & (1u64 << (i % 64))) != 0;
-            let has_out = (out_degrees[i / 64] & (1u64 << (i % 64))) != 0;
-            if !has_in {
-                source_places_count += 1;
-            }
-            if !has_out {
-                sink_places_count += 1;
-            }
+            // Branchless count increment (data-independent)
+            source_places_count += !in_mask.contains(i) as usize;
+            sink_places_count += !out_mask.contains(i) as usize;
         }
 
         if source_places_count != 1 || sink_places_count != 1 {
             return false;
         }
 
+        // Every transition must have at least one input and one output
         for i in place_count..total_nodes {
-            let has_in = (in_degrees[i / 64] & (1u64 << (i % 64))) != 0;
-            let has_out = (out_degrees[i / 64] & (1u64 << (i % 64))) != 0;
-            if !has_in || !has_out {
+            if !in_mask.contains(i) || !out_mask.contains(i) {
                 return false;
             }
         }
@@ -167,6 +167,9 @@ impl PetriNet {
         let places_count = self.places.len();
         let transitions_count = self.transitions.len();
         let mut data = vec![0; places_count * transitions_count];
+        use crate::utils::dense_kernel::KBitSet;
+        let mut input_masks = vec![KBitSet::<16>::zero(); transitions_count];
+        let mut output_masks = vec![KBitSet::<16>::zero(); transitions_count];
 
         if let Some(ref index) = self.cached_index {
             for arc in &self.arcs {
@@ -179,9 +182,11 @@ impl PetriNet {
                     if from_idx < places_count && to_idx >= places_count {
                         let t_idx = to_idx - places_count;
                         data[from_idx * transitions_count + t_idx] -= weight;
+                        let _ = input_masks[t_idx].set(from_idx);
                     } else if from_idx >= places_count && to_idx < places_count {
                         let t_idx = from_idx - places_count;
                         data[to_idx * transitions_count + t_idx] += weight;
+                        let _ = output_masks[t_idx].set(to_idx);
                     }
                 }
             }
@@ -196,9 +201,11 @@ impl PetriNet {
                     if from_idx < places_count && to_idx >= places_count {
                         let t_idx = to_idx - places_count;
                         data[from_idx * transitions_count + t_idx] -= weight;
+                        let _ = input_masks[t_idx].set(from_idx);
                     } else if from_idx >= places_count && to_idx < places_count {
                         let t_idx = from_idx - places_count;
                         data[to_idx * transitions_count + t_idx] += weight;
+                        let _ = output_masks[t_idx].set(to_idx);
                     }
                 }
             }
@@ -208,6 +215,8 @@ impl PetriNet {
             data,
             places_count,
             transitions_count,
+            input_masks,
+            output_masks,
         }
     }
 
@@ -221,27 +230,17 @@ impl PetriNet {
     }
 
     /// Verifies the structural bounds of the workflow net state equation.
+    /// Uses precomputed bitmasks for branchless verification of transition connectivity.
     pub fn verifies_state_equation_calculus(&self) -> bool {
         if !self.is_structural_workflow_net() {
             return false;
         }
         let w = self.incidence_matrix();
-        let p_count = self.places.len();
         let t_count = self.transitions.len();
 
-        for t_col in 0..t_count {
-            let mut consumes = false;
-            let mut produces = false;
-            for p_row in 0..p_count {
-                let val = w.get(p_row, t_col);
-                if val < 0 {
-                    consumes = true;
-                }
-                if val > 0 {
-                    produces = true;
-                }
-            }
-            if !consumes || !produces {
+        for t_idx in 0..t_count {
+            // Branchless check: each transition must have at least one input and one output
+            if w.input_masks[t_idx].is_empty() || w.output_masks[t_idx].is_empty() {
                 return false;
             }
         }

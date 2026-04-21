@@ -151,6 +151,7 @@ Notable public items:
 
 - **`jtbd_tests` / `jtbd_counterfactual_tests`**: Scenario-driven **`Vision2030Kernel`** runs; assert health bounds, manifest prefixes (`VISION_2030_MANIFEST`), deterministic `hash=` substrings, drift/reward feedback, governance cases.
 - **`reinforcement_tests`**: Convergence and serialization roundtrips for tabular agents.
+- **`proptest_kernel_verification`**: Property-based tests for the branchless μ-kernel and K-Tier state updates.
 - **`io/xes_tests`**, **`conformance/case_centric/adversarial_tests`**, **`automation`**, **`dteam::orchestration`**, **`autonomic::kernel`**, **`skeptic_harness`**: narrower unit tests.
 
 Run everything: **`cargo test --lib`**.
