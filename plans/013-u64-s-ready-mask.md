@@ -10,7 +10,7 @@ Maintain a 4096-bit mask of transitions whose prerequisites are satisfied.
 - Output: Every state motion must emit a UDelta and update the UReceipt rolling hash.
 
 ## Context
-See `src/agentic/ralph/patterns/U64_ARCHITECTURE.md` for C4 diagrams and substrate law.
+See `src/agentic/ralph/patterns/U64_ARCHITECTURE.md and `src/agentic/ralph/patterns/U64_SEQUENCES.md`` for C4 diagrams, sequence diagrams, and substrate law.
 This task is part of the **SCHEDULER** subsystem of UniverseOS.
 
 ## Definition of Done

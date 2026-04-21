@@ -10,7 +10,7 @@ Map U64^3 bits to a 3D voxel grid for physical control surfaces.
 - Output: Every state motion must emit a UDelta and update the UReceipt rolling hash.
 
 ## Context
-See `src/agentic/ralph/patterns/U64_ARCHITECTURE.md` for C4 diagrams and substrate law.
+See `src/agentic/ralph/patterns/U64_ARCHITECTURE.md and `src/agentic/ralph/patterns/U64_SEQUENCES.md`` for C4 diagrams, sequence diagrams, and substrate law.
 This task is part of the **PROJECTION** subsystem of UniverseOS.
 
 ## Definition of Done

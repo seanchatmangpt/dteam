@@ -10,7 +10,7 @@ Zero-copy mapping of UInstruction IDs to resident transition masks.
 - Output: Every state motion must emit a UDelta and update the UReceipt rolling hash.
 
 ## Context
-See `src/agentic/ralph/patterns/U64_ARCHITECTURE.md` for C4 diagrams and substrate law.
+See `src/agentic/ralph/patterns/U64_ARCHITECTURE.md and `src/agentic/ralph/patterns/U64_SEQUENCES.md`` for C4 diagrams, sequence diagrams, and substrate law.
 This task is part of the **IO** subsystem of UniverseOS.
 
 ## Definition of Done
