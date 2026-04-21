@@ -4,19 +4,34 @@ use std::marker::PhantomData;
 
 use super::*;
 
+<<<<<<< HEAD
 pub struct ReinforceAgent<S: WorkflowState, A: WorkflowAction> {
     pub(crate) theta: RefCell<PackedKeyTable<S, QArray>>,
+=======
+pub struct ReinforceAgent<S: WorkflowState, A: WorkflowAction, V: QValueStore = Vec<f32>> {
+    pub(crate) theta: RefCell<PackedKeyTable<S, V>>,
+>>>>>>> wreckit/k-tier-scalability-optimize-bitset-alignment-for-k-1024-and-beyond
     pub(crate) learning_rate: f32,
     pub(crate) discount_factor: f32,
     pub(crate) rng: RefCell<Rng>,
     pub(crate) _phantom: PhantomData<A>,
 }
 
-impl<S: WorkflowState, A: WorkflowAction> ReinforceAgent<S, A> {
+impl<S: WorkflowState, A: WorkflowAction, V: QValueStore> ReinforceAgent<S, A, V> {
     #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
             theta: RefCell::new(PackedKeyTable::default()),
+            learning_rate: REINFORCE_LEARNING_RATE,
+            discount_factor: DEFAULT_DISCOUNT_FACTOR,
+            rng: RefCell::new(Rng::new()),
+            _phantom: PhantomData,
+        }
+    }
+
+    pub fn with_capacity(cap: usize) -> Self {
+        Self {
+            theta: RefCell::new(PackedKeyTable::with_capacity(cap)),
             learning_rate: REINFORCE_LEARNING_RATE,
             discount_factor: DEFAULT_DISCOUNT_FACTOR,
             rng: RefCell::new(Rng::new()),
@@ -47,7 +62,7 @@ impl<S: WorkflowState, A: WorkflowAction> ReinforceAgent<S, A> {
     #[allow(dead_code)]
     pub fn select_action(&self, state: S) -> A {
         let theta = self.theta.borrow();
-        let weights = get_q_values::<S, A>(&*theta, &state);
+        let weights = get_q_values::<S, A, V>(&*theta, &state);
 
 <<<<<<< HEAD
         let probs = softmax_probs::<ACTION_MAX_LIMIT>(weights);
@@ -126,6 +141,7 @@ impl<S: WorkflowState, A: WorkflowAction> ReinforceAgent<S, A> {
         let mut theta = self.theta.borrow_mut();
 
         for (t, (state, action, _)) in trajectory.iter().enumerate() {
+<<<<<<< HEAD
             ensure_state::<S, A>(&mut *theta, *state);
 <<<<<<< HEAD
             let logits = get_q_values::<S, A>(&*theta, state);
@@ -146,10 +162,16 @@ impl<S: WorkflowState, A: WorkflowAction> ReinforceAgent<S, A> {
             }
             let probs = softmax_probs(&admissible_logits[..count]);
 >>>>>>> wreckit/admissibility-reachability-pruning-implement-branchless-guards-to-prevent-bad-states-in-markings
+=======
+            ensure_state::<S, A, V>(&mut *theta, *state);
+            let logits = get_q_values::<S, A, V>(&*theta, state);
+            let probs = softmax_probs(logits);
+>>>>>>> wreckit/k-tier-scalability-optimize-bitset-alignment-for-k-1024-and-beyond
             let a_idx = action.to_index();
             let g_t = returns[t];
 
             let h = hash_state(state);
+<<<<<<< HEAD
             let target_weights = theta.get_mut(h).unwrap();
             for j in 0..count {
                 if let Some(a) = A::from_index(j) {
@@ -162,6 +184,16 @@ impl<S: WorkflowState, A: WorkflowAction> ReinforceAgent<S, A> {
                         target_weights[j] += self.learning_rate * g_t * grad;
                     }
                 }
+=======
+            let weights = theta.get_mut(h).unwrap().as_mut_slice();
+            for j in 0..A::ACTION_COUNT {
+                let grad = if j == a_idx {
+                    1.0 - probs[j]
+                } else {
+                    -probs[j]
+                };
+                weights[j] += self.learning_rate * g_t * grad;
+>>>>>>> wreckit/k-tier-scalability-optimize-bitset-alignment-for-k-1024-and-beyond
             }
         }
     }
@@ -174,7 +206,7 @@ impl<S: WorkflowState, A: WorkflowAction> ReinforceAgent<S, A> {
     #[allow(dead_code)]
     pub fn get_policy_weights(&self, state: S) -> Vec<f32> {
         let theta = self.theta.borrow();
-        get_q_values::<S, A>(&*theta, &state).to_vec()
+        get_q_values::<S, A, V>(&*theta, &state).to_vec()
     }
 
     pub fn set_exploration_rate(&mut self, _rate: f32) {
@@ -182,14 +214,14 @@ impl<S: WorkflowState, A: WorkflowAction> ReinforceAgent<S, A> {
     }
 }
 
-impl<S: WorkflowState, A: WorkflowAction> Default for ReinforceAgent<S, A> {
+impl<S: WorkflowState, A: WorkflowAction, V: QValueStore> Default for ReinforceAgent<S, A, V> {
     fn default() -> Self {
         Self::new()
     }
 }
 
 // Serialization support for ReinforceAgent
-impl ReinforceAgent<crate::RlState<1>, crate::RlAction> {
+impl ReinforceAgent<crate::RlState<1>, crate::RlAction, Vec<f32>> {
     #[allow(dead_code)]
     pub fn export_as_serialized(
         &self,
@@ -211,7 +243,11 @@ impl ReinforceAgent<crate::RlState<1>, crate::RlAction> {
                 state.circuit_state,
                 state.cycle_phase,
             );
+<<<<<<< HEAD
             state_values.insert(key, weights.to_vec());
+=======
+            state_values.insert(key, weights.as_slice().to_vec());
+>>>>>>> wreckit/k-tier-scalability-optimize-bitset-alignment-for-k-1024-and-beyond
         }
 
         SerializedAgentQTable {
@@ -261,7 +297,7 @@ impl ReinforceAgent<crate::RlState<1>, crate::RlAction> {
     }
 }
 
-impl<S: WorkflowState, A: WorkflowAction> Agent<S, A> for ReinforceAgent<S, A> {
+impl<S: WorkflowState, A: WorkflowAction, V: QValueStore> Agent<S, A> for ReinforceAgent<S, A, V> {
     fn select_action(&self, state: S) -> A {
         self.select_action(state)
     }
@@ -276,7 +312,7 @@ impl<S: WorkflowState, A: WorkflowAction> Agent<S, A> for ReinforceAgent<S, A> {
     }
 }
 
-impl<S: WorkflowState, A: WorkflowAction> AgentMeta for ReinforceAgent<S, A> {
+impl<S: WorkflowState, A: WorkflowAction, V: QValueStore> AgentMeta for ReinforceAgent<S, A, V> {
     fn name(&self) -> &'static str {
         "REINFORCE"
     }

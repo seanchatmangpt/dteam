@@ -74,8 +74,38 @@ impl reinforcement::WorkflowAction for RlAction {
     }
 }
 
+<<<<<<< HEAD
 // Minimal RlState impls for reinforcement trait
 <<<<<<< HEAD
+=======
+impl<const WORDS: usize> RlState<WORDS> {
+    /// 100% Branchless state transition
+    #[inline]
+    pub fn step(&self, action: RlAction) -> Self {
+        use crate::reinforcement::WorkflowAction;
+        let mut next = *self;
+        let a_idx = action.to_index() as u64;
+
+        // Compute all possible next health levels
+        let h0 = self.health_level as i64;
+        let h1 = h0 + 1;
+        let h2 = if h0 > 0 { h0 - 1 } else { 0 }; // We can make this even more branchless if needed
+
+        // Use branchless selection (simulating cmov/bitwise)
+        let cond0 = (a_idx == 0) as u64;
+        let cond1 = (a_idx == 1) as u64;
+        let cond2 = (a_idx == 2) as u64;
+
+        let selected_h = crate::utils::bitset::select_u64(cond0, h0 as u64, 0)
+            | crate::utils::bitset::select_u64(cond1, h1 as u64, 0)
+            | crate::utils::bitset::select_u64(cond2, h2 as u64, 0);
+
+        next.health_level = selected_h as i8;
+        next
+    }
+}
+
+>>>>>>> wreckit/k-tier-scalability-optimize-bitset-alignment-for-k-1024-and-beyond
 impl<const WORDS: usize> reinforcement::WorkflowState for RlState<WORDS> {
     fn features(&self) -> [f32; 16] {
         let mut f = [0.0; 16];
@@ -174,6 +204,8 @@ pub mod dteam {
             K256,
             K512,
             K1024,
+            K2048,
+            K4096,
         }
 
         impl KTier {
@@ -184,6 +216,8 @@ pub mod dteam {
                     KTier::K256 => 4,
                     KTier::K512 => 8,
                     KTier::K1024 => 16,
+                    KTier::K2048 => 32,
+                    KTier::K4096 => 64,
                 }
             }
             pub fn capacity(&self) -> usize {

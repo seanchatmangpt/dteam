@@ -319,6 +319,7 @@ impl<const WORDS: usize> KBitSet<WORDS> {
     }
 
     #[inline]
+<<<<<<< HEAD
     pub fn pop_count(&self) -> u32 {
         let mut n = 0u32;
         for w in &self.words {
@@ -344,6 +345,14 @@ impl<const WORDS: usize> KBitSet<WORDS> {
         }
         let is_nonzero = (diff | diff.wrapping_neg()) >> 63;
         1 - is_nonzero
+=======
+    pub fn is_empty(&self) -> bool {
+        let mut mask = 0u64;
+        for i in 0..WORDS {
+            mask |= self.words[i];
+        }
+        mask == 0
+>>>>>>> wreckit/k-tier-scalability-optimize-bitset-alignment-for-k-1024-and-beyond
     }
 }
 
@@ -396,6 +405,7 @@ impl<K, V> PackedKeyTable<K, V> {
             indices: vec![EMPTY_INDEX; cap],
         }
     }
+<<<<<<< HEAD
 
     #[inline(never)]
     fn rebuild_indices_if_needed(&mut self) {
@@ -419,6 +429,11 @@ impl<K, V> PackedKeyTable<K, V> {
     }
 
     #[inline(always)]
+=======
+    pub fn reserve(&mut self, additional: usize) {
+        self.entries.reserve(additional);
+    }
+>>>>>>> wreckit/k-tier-scalability-optimize-bitset-alignment-for-k-1024-and-beyond
     pub fn insert(&mut self, hash: u64, key: K, value: V) {
         if self.indices.is_empty() || self.entries.len() * 2 >= self.indices.len() {
             self.rebuild_indices_if_needed();

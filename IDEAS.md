@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 @plans/001-u64-k-t1-cell.md
 @plans/002-u64-k-t1-sparse.md
 @plans/003-u64-k-t0-atoms.md
@@ -44,3 +45,6 @@
 =======
 Test Improvement: Add doc comments to bitset
 >>>>>>> wreckit/admissibility-reachability-pruning-implement-branchless-guards-to-prevent-bad-states-in-markings
+=======
+Test Improvement: Add doc comments to bitset
+>>>>>>> wreckit/k-tier-scalability-optimize-bitset-alignment-for-k-1024-and-beyond

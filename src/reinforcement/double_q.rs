@@ -4,9 +4,15 @@ use std::marker::PhantomData;
 
 use super::*;
 
+<<<<<<< HEAD
 pub struct DoubleQLearning<S: WorkflowState, A: WorkflowAction> {
     pub(crate) q_a: RefCell<PackedKeyTable<S, QArray>>,
     pub(crate) q_b: RefCell<PackedKeyTable<S, QArray>>,
+=======
+pub struct DoubleQLearning<S: WorkflowState, A: WorkflowAction, V: QValueStore = Vec<f32>> {
+    pub(crate) q_a: RefCell<PackedKeyTable<S, V>>,
+    pub(crate) q_b: RefCell<PackedKeyTable<S, V>>,
+>>>>>>> wreckit/k-tier-scalability-optimize-bitset-alignment-for-k-1024-and-beyond
     pub(crate) learning_rate: f32,
     pub(crate) discount_factor: f32,
     pub(crate) exploration_rate: f32,
@@ -15,12 +21,25 @@ pub struct DoubleQLearning<S: WorkflowState, A: WorkflowAction> {
     pub(crate) _phantom: PhantomData<A>,
 }
 
-impl<S: WorkflowState, A: WorkflowAction> DoubleQLearning<S, A> {
+impl<S: WorkflowState, A: WorkflowAction, V: QValueStore> DoubleQLearning<S, A, V> {
     #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
             q_a: RefCell::new(PackedKeyTable::default()),
             q_b: RefCell::new(PackedKeyTable::default()),
+            learning_rate: DEFAULT_LEARNING_RATE,
+            discount_factor: DEFAULT_DISCOUNT_FACTOR,
+            exploration_rate: DEFAULT_EXPLORATION_RATE,
+            exploration_decay: DEFAULT_EXPLORATION_DECAY,
+            rng: RefCell::new(Rng::new()),
+            _phantom: PhantomData,
+        }
+    }
+
+    pub fn with_capacity(cap: usize) -> Self {
+        Self {
+            q_a: RefCell::new(PackedKeyTable::with_capacity(cap)),
+            q_b: RefCell::new(PackedKeyTable::with_capacity(cap)),
             learning_rate: DEFAULT_LEARNING_RATE,
             discount_factor: DEFAULT_DISCOUNT_FACTOR,
             exploration_rate: DEFAULT_EXPLORATION_RATE,
@@ -92,8 +111,8 @@ impl<S: WorkflowState, A: WorkflowAction> DoubleQLearning<S, A> {
         let qa = self.q_a.borrow();
         let qb = self.q_b.borrow();
 
-        let va = get_q_values::<S, A>(&*qa, &state);
-        let vb = get_q_values::<S, A>(&*qb, &state);
+        let va = get_q_values::<S, A, V>(&*qa, &state);
+        let vb = get_q_values::<S, A, V>(&*qb, &state);
 
 <<<<<<< HEAD
         let mut merged = [0.0; ACTION_MAX_LIMIT];
@@ -128,41 +147,49 @@ impl<S: WorkflowState, A: WorkflowAction> DoubleQLearning<S, A> {
         let mut qa = self.q_a.borrow_mut();
         let mut qb = self.q_b.borrow_mut();
 
-        ensure_state::<S, A>(&mut *qa, state);
-        ensure_state::<S, A>(&mut *qb, state);
+        ensure_state::<S, A, V>(&mut *qa, state);
+        ensure_state::<S, A, V>(&mut *qb, state);
 
         let action_idx = action.to_index();
         let h_state = hash_state(&state);
         let h_next = hash_state(&next_state);
 
         if self.rng.borrow_mut().bool() {
-            let next_vals = get_q_values::<S, A>(&*qa, &next_state);
+            let next_vals = get_q_values::<S, A, V>(&*qa, &next_state);
             let best_next_idx = greedy_index(next_vals);
             let next_q = if done {
                 0.0
             } else {
                 qb.get(h_next)
-                    .map(|vals| vals[best_next_idx])
+                    .map(|vals| vals.as_slice()[best_next_idx])
                     .unwrap_or(0.0)
             };
 
+<<<<<<< HEAD
             let current = qa.get_mut(h_state).unwrap()[action_idx];
+=======
+            let current = qa.get(h_state).unwrap().as_slice()[action_idx];
+>>>>>>> wreckit/k-tier-scalability-optimize-bitset-alignment-for-k-1024-and-beyond
             let target = reward + self.discount_factor * next_q;
-            qa.get_mut(h_state).unwrap()[action_idx] += self.learning_rate * (target - current);
+            qa.get_mut(h_state).unwrap().as_mut_slice()[action_idx] += self.learning_rate * (target - current);
         } else {
-            let next_vals = get_q_values::<S, A>(&*qb, &next_state);
+            let next_vals = get_q_values::<S, A, V>(&*qb, &next_state);
             let best_next_idx = greedy_index(next_vals);
             let next_q = if done {
                 0.0
             } else {
                 qa.get(h_next)
-                    .map(|vals| vals[best_next_idx])
+                    .map(|vals| vals.as_slice()[best_next_idx])
                     .unwrap_or(0.0)
             };
 
+<<<<<<< HEAD
             let current = qb.get_mut(h_state).unwrap()[action_idx];
+=======
+            let current = qb.get(h_state).unwrap().as_slice()[action_idx];
+>>>>>>> wreckit/k-tier-scalability-optimize-bitset-alignment-for-k-1024-and-beyond
             let target = reward + self.discount_factor * next_q;
-            qb.get_mut(h_state).unwrap()[action_idx] += self.learning_rate * (target - current);
+            qb.get_mut(h_state).unwrap().as_mut_slice()[action_idx] += self.learning_rate * (target - current);
         }
     }
 
@@ -181,14 +208,14 @@ impl<S: WorkflowState, A: WorkflowAction> DoubleQLearning<S, A> {
     }
 }
 
-impl<S: WorkflowState, A: WorkflowAction> Default for DoubleQLearning<S, A> {
+impl<S: WorkflowState, A: WorkflowAction, V: QValueStore> Default for DoubleQLearning<S, A, V> {
     fn default() -> Self {
         Self::new()
     }
 }
 
 // Serialization support for DoubleQLearning
-impl DoubleQLearning<crate::RlState<1>, crate::RlAction> {
+impl DoubleQLearning<crate::RlState<1>, crate::RlAction, Vec<f32>> {
     #[allow(dead_code)]
     pub fn export_as_serialized(
         &self,
@@ -263,7 +290,7 @@ impl DoubleQLearning<crate::RlState<1>, crate::RlAction> {
     }
 }
 
-impl<S: WorkflowState, A: WorkflowAction> Agent<S, A> for DoubleQLearning<S, A> {
+impl<S: WorkflowState, A: WorkflowAction, V: QValueStore> Agent<S, A> for DoubleQLearning<S, A, V> {
     fn select_action(&self, state: S) -> A {
         self.select_action(state)
     }
@@ -275,7 +302,7 @@ impl<S: WorkflowState, A: WorkflowAction> Agent<S, A> for DoubleQLearning<S, A> 
     fn reset(&mut self) {}
 }
 
-impl<S: WorkflowState, A: WorkflowAction> AgentMeta for DoubleQLearning<S, A> {
+impl<S: WorkflowState, A: WorkflowAction, V: QValueStore> AgentMeta for DoubleQLearning<S, A, V> {
     fn name(&self) -> &'static str {
         "DoubleQLearning"
     }

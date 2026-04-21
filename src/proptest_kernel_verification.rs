@@ -20,10 +20,11 @@ mod proptests {
 >>>>>>> wreckit/admissibility-reachability-pruning-implement-branchless-guards-to-prevent-bad-states-in-markings
     proptest! {
         #[test]
-        fn test_μ_kernel_determinism(
+        fn test_μ_kernel_determinism_k64(
             h in 0i8..5,
             a in 0usize..3,
         ) {
+<<<<<<< HEAD
             let state = RlState::<1> {
                 health_level: h,
                 event_rate_q: 0,
@@ -51,8 +52,85 @@ mod proptests {
 >>>>>>> wreckit/admissibility-reachability-pruning-implement-branchless-guards-to-prevent-bad-states-in-markings
             let result1 = transition(state, action);
             let result2 = transition(state, action);
+=======
+            let state = create_test_state::<1>(h);
+            let action = RlAction::from_index(a).unwrap();
+            let result1 = state.step(action);
+            let result2 = state.step(action);
+            assert_eq!(result1, result2, "Kernel μ failed: transition not deterministic (K64)");
+        }
 
-            assert_eq!(result1, result2, "Kernel μ failed: transition not deterministic");
+        #[test]
+        fn test_μ_kernel_determinism_k128(
+            h in 0i8..5,
+            a in 0usize..3,
+        ) {
+            let state = create_test_state::<2>(h);
+            let action = RlAction::from_index(a).unwrap();
+            let result1 = state.step(action);
+            let result2 = state.step(action);
+            assert_eq!(result1, result2, "Kernel μ failed: transition not deterministic (K128)");
+        }
+>>>>>>> wreckit/k-tier-scalability-optimize-bitset-alignment-for-k-1024-and-beyond
+
+        #[test]
+        fn test_μ_kernel_determinism_k256(
+            h in 0i8..5,
+            a in 0usize..3,
+        ) {
+            let state = create_test_state::<4>(h);
+            let action = RlAction::from_index(a).unwrap();
+            let result1 = state.step(action);
+            let result2 = state.step(action);
+            assert_eq!(result1, result2, "Kernel μ failed: transition not deterministic (K256)");
+        }
+
+        #[test]
+        fn test_μ_kernel_determinism_k512(
+            h in 0i8..5,
+            a in 0usize..3,
+        ) {
+            let state = create_test_state::<8>(h);
+            let action = RlAction::from_index(a).unwrap();
+            let result1 = state.step(action);
+            let result2 = state.step(action);
+            assert_eq!(result1, result2, "Kernel μ failed: transition not deterministic (K512)");
+        }
+
+        #[test]
+        fn test_μ_kernel_determinism_k1024(
+            h in 0i8..5,
+            a in 0usize..3,
+        ) {
+            let state = create_test_state::<16>(h);
+            let action = RlAction::from_index(a).unwrap();
+            let result1 = state.step(action);
+            let result2 = state.step(action);
+            assert_eq!(result1, result2, "Kernel μ failed: transition not deterministic (K1024)");
+        }
+
+        #[test]
+        fn test_μ_kernel_determinism_k2048(
+            h in 0i8..5,
+            a in 0usize..3,
+        ) {
+            let state = create_test_state::<32>(h);
+            let action = RlAction::from_index(a).unwrap();
+            let result1 = state.step(action);
+            let result2 = state.step(action);
+            assert_eq!(result1, result2, "Kernel μ failed: transition not deterministic (K2048)");
+        }
+
+        #[test]
+        fn test_μ_kernel_determinism_k4096(
+            h in 0i8..5,
+            a in 0usize..3,
+        ) {
+            let state = create_test_state::<64>(h);
+            let action = RlAction::from_index(a).unwrap();
+            let result1 = state.step(action);
+            let result2 = state.step(action);
+            assert_eq!(result1, result2, "Kernel μ failed: transition not deterministic (K4096)");
         }
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -328,6 +406,7 @@ mod proptests {
             assert_eq!(result1, result2, "Branchless transition failed: not deterministic");
         }
     }
+<<<<<<< HEAD
     fn transition(state: RlState<1>, action: RlAction) -> RlState<1> {
         let mut next = state;
         match action {
@@ -339,6 +418,12 @@ mod proptests {
     fn test_zero_allocation_hot_path_verification() {
         let state = RlState {
             health_level: 1,
+=======
+
+    fn create_test_state<const W: usize>(h: i8) -> RlState<W> {
+        RlState::<W> {
+            health_level: h,
+>>>>>>> wreckit/k-tier-scalability-optimize-bitset-alignment-for-k-1024-and-beyond
             event_rate_q: 0,
             activity_count_q: 0,
             spc_alert_level: 0,
@@ -346,6 +431,7 @@ mod proptests {
             rework_ratio_q: 0,
             circuit_state: 0,
             cycle_phase: 0,
+<<<<<<< HEAD
             marking_mask: 0,
             activities_hash: 0,
         };
@@ -374,6 +460,10 @@ mod proptests {
         } else {
             panic!("Engine execution failed");
 >>>>>>> wreckit/deterministic-kernel-μ-verification-create-cross-architecture-test-suite-to-verify-var-τ-0
+=======
+            marking_mask: KBitSet::zero(),
+            activities_hash: 0,
+>>>>>>> wreckit/k-tier-scalability-optimize-bitset-alignment-for-k-1024-and-beyond
         }
     }
 }

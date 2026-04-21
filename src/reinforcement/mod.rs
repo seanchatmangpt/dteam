@@ -22,6 +22,57 @@ pub use q_learning::QLearning;
 pub use reinforce::ReinforceAgent;
 pub use sarsa::SARSAAgent;
 
+/// Trait for storing Q-values, allowing for both heap (Vec) and stack (Array) storage.
+pub trait QValueStore: Clone {
+    fn new(size: usize) -> Self;
+    fn as_slice(&self) -> &[f32];
+    fn as_mut_slice(&mut self) -> &mut [f32];
+}
+
+impl QValueStore for Vec<f32> {
+    #[inline]
+    fn new(size: usize) -> Self {
+        vec![0.0; size]
+    }
+    #[inline]
+    fn as_slice(&self) -> &[f32] {
+        self
+    }
+    #[inline]
+    fn as_mut_slice(&mut self) -> &mut [f32] {
+        self
+    }
+}
+
+/// Stack-allocated Q-values for zero-heap hot paths.
+#[derive(Clone, Copy, Debug)]
+pub struct StaticQValues<const N: usize> {
+    pub values: [f32; N],
+}
+
+impl<const N: usize> Default for StaticQValues<N> {
+    fn default() -> Self {
+        Self {
+            values: [0.0; N],
+        }
+    }
+}
+
+impl<const N: usize> QValueStore for StaticQValues<N> {
+    #[inline]
+    fn new(_size: usize) -> Self {
+        Self::default()
+    }
+    #[inline]
+    fn as_slice(&self) -> &[f32] {
+        &self.values
+    }
+    #[inline]
+    fn as_mut_slice(&mut self) -> &mut [f32] {
+        &mut self.values
+    }
+}
+
 /// State for reinforcement learning (must be hashable and copyable)
 pub trait WorkflowState: Clone + Copy + Eq + Hash {
     /// State features for function approximation (zero-heap)
@@ -97,13 +148,18 @@ pub(crate) fn hash_state<S: Hash>(state: &S) -> u64 {
     hasher.finish()
 }
 
+<<<<<<< HEAD
 pub const ACTION_MAX_LIMIT: usize = 8;
 pub type QArray = [f32; ACTION_MAX_LIMIT];
 
 pub(crate) fn get_q_values<'a, S, A>(table: &'a PackedKeyTable<S, QArray>, state: &S) -> &'a [f32]
+=======
+pub(crate) fn get_q_values<'a, S, A, V>(table: &'a PackedKeyTable<S, V>, state: &S) -> &'a [f32]
+>>>>>>> wreckit/k-tier-scalability-optimize-bitset-alignment-for-k-1024-and-beyond
 where
     S: WorkflowState,
     A: WorkflowAction,
+    V: QValueStore,
 {
     static ZEROS: QArray = [0.0; ACTION_MAX_LIMIT];
     table
@@ -112,22 +168,37 @@ where
         .unwrap_or(&ZEROS[..A::ACTION_COUNT])
 }
 
+<<<<<<< HEAD
 pub(crate) fn ensure_state<S, A>(table: &mut PackedKeyTable<S, QArray>, state: S)
+=======
+pub(crate) fn ensure_state<S, A, V>(table: &mut PackedKeyTable<S, V>, state: S)
+>>>>>>> wreckit/k-tier-scalability-optimize-bitset-alignment-for-k-1024-and-beyond
 where
     S: WorkflowState,
     A: WorkflowAction,
+    V: QValueStore,
 {
     let h = hash_state(&state);
     if table.get(h).is_none() {
+<<<<<<< HEAD
         table.insert(h, state, [0.0; ACTION_MAX_LIMIT]);
     }
 }
 
 pub(crate) fn max_q<S, A>(table: &PackedKeyTable<S, QArray>, state: &S) -> f32
+=======
+        table.insert(h, state, V::new(A::ACTION_COUNT));
+    }
+}
+
+pub(crate) fn max_q<S, A, V>(table: &PackedKeyTable<S, V>, state: &S) -> f32
+>>>>>>> wreckit/k-tier-scalability-optimize-bitset-alignment-for-k-1024-and-beyond
 where
     S: WorkflowState,
     A: WorkflowAction,
+    V: QValueStore,
 {
+<<<<<<< HEAD
     let q_values = get_q_values::<S, A>(table, state);
     let mut m = f32::NEG_INFINITY;
     let mut found = false;
@@ -144,6 +215,11 @@ where
     } else {
         0.0
     }
+=======
+    get_q_values::<S, A, V>(table, state)
+        .iter()
+        .fold(f32::NEG_INFINITY, |a, &b| a.max(b))
+>>>>>>> wreckit/k-tier-scalability-optimize-bitset-alignment-for-k-1024-and-beyond
 }
 
 pub(crate) fn epsilon_greedy_probs<const N: usize>(values: &[f32], epsilon: f32) -> [f32; N] {

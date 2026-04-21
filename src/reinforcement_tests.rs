@@ -90,8 +90,13 @@ mod tests {
 
     #[test]
     fn test_q_learning_convergence() {
+<<<<<<< HEAD
         let mut agent = QLearning::with_hyperparams(0.1, 0.9, 0.5);
         let avg_reward = run_corridor(&mut agent, EPISODES_STANDARD, GOAL_STATE_DEFAULT);
+=======
+        let agent = QLearning::<RlState<1>, RlAction, Vec<f32>>::with_hyperparams(0.1, 0.9, 0.5);
+        let avg_reward = run_corridor(&agent, EPISODES_STANDARD, GOAL_STATE_DEFAULT);
+>>>>>>> wreckit/k-tier-scalability-optimize-bitset-alignment-for-k-1024-and-beyond
         assert!(
             avg_reward > AVG_REWARD_THRESHOLD,
             "Q-Learning should learn to reach the goal (avg_reward: {})",
@@ -101,7 +106,12 @@ mod tests {
 
     #[test]
     fn test_sarsa_convergence() {
+<<<<<<< HEAD
         let mut agent = SARSAAgent::new();
+=======
+        let mut agent = SARSAAgent::<RlState<1>, RlAction, Vec<f32>>::new();
+        agent.set_exploration_rate(0.8);
+>>>>>>> wreckit/k-tier-scalability-optimize-bitset-alignment-for-k-1024-and-beyond
 
         // Training in deterministic SARSA (increased episodes to ensure convergence)
         for _ in 0..(EPISODES_EXTENDED * 5) {
@@ -120,7 +130,7 @@ mod tests {
 
     #[test]
     fn test_double_q_learning_convergence() {
-        let mut agent = DoubleQLearning::with_hyperparams(0.1, 0.9, 0.5);
+        let mut agent = DoubleQLearning::<RlState<1>, RlAction, Vec<f32>>::with_hyperparams(0.1, 0.9, 0.5);
 
         // Manual decay during training
         for ep in 0..EPISODES_EXTENDED {
@@ -141,8 +151,13 @@ mod tests {
 
     #[test]
     fn test_expected_sarsa_convergence() {
+<<<<<<< HEAD
         let mut agent = ExpectedSARSAAgent::with_hyperparams(0.1, 0.9, 0.5);
         let avg_reward = run_corridor(&mut agent, EPISODES_STANDARD, GOAL_STATE_DEFAULT);
+=======
+        let agent = ExpectedSARSAAgent::<RlState<1>, RlAction, Vec<f32>>::with_hyperparams(0.1, 0.9, 0.5);
+        let avg_reward = run_corridor(&agent, EPISODES_STANDARD, GOAL_STATE_DEFAULT);
+>>>>>>> wreckit/k-tier-scalability-optimize-bitset-alignment-for-k-1024-and-beyond
         assert!(
             avg_reward > AVG_REWARD_THRESHOLD,
             "Expected SARSA should learn to reach the goal (avg_reward: {})",
@@ -152,8 +167,13 @@ mod tests {
 
     #[test]
     fn test_reinforce_convergence() {
+<<<<<<< HEAD
         let mut agent = ReinforceAgent::with_hyperparams(0.1, 0.9);
         let avg_reward = run_corridor(&mut agent, EPISODES_STANDARD, GOAL_STATE_REINFORCE);
+=======
+        let agent = ReinforceAgent::<RlState<1>, RlAction, Vec<f32>>::with_hyperparams(0.1, 0.9);
+        let avg_reward = run_corridor(&agent, EPISODES_STANDARD, GOAL_STATE_REINFORCE);
+>>>>>>> wreckit/k-tier-scalability-optimize-bitset-alignment-for-k-1024-and-beyond
         assert!(
             avg_reward > AVG_REWARD_THRESHOLD,
             "REINFORCE should learn to reach the goal (avg_reward: {})",
@@ -163,7 +183,11 @@ mod tests {
 
     #[test]
     fn test_negative_reward_avoidance() {
+<<<<<<< HEAD
         let mut agent = QLearning::with_hyperparams(0.1, 0.9, 0.1);
+=======
+        let agent = QLearning::<RlState<1>, RlAction, Vec<f32>>::with_hyperparams(0.1, 0.9, 0.1);
+>>>>>>> wreckit/k-tier-scalability-optimize-bitset-alignment-for-k-1024-and-beyond
         for _ in 0..200 {
             let state = create_state(0);
             agent.update(state, RlAction::Optimize, -10.0, create_state(1), true);
@@ -182,7 +206,11 @@ mod tests {
     #[test]
     fn test_double_q_serialization_roundtrip() {
 <<<<<<< HEAD
+<<<<<<< HEAD
         let mut agent = DoubleQLearning::<RlState<1>, RlAction>::new();
+=======
+        let agent = DoubleQLearning::<RlState<1>, RlAction, Vec<f32>>::new();
+>>>>>>> wreckit/k-tier-scalability-optimize-bitset-alignment-for-k-1024-and-beyond
         let state = create_state(42);
 =======
         let agent = DoubleQLearning::<RlState, RlAction>::new();
@@ -194,7 +222,11 @@ mod tests {
         }
 
         let serialized = agent.export_as_serialized(3);
+<<<<<<< HEAD
         let mut new_agent = DoubleQLearning::<RlState<1>, RlAction>::new();
+=======
+        let new_agent = DoubleQLearning::<RlState<1>, RlAction, Vec<f32>>::new();
+>>>>>>> wreckit/k-tier-scalability-optimize-bitset-alignment-for-k-1024-and-beyond
         new_agent.restore_from_serialized(serialized);
 
         new_agent.set_exploration_rate(0.0);
