@@ -4,8 +4,8 @@ use std::marker::PhantomData;
 
 use super::*;
 
-pub struct ExpectedSARSAAgent<S: WorkflowState, A: WorkflowAction> {
-    pub(crate) q_table: RefCell<PackedKeyTable<S, Vec<f32>>>,
+pub struct ExpectedSARSAAgent<S: WorkflowState, A: WorkflowAction, V: QValueStore = Vec<f32>> {
+    pub(crate) q_table: RefCell<PackedKeyTable<S, V>>,
     pub(crate) learning_rate: f32,
     pub(crate) discount_factor: f32,
     pub(crate) exploration_rate: f32,
@@ -14,11 +14,23 @@ pub struct ExpectedSARSAAgent<S: WorkflowState, A: WorkflowAction> {
     pub(crate) _phantom: PhantomData<A>,
 }
 
-impl<S: WorkflowState, A: WorkflowAction> ExpectedSARSAAgent<S, A> {
+impl<S: WorkflowState, A: WorkflowAction, V: QValueStore> ExpectedSARSAAgent<S, A, V> {
     #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
             q_table: RefCell::new(PackedKeyTable::default()),
+            learning_rate: DEFAULT_LEARNING_RATE,
+            discount_factor: DEFAULT_DISCOUNT_FACTOR,
+            exploration_rate: DEFAULT_EXPLORATION_RATE,
+            exploration_decay: DEFAULT_EXPLORATION_DECAY,
+            rng: RefCell::new(Rng::new()),
+            _phantom: PhantomData,
+        }
+    }
+
+    pub fn with_capacity(cap: usize) -> Self {
+        Self {
+            q_table: RefCell::new(PackedKeyTable::with_capacity(cap)),
             learning_rate: DEFAULT_LEARNING_RATE,
             discount_factor: DEFAULT_DISCOUNT_FACTOR,
             exploration_rate: DEFAULT_EXPLORATION_RATE,
@@ -63,7 +75,7 @@ impl<S: WorkflowState, A: WorkflowAction> ExpectedSARSAAgent<S, A> {
 
     fn greedy_action(&self, state: S) -> A {
         let q_table = self.q_table.borrow();
-        let q_vals = get_q_values::<S, A>(&*q_table, &state);
+        let q_vals = get_q_values::<S, A, V>(&*q_table, &state);
         A::from_index(greedy_index(q_vals)).unwrap()
     }
 
@@ -73,7 +85,7 @@ impl<S: WorkflowState, A: WorkflowAction> ExpectedSARSAAgent<S, A> {
             0.0
         } else {
             let q_table = self.q_table.borrow();
-            let q_vals = get_q_values::<S, A>(&*q_table, &next_state);
+            let q_vals = get_q_values::<S, A, V>(&*q_table, &next_state);
 
             let probs = epsilon_greedy_probs(q_vals, self.exploration_rate);
             q_vals
@@ -84,13 +96,13 @@ impl<S: WorkflowState, A: WorkflowAction> ExpectedSARSAAgent<S, A> {
         };
 
         let mut q_table = self.q_table.borrow_mut();
-        ensure_state::<S, A>(&mut *q_table, state);
+        ensure_state::<S, A, V>(&mut *q_table, state);
 
         let action_idx = action.to_index();
         let h = hash_state(&state);
-        let current_q = q_table.get(h).unwrap()[action_idx];
+        let current_q = q_table.get(h).unwrap().as_slice()[action_idx];
         let target = reward + self.discount_factor * expected_next;
-        q_table.get_mut(h).unwrap()[action_idx] += self.learning_rate * (target - current_q);
+        q_table.get_mut(h).unwrap().as_mut_slice()[action_idx] += self.learning_rate * (target - current_q);
     }
 
     #[allow(dead_code)]
@@ -108,14 +120,14 @@ impl<S: WorkflowState, A: WorkflowAction> ExpectedSARSAAgent<S, A> {
     }
 }
 
-impl<S: WorkflowState, A: WorkflowAction> Default for ExpectedSARSAAgent<S, A> {
+impl<S: WorkflowState, A: WorkflowAction, V: QValueStore> Default for ExpectedSARSAAgent<S, A, V> {
     fn default() -> Self {
         Self::new()
     }
 }
 
 // Serialization support for ExpectedSARSAAgent
-impl ExpectedSARSAAgent<crate::RlState<1>, crate::RlAction> {
+impl ExpectedSARSAAgent<crate::RlState<1>, crate::RlAction, Vec<f32>> {
     #[allow(dead_code)]
     pub fn export_as_serialized(
         &self,
@@ -176,7 +188,7 @@ impl ExpectedSARSAAgent<crate::RlState<1>, crate::RlAction> {
     }
 }
 
-impl<S: WorkflowState, A: WorkflowAction> Agent<S, A> for ExpectedSARSAAgent<S, A> {
+impl<S: WorkflowState, A: WorkflowAction, V: QValueStore> Agent<S, A> for ExpectedSARSAAgent<S, A, V> {
     fn select_action(&self, state: S) -> A {
         self.select_action(state)
     }
@@ -188,7 +200,7 @@ impl<S: WorkflowState, A: WorkflowAction> Agent<S, A> for ExpectedSARSAAgent<S, 
     fn reset(&self) {}
 }
 
-impl<S: WorkflowState, A: WorkflowAction> AgentMeta for ExpectedSARSAAgent<S, A> {
+impl<S: WorkflowState, A: WorkflowAction, V: QValueStore> AgentMeta for ExpectedSARSAAgent<S, A, V> {
     fn name(&self) -> &'static str {
         "ExpectedSARSA"
     }

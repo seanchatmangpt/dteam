@@ -9,38 +9,102 @@ mod proptests {
     // For a fixed state and action, the next_state must be identical.
     proptest! {
         #[test]
-        fn test_μ_kernel_determinism(
+        fn test_μ_kernel_determinism_k64(
             h in 0i8..5,
             a in 0usize..3,
         ) {
-            let state = RlState::<1> {
-                health_level: h,
-                event_rate_q: 0,
-                activity_count_q: 0,
-                spc_alert_level: 0,
-                drift_status: 0,
-                rework_ratio_q: 0,
-                circuit_state: 0,
-                cycle_phase: 0,
-                marking_mask: KBitSet::zero(),
-                activities_hash: 0,
-            };
+            let state = create_test_state::<1>(h);
             let action = RlAction::from_index(a).unwrap();
+            let result1 = state.step(action);
+            let result2 = state.step(action);
+            assert_eq!(result1, result2, "Kernel μ failed: transition not deterministic (K64)");
+        }
 
-            // Execute twice to check variancy τ
-            let result1 = transition(state, action);
-            let result2 = transition(state, action);
+        #[test]
+        fn test_μ_kernel_determinism_k128(
+            h in 0i8..5,
+            a in 0usize..3,
+        ) {
+            let state = create_test_state::<2>(h);
+            let action = RlAction::from_index(a).unwrap();
+            let result1 = state.step(action);
+            let result2 = state.step(action);
+            assert_eq!(result1, result2, "Kernel μ failed: transition not deterministic (K128)");
+        }
 
-            assert_eq!(result1, result2, "Kernel μ failed: transition not deterministic");
+        #[test]
+        fn test_μ_kernel_determinism_k256(
+            h in 0i8..5,
+            a in 0usize..3,
+        ) {
+            let state = create_test_state::<4>(h);
+            let action = RlAction::from_index(a).unwrap();
+            let result1 = state.step(action);
+            let result2 = state.step(action);
+            assert_eq!(result1, result2, "Kernel μ failed: transition not deterministic (K256)");
+        }
+
+        #[test]
+        fn test_μ_kernel_determinism_k512(
+            h in 0i8..5,
+            a in 0usize..3,
+        ) {
+            let state = create_test_state::<8>(h);
+            let action = RlAction::from_index(a).unwrap();
+            let result1 = state.step(action);
+            let result2 = state.step(action);
+            assert_eq!(result1, result2, "Kernel μ failed: transition not deterministic (K512)");
+        }
+
+        #[test]
+        fn test_μ_kernel_determinism_k1024(
+            h in 0i8..5,
+            a in 0usize..3,
+        ) {
+            let state = create_test_state::<16>(h);
+            let action = RlAction::from_index(a).unwrap();
+            let result1 = state.step(action);
+            let result2 = state.step(action);
+            assert_eq!(result1, result2, "Kernel μ failed: transition not deterministic (K1024)");
+        }
+
+        #[test]
+        fn test_μ_kernel_determinism_k2048(
+            h in 0i8..5,
+            a in 0usize..3,
+        ) {
+            let state = create_test_state::<32>(h);
+            let action = RlAction::from_index(a).unwrap();
+            let result1 = state.step(action);
+            let result2 = state.step(action);
+            assert_eq!(result1, result2, "Kernel μ failed: transition not deterministic (K2048)");
+        }
+
+        #[test]
+        fn test_μ_kernel_determinism_k4096(
+            h in 0i8..5,
+            a in 0usize..3,
+        ) {
+            let state = create_test_state::<64>(h);
+            let action = RlAction::from_index(a).unwrap();
+            let result1 = state.step(action);
+            let result2 = state.step(action);
+            assert_eq!(result1, result2, "Kernel μ failed: transition not deterministic (K4096)");
         }
     }
-    fn transition(state: RlState<1>, action: RlAction) -> RlState<1> {
-        let mut next = state;
-        match action {
-            RlAction::Idle => (),
-            RlAction::Optimize => next.health_level += 1,
-            RlAction::Rework => next.health_level = (next.health_level - 1).max(0),
+
+    fn create_test_state<const W: usize>(h: i8) -> RlState<W> {
+        RlState::<W> {
+            health_level: h,
+            event_rate_q: 0,
+            activity_count_q: 0,
+            spc_alert_level: 0,
+            drift_status: 0,
+            rework_ratio_q: 0,
+            circuit_state: 0,
+            cycle_phase: 0,
+            marking_mask: KBitSet::zero(),
+            activities_hash: 0,
         }
-        next
     }
 }

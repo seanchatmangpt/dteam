@@ -66,7 +66,7 @@ mod tests {
 
     #[test]
     fn test_q_learning_convergence() {
-        let agent = QLearning::with_hyperparams(0.1, 0.9, 0.5);
+        let agent = QLearning::<RlState<1>, RlAction, Vec<f32>>::with_hyperparams(0.1, 0.9, 0.5);
         let avg_reward = run_corridor(&agent, EPISODES_STANDARD, GOAL_STATE_DEFAULT);
         assert!(
             avg_reward > AVG_REWARD_THRESHOLD,
@@ -77,7 +77,7 @@ mod tests {
 
     #[test]
     fn test_sarsa_convergence() {
-        let mut agent = SARSAAgent::new();
+        let mut agent = SARSAAgent::<RlState<1>, RlAction, Vec<f32>>::new();
         agent.set_exploration_rate(0.8);
 
         // Manual decay during training
@@ -99,7 +99,7 @@ mod tests {
 
     #[test]
     fn test_double_q_learning_convergence() {
-        let mut agent = DoubleQLearning::with_hyperparams(0.1, 0.9, 0.5);
+        let mut agent = DoubleQLearning::<RlState<1>, RlAction, Vec<f32>>::with_hyperparams(0.1, 0.9, 0.5);
 
         // Manual decay during training
         for ep in 0..EPISODES_EXTENDED {
@@ -120,7 +120,7 @@ mod tests {
 
     #[test]
     fn test_expected_sarsa_convergence() {
-        let agent = ExpectedSARSAAgent::with_hyperparams(0.1, 0.9, 0.5);
+        let agent = ExpectedSARSAAgent::<RlState<1>, RlAction, Vec<f32>>::with_hyperparams(0.1, 0.9, 0.5);
         let avg_reward = run_corridor(&agent, EPISODES_STANDARD, GOAL_STATE_DEFAULT);
         assert!(
             avg_reward > AVG_REWARD_THRESHOLD,
@@ -131,7 +131,7 @@ mod tests {
 
     #[test]
     fn test_reinforce_convergence() {
-        let agent = ReinforceAgent::with_hyperparams(0.1, 0.9);
+        let agent = ReinforceAgent::<RlState<1>, RlAction, Vec<f32>>::with_hyperparams(0.1, 0.9);
         let avg_reward = run_corridor(&agent, EPISODES_STANDARD, GOAL_STATE_REINFORCE);
         assert!(
             avg_reward > AVG_REWARD_THRESHOLD,
@@ -142,7 +142,7 @@ mod tests {
 
     #[test]
     fn test_negative_reward_avoidance() {
-        let agent = QLearning::with_hyperparams(0.1, 0.9, 0.1);
+        let agent = QLearning::<RlState<1>, RlAction, Vec<f32>>::with_hyperparams(0.1, 0.9, 0.1);
         for _ in 0..200 {
             let state = create_state(0);
             agent.update(state, RlAction::Optimize, -10.0, create_state(1), true);
@@ -160,7 +160,7 @@ mod tests {
 
     #[test]
     fn test_double_q_serialization_roundtrip() {
-        let agent = DoubleQLearning::<RlState<1>, RlAction>::new();
+        let agent = DoubleQLearning::<RlState<1>, RlAction, Vec<f32>>::new();
         let state = create_state(42);
 
         for _ in 0..100 {
@@ -168,7 +168,7 @@ mod tests {
         }
 
         let serialized = agent.export_as_serialized(3);
-        let new_agent = DoubleQLearning::<RlState<1>, RlAction>::new();
+        let new_agent = DoubleQLearning::<RlState<1>, RlAction, Vec<f32>>::new();
         new_agent.restore_from_serialized(serialized);
 
         let mut new_agent_greedy = new_agent;

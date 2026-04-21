@@ -222,12 +222,11 @@ impl<const WORDS: usize> KBitSet<WORDS> {
 
     #[inline]
     pub fn contains_all(self, required: Self) -> bool {
+        let mut diff = 0u64;
         for i in 0..WORDS {
-            if (required.words[i] & !self.words[i]) != 0 {
-                return false;
-            }
+            diff |= required.words[i] & !self.words[i];
         }
-        true
+        diff == 0
     }
 
     #[inline]
@@ -268,12 +267,11 @@ impl<const WORDS: usize> KBitSet<WORDS> {
 
     #[inline]
     pub fn is_empty(&self) -> bool {
-        for w in &self.words {
-            if *w != 0 {
-                return false;
-            }
+        let mut mask = 0u64;
+        for i in 0..WORDS {
+            mask |= self.words[i];
         }
-        true
+        mask == 0
     }
 }
 
@@ -304,6 +302,9 @@ impl<K, V> PackedKeyTable<K, V> {
         Self {
             entries: Vec::with_capacity(cap),
         }
+    }
+    pub fn reserve(&mut self, additional: usize) {
+        self.entries.reserve(additional);
     }
     pub fn insert(&mut self, hash: u64, key: K, value: V) {
         match self.entries.binary_search_by_key(&hash, |(h, _, _)| *h) {

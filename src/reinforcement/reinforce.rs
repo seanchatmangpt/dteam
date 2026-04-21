@@ -4,19 +4,29 @@ use std::marker::PhantomData;
 
 use super::*;
 
-pub struct ReinforceAgent<S: WorkflowState, A: WorkflowAction> {
-    pub(crate) theta: RefCell<PackedKeyTable<S, Vec<f32>>>,
+pub struct ReinforceAgent<S: WorkflowState, A: WorkflowAction, V: QValueStore = Vec<f32>> {
+    pub(crate) theta: RefCell<PackedKeyTable<S, V>>,
     pub(crate) learning_rate: f32,
     pub(crate) discount_factor: f32,
     pub(crate) rng: RefCell<Rng>,
     pub(crate) _phantom: PhantomData<A>,
 }
 
-impl<S: WorkflowState, A: WorkflowAction> ReinforceAgent<S, A> {
+impl<S: WorkflowState, A: WorkflowAction, V: QValueStore> ReinforceAgent<S, A, V> {
     #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
             theta: RefCell::new(PackedKeyTable::default()),
+            learning_rate: REINFORCE_LEARNING_RATE,
+            discount_factor: DEFAULT_DISCOUNT_FACTOR,
+            rng: RefCell::new(Rng::new()),
+            _phantom: PhantomData,
+        }
+    }
+
+    pub fn with_capacity(cap: usize) -> Self {
+        Self {
+            theta: RefCell::new(PackedKeyTable::with_capacity(cap)),
             learning_rate: REINFORCE_LEARNING_RATE,
             discount_factor: DEFAULT_DISCOUNT_FACTOR,
             rng: RefCell::new(Rng::new()),
@@ -47,7 +57,7 @@ impl<S: WorkflowState, A: WorkflowAction> ReinforceAgent<S, A> {
     #[allow(dead_code)]
     pub fn select_action(&self, state: S) -> A {
         let theta = self.theta.borrow();
-        let weights = get_q_values::<S, A>(&*theta, &state);
+        let weights = get_q_values::<S, A, V>(&*theta, &state);
 
         let probs = softmax_probs(weights);
         let u = self.rng.borrow_mut().f32();
@@ -80,14 +90,14 @@ impl<S: WorkflowState, A: WorkflowAction> ReinforceAgent<S, A> {
         let mut theta = self.theta.borrow_mut();
 
         for (t, (state, action, _)) in trajectory.iter().enumerate() {
-            ensure_state::<S, A>(&mut *theta, *state);
-            let logits = get_q_values::<S, A>(&*theta, state);
+            ensure_state::<S, A, V>(&mut *theta, *state);
+            let logits = get_q_values::<S, A, V>(&*theta, state);
             let probs = softmax_probs(logits);
             let a_idx = action.to_index();
             let g_t = returns[t];
 
             let h = hash_state(state);
-            let weights = theta.get_mut(h).unwrap();
+            let weights = theta.get_mut(h).unwrap().as_mut_slice();
             for j in 0..A::ACTION_COUNT {
                 let grad = if j == a_idx {
                     1.0 - probs[j]
@@ -107,7 +117,7 @@ impl<S: WorkflowState, A: WorkflowAction> ReinforceAgent<S, A> {
     #[allow(dead_code)]
     pub fn get_policy_weights(&self, state: S) -> Vec<f32> {
         let theta = self.theta.borrow();
-        get_q_values::<S, A>(&*theta, &state).to_vec()
+        get_q_values::<S, A, V>(&*theta, &state).to_vec()
     }
 
     pub fn set_exploration_rate(&mut self, _rate: f32) {
@@ -115,14 +125,14 @@ impl<S: WorkflowState, A: WorkflowAction> ReinforceAgent<S, A> {
     }
 }
 
-impl<S: WorkflowState, A: WorkflowAction> Default for ReinforceAgent<S, A> {
+impl<S: WorkflowState, A: WorkflowAction, V: QValueStore> Default for ReinforceAgent<S, A, V> {
     fn default() -> Self {
         Self::new()
     }
 }
 
 // Serialization support for ReinforceAgent
-impl ReinforceAgent<crate::RlState<1>, crate::RlAction> {
+impl ReinforceAgent<crate::RlState<1>, crate::RlAction, Vec<f32>> {
     #[allow(dead_code)]
     pub fn export_as_serialized(
         &self,
@@ -144,7 +154,7 @@ impl ReinforceAgent<crate::RlState<1>, crate::RlAction> {
                 state.circuit_state,
                 state.cycle_phase,
             );
-            state_values.insert(key, weights.clone());
+            state_values.insert(key, weights.as_slice().to_vec());
         }
 
         SerializedAgentQTable {
@@ -183,7 +193,7 @@ impl ReinforceAgent<crate::RlState<1>, crate::RlAction> {
     }
 }
 
-impl<S: WorkflowState, A: WorkflowAction> Agent<S, A> for ReinforceAgent<S, A> {
+impl<S: WorkflowState, A: WorkflowAction, V: QValueStore> Agent<S, A> for ReinforceAgent<S, A, V> {
     fn select_action(&self, state: S) -> A {
         self.select_action(state)
     }
@@ -195,7 +205,7 @@ impl<S: WorkflowState, A: WorkflowAction> Agent<S, A> for ReinforceAgent<S, A> {
     fn reset(&self) {}
 }
 
-impl<S: WorkflowState, A: WorkflowAction> AgentMeta for ReinforceAgent<S, A> {
+impl<S: WorkflowState, A: WorkflowAction, V: QValueStore> AgentMeta for ReinforceAgent<S, A, V> {
     fn name(&self) -> &'static str {
         "REINFORCE"
     }

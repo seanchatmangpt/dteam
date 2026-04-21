@@ -22,6 +22,57 @@ pub use q_learning::QLearning;
 pub use reinforce::ReinforceAgent;
 pub use sarsa::SARSAAgent;
 
+/// Trait for storing Q-values, allowing for both heap (Vec) and stack (Array) storage.
+pub trait QValueStore: Clone {
+    fn new(size: usize) -> Self;
+    fn as_slice(&self) -> &[f32];
+    fn as_mut_slice(&mut self) -> &mut [f32];
+}
+
+impl QValueStore for Vec<f32> {
+    #[inline]
+    fn new(size: usize) -> Self {
+        vec![0.0; size]
+    }
+    #[inline]
+    fn as_slice(&self) -> &[f32] {
+        self
+    }
+    #[inline]
+    fn as_mut_slice(&mut self) -> &mut [f32] {
+        self
+    }
+}
+
+/// Stack-allocated Q-values for zero-heap hot paths.
+#[derive(Clone, Copy, Debug)]
+pub struct StaticQValues<const N: usize> {
+    pub values: [f32; N],
+}
+
+impl<const N: usize> Default for StaticQValues<N> {
+    fn default() -> Self {
+        Self {
+            values: [0.0; N],
+        }
+    }
+}
+
+impl<const N: usize> QValueStore for StaticQValues<N> {
+    #[inline]
+    fn new(_size: usize) -> Self {
+        Self::default()
+    }
+    #[inline]
+    fn as_slice(&self) -> &[f32] {
+        &self.values
+    }
+    #[inline]
+    fn as_mut_slice(&mut self) -> &mut [f32] {
+        &mut self.values
+    }
+}
+
 /// State for reinforcement learning (must be hashable and copyable)
 pub trait WorkflowState: Clone + Copy + Eq + Hash {
     /// State features for function approximation
@@ -92,10 +143,11 @@ pub(crate) fn hash_state<S: Hash>(state: &S) -> u64 {
     hasher.finish()
 }
 
-pub(crate) fn get_q_values<'a, S, A>(table: &'a PackedKeyTable<S, Vec<f32>>, state: &S) -> &'a [f32]
+pub(crate) fn get_q_values<'a, S, A, V>(table: &'a PackedKeyTable<S, V>, state: &S) -> &'a [f32]
 where
     S: WorkflowState,
     A: WorkflowAction,
+    V: QValueStore,
 {
     static ZEROS: [f32; 256] = [0.0; 256];
     table
@@ -104,23 +156,25 @@ where
         .unwrap_or(&ZEROS[..A::ACTION_COUNT])
 }
 
-pub(crate) fn ensure_state<S, A>(table: &mut PackedKeyTable<S, Vec<f32>>, state: S)
+pub(crate) fn ensure_state<S, A, V>(table: &mut PackedKeyTable<S, V>, state: S)
 where
     S: WorkflowState,
     A: WorkflowAction,
+    V: QValueStore,
 {
     let h = hash_state(&state);
     if table.get(h).is_none() {
-        table.insert(h, state, vec![0.0; A::ACTION_COUNT]);
+        table.insert(h, state, V::new(A::ACTION_COUNT));
     }
 }
 
-pub(crate) fn max_q<S, A>(table: &PackedKeyTable<S, Vec<f32>>, state: &S) -> f32
+pub(crate) fn max_q<S, A, V>(table: &PackedKeyTable<S, V>, state: &S) -> f32
 where
     S: WorkflowState,
     A: WorkflowAction,
+    V: QValueStore,
 {
-    get_q_values::<S, A>(table, state)
+    get_q_values::<S, A, V>(table, state)
         .iter()
         .fold(f32::NEG_INFINITY, |a, &b| a.max(b))
 }
