@@ -351,7 +351,9 @@ pub mod dteam {
                     let mdl_match =
                         (new_manifest.mdl_score - manifest.mdl_score).abs() < f64::EPSILON;
 
-                    let verdict = if input_match && trace_match && model_match && mdl_match {
+                    let ontology_match = new_manifest.ontology_hash == manifest.ontology_hash;
+
+                    let verdict = if input_match && trace_match && model_match && mdl_match && ontology_match {
                         "VERIFIED"
                     } else {
                         "FAILED"
@@ -361,11 +363,13 @@ pub mod dteam {
                              policy_trace: {}\n\
                              model_hash: {}\n\
                              mdl_score: {}\n\
+                             ontology_hash: {}\n\
                              verdict: {}",
                         if input_match { "matched" } else { "divergent" },
                         if trace_match { "replayed" } else { "divergent" },
                         if model_match { "matched" } else { "divergent" },
                         if mdl_match { "matched" } else { "divergent" },
+                        if ontology_match { "matched" } else { "divergent" },
                         verdict
                     )
                 } else {
@@ -380,6 +384,7 @@ pub mod dteam {
             pub action_sequence: Vec<u8>,
             pub model_canonical_hash: u64,
             pub mdl_score: f64,
+            pub ontology_hash: u64, // AC 5: Provenance
             pub k_tier: String,
             pub latency_ns: u64,
         }
@@ -413,7 +418,7 @@ pub mod dteam {
                 let beta = *config.rl.reward_weights.get("fitness").unwrap_or(&0.5);
                 let lambda = *config.rl.reward_weights.get("soundness").unwrap_or(&0.01);
 
-                let (net, trajectory) =
+                let (net, trajectory, ontology_hash) =
                     crate::automation::train_with_provenance(log, &config, beta, lambda);
                 let execution_time_ns = start_time.elapsed().as_nanos() as u64;
 
@@ -422,6 +427,7 @@ pub mod dteam {
                     action_sequence: trajectory,
                     model_canonical_hash: net.canonical_hash(),
                     mdl_score: net.mdl_score(),
+                    ontology_hash,
                     k_tier: format!("{:?}", self.k_tier),
                     latency_ns: execution_time_ns,
                 };

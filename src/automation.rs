@@ -35,8 +35,11 @@ pub fn train_with_provenance(
     config: &AutonomicConfig,
     _beta: f32,
     _lambda: f32,
-) -> (PetriNet, Vec<u8>) {
-    train_with_provenance_projected(&ProjectedLog::from(train_log), config, _beta, _lambda)
+) -> (PetriNet, Vec<u8>, u64) {
+    let projected = ProjectedLog::from(train_log);
+    let ontology_hash = projected.ontology_hash;
+    let (net, trajectory) = train_with_provenance_projected(&projected, config, _beta, _lambda);
+    (net, trajectory, ontology_hash)
 }
 
 pub fn train_with_provenance_projected(

@@ -92,25 +92,34 @@ impl DenseIndex {
             tmp.push((hash, id, kind));
         }
 
-        // Use a separate sorted vector to check for duplicates and collisions
-        let mut sorted_hashes: Vec<(u64, &String, &NodeKind)> =
-            tmp.iter().map(|(h, s, k)| (*h, s, k)).collect();
+        // AC 1: Sort symbols prior to indexing for deterministic DenseId assignment.
+        // We sort by kind first to preserve range-based assumptions (e.g. Places < Transitions).
+        tmp.sort_by(|a, b| a.2.cmp(&b.2).then_with(|| a.1.cmp(&b.1)));
 
-        sorted_hashes.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(b.1)));
+        // AC 2: Collision Guard Admissibility.
+        // Check for duplicates and collisions using a hash-sorted view.
+        let mut sorted_hashes: Vec<(u64, usize)> = tmp
+            .iter()
+            .enumerate()
+            .map(|(i, (h, _, _))| (*h, i))
+            .collect();
+        sorted_hashes.sort_by_key(|&(h, _)| h);
 
         for pair in sorted_hashes.windows(2) {
-            let (h1, s1, _) = &pair[0];
-            let (h2, s2, _) = &pair[1];
+            let (h1, i1) = (pair[0].0, pair[0].1);
+            let (h2, i2) = (pair[1].0, pair[1].1);
+            let s1 = &tmp[i1].1;
+            let s2 = &tmp[i2].1;
 
             if s1 == s2 {
-                return Err(DenseError::DuplicateSymbol { id: (*s1).clone() });
+                return Err(DenseError::DuplicateSymbol { id: s1.clone() });
             }
 
             if h1 == h2 {
                 return Err(DenseError::HashCollision {
-                    hash: *h1,
-                    left: (*s1).clone(),
-                    right: (*s2).clone(),
+                    hash: h1,
+                    left: s1.clone(),
+                    right: s2.clone(),
                 });
             }
         }
@@ -129,7 +138,7 @@ impl DenseIndex {
             kinds.push(kind);
         }
 
-        // Sort entries by hash for binary search, but they still point to original dense IDs
+        // AC 4: Sort entries by hash for O(log N) binary search lookup.
         entries.sort_by_key(|e| e.hash);
 
         Ok(Self {
@@ -143,6 +152,19 @@ impl DenseIndex {
     #[inline]
     pub fn len(&self) -> usize {
         self.symbols.len()
+    }
+
+    /// AC 5: Captures the hash of the activity ontology for execution provenance.
+    #[inline]
+    pub fn ontology_hash(&self) -> u64 {
+        const OFFSET: u64 = 0xcbf29ce484222325;
+        const PRIME: u64 = 0x100000001b3;
+        let mut h = OFFSET;
+        for s in &self.symbols {
+            h ^= fnv1a_64(s.as_bytes());
+            h = h.wrapping_mul(PRIME);
+        }
+        h
     }
     #[inline]
     pub fn is_empty(&self) -> bool {

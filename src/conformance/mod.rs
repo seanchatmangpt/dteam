@@ -24,6 +24,7 @@ pub struct ConformanceResult {
 pub struct ProjectedLog {
     pub activities: Vec<String>,
     pub traces: Vec<(Vec<usize>, u64)>, // (activity indices, frequency)
+    pub ontology_hash: u64,
 }
 
 impl From<&EventLog> for ProjectedLog {
@@ -53,6 +54,7 @@ impl From<&EventLog> for ProjectedLog {
 
         let mut traces_map = PackedKeyTable::new();
         let activities = activity_index.symbols().to_vec();
+        let ontology_hash = activity_index.ontology_hash();
 
         for trace in &log.traces {
             let mut trace_acts = Vec::with_capacity(trace.events.len());
@@ -86,6 +88,7 @@ impl From<&EventLog> for ProjectedLog {
         Self {
             activities,
             traces: traces_map.iter().map(|(_, k, v)| (k.clone(), *v)).collect(),
+            ontology_hash,
         }
     }
 }
