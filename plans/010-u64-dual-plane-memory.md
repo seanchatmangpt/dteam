@@ -10,4 +10,4 @@ Secure 64 KiB L1 resident allocation for Data (U_t) and Scratch (S_t) planes.
 - Branchless execution logic (CC=1).
 
 ## Context
-See `src/agentic/ralph/patterns/U64_ARCHITECTURE.md` for substrate laws.
+See `src/agentic/ralph/patterns/U64_ARCHITECTURE.md` for the C4 diagrams and substrate laws.

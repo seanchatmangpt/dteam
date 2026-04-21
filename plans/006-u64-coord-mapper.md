@@ -10,4 +10,4 @@ Compile 3D (domain, cell, place) coordinates into 4096-word memory offsets.
 - Branchless execution logic (CC=1).
 
 ## Context
-See `src/agentic/ralph/patterns/U64_ARCHITECTURE.md` for substrate laws.
+See `src/agentic/ralph/patterns/U64_ARCHITECTURE.md` for the C4 diagrams and substrate laws.

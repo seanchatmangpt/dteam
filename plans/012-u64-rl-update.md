@@ -10,4 +10,4 @@ Refactor RL update kernels to consume sparse U64 Delta events as state input.
 - Branchless execution logic (CC=1).
 
 ## Context
-See `src/agentic/ralph/patterns/U64_ARCHITECTURE.md` for substrate laws.
+See `src/agentic/ralph/patterns/U64_ARCHITECTURE.md` for the C4 diagrams and substrate laws.

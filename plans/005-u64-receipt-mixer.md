@@ -10,4 +10,4 @@ Implement rolling FNV-1a state mixing for Delta-Receipt provenance.
 - Branchless execution logic (CC=1).
 
 ## Context
-See `src/agentic/ralph/patterns/U64_ARCHITECTURE.md` for substrate laws.
+See `src/agentic/ralph/patterns/U64_ARCHITECTURE.md` for the C4 diagrams and substrate laws.

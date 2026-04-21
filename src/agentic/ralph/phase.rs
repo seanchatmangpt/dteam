@@ -56,7 +56,8 @@ impl PhaseRunner for GeminiPhaseRunner {
         let prompt = match phase {
             "UserStory" => format!(
                 "DDS STORY GENERATION: Convert this idea into a formal User Story: '{}'. \
-                 Analyze the system against DDS paradigms in @docs/DDS_THESIS.md. \
+                 Analyze the system against DDS paradigms in @docs/DDS_THESIS.md and the \
+                 Universe64 Dual-Plane L1 Architecture in @src/agentic/ralph/patterns/U64_ARCHITECTURE.md. \
                  Output a STORY.md with 'As a...', 'I want...', and 'So that...' sections.",
                 idea
             ),
@@ -65,7 +66,7 @@ impl PhaseRunner for GeminiPhaseRunner {
                 format!(
                     "DDS SPRINT PLANNING: Given the STORY.md in @{}, define the formal \
                      Acceptance Criteria (AC) required for a DDS-grade implementation. \
-                     Consult @docs/DDS_THESIS.md for constraints. \
+                     Consult @docs/DDS_THESIS.md and @src/agentic/ralph/patterns/U64_ARCHITECTURE.md for architectural constraints. \
                      Output a detailed AC_CRITERIA.md report.",
                     story_path.display()
                 )
@@ -78,10 +79,10 @@ impl PhaseRunner for GeminiPhaseRunner {
                      You MUST satisfy the following Definition of Done (DoD):\n \
                      1. ADMISSIBILITY: No unreachable states or unsafe panics.\n \
                      2. MINIMALITY: Satisfy MDL Φ(N) formula.\n \
-                     3. PERFORMANCE: Zero-heap, branchless hot-path.\n \
+                     3. PERFORMANCE: Zero-heap, branchless hot-path adhering to the T1 (<200ns) microkernel threshold.\n \
                      4. PROVENANCE: Manifest updated.\n \
                      5. RIGOR: Include property-based tests (proptests) that assert both successful execution and expected failure/admissibility violations.\n \
-                     Consult @docs/DDS_THESIS.md for formal definitions. \
+                     Consult @docs/DDS_THESIS.md and @src/agentic/ralph/patterns/U64_ARCHITECTURE.md for formal definitions and C4 big-picture architecture. \
                      Modify files directly and output a DOD_VERIFICATION.md report.",
                     ac_path.display()
                 )
