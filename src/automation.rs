@@ -3,7 +3,10 @@ use crate::conformance::{token_replay_projected, ProjectedLog};
 use crate::models::petri_net::PetriNet;
 use crate::models::EventLog;
 use crate::reinforcement::{Agent, QLearning, WorkflowAction};
+<<<<<<< HEAD
 use crate::utils::dense_kernel::fnv1a_64;
+=======
+>>>>>>> wreckit/linear-reinforcement-learning-implement-linucb-with-zero-heap-state-matrices
 use crate::{RlAction, RlState};
 use std::fs;
 use std::path::Path;
@@ -36,9 +39,14 @@ pub fn train_with_provenance(
     config: &AutonomicConfig,
     beta: f32,
     lambda: f32,
+<<<<<<< HEAD
     ontology: Option<&crate::models::Ontology>,
 ) -> (PetriNet, Vec<u8>) {
     train_with_provenance_projected(&ProjectedLog::generate_with_ontology(train_log, ontology), config, beta, lambda, ontology)
+=======
+) -> (PetriNet, Vec<u8>) {
+    train_with_provenance_projected(&ProjectedLog::from(train_log), config, beta, lambda)
+>>>>>>> wreckit/linear-reinforcement-learning-implement-linucb-with-zero-heap-state-matrices
 }
 
 pub fn train_with_provenance_projected(
@@ -50,6 +58,7 @@ pub fn train_with_provenance_projected(
 ) -> (PetriNet, Vec<u8>) {
     use crate::utils::dense_kernel::KBitSet;
     let mut model = PetriNet::default();
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
     let agent: QLearning<RlState<1>, RlAction> = QLearning::with_hyperparams(
@@ -103,8 +112,26 @@ pub fn train_with_provenance_projected(
 
         if avg_f >= config.discovery.fitness_stopping_threshold && is_sound && verifies_calculus {
             break;
-        }
+=======
 
+    let trajectory = match config.rl.algorithm.as_str() {
+        "LinUCB" => {
+            let mut agent: crate::ml::linucb::LinUcb<3, 9, 3> =
+                crate::ml::linucb::LinUcb::new(config.rl.exploration_rate);
+            train_loop(train_log, config, &mut agent, &mut model)
+>>>>>>> wreckit/linear-reinforcement-learning-implement-linucb-with-zero-heap-state-matrices
+        }
+        _ => {
+            let mut agent: QLearning<RlState, RlAction> = QLearning::with_hyperparams(
+                config.rl.learning_rate,
+                config.rl.discount_factor,
+                config.rl.exploration_rate,
+            );
+            train_loop(train_log, config, &mut agent, &mut model)
+        }
+    };
+
+<<<<<<< HEAD
 <<<<<<< HEAD
         let state = RlState::<1> {
             marking_mask: KBitSet::zero(),
@@ -139,6 +166,9 @@ pub fn train_with_provenance_projected(
     }
 
 <<<<<<< HEAD
+=======
+    // Ensure all activities are present as transitions (minimal model identity)
+>>>>>>> wreckit/linear-reinforcement-learning-implement-linucb-with-zero-heap-state-matrices
     for act in &train_log.activities {
         // AC 1.3: Ensure we only add activities allowed by ontology (already filtered in ProjectedLog)
         if !model.transitions.iter().any(|t| &t.label == act) {
@@ -157,16 +187,52 @@ pub fn train_with_provenance_projected(
     (model, trajectory)
 }
 
+fn train_loop<A: Agent<RlState, RlAction>>(
+    train_log: &ProjectedLog,
+    config: &AutonomicConfig,
+    agent: &mut A,
+    model: &mut PetriNet,
+) -> Vec<u8> {
+    let mut trajectory = Vec::new();
+
+    for _epoch in 0..config.discovery.max_training_epochs {
+        let avg_f = token_replay_projected(train_log, model);
+
+        let _unsoundness_u = model.structural_unsoundness_score();
+        let is_sound = model.is_structural_workflow_net();
+        let verifies_calculus = model.verifies_state_equation_calculus();
+
+        if avg_f >= config.discovery.fitness_stopping_threshold && is_sound && verifies_calculus {
+            break;
+        }
+
+        // Feature vector extraction (zero-heap via WorkflowState refactor)
+        let state = RlState {
+            marking_mask: 0,
+            activities_hash: 0,
+            health_level: (avg_f * 5.0) as i8, // Use fitness as health proxy for simple corridor
+            event_rate_q: 0,
+            activity_count_q: 0,
+            spc_alert_level: 0,
+            drift_status: 0,
+            rework_ratio_q: 0,
+            circuit_state: 0,
+            cycle_phase: 0,
+        };
+
+        let action = agent.select_action(state);
+        trajectory.push(action.to_index() as u8);
+
+        // Simple feedback loop for model expansion
+        // In a real scenario, this would involve mutating the Petri net structure
+        let reward = (avg_f - 0.5) as f32; // Simple reward
+        agent.update(state, action, reward, state, false);
+    }
+
+    trajectory
+}
+
 fn train_to_perfection_projected(train_log: &ProjectedLog, config: &AutonomicConfig) -> PetriNet {
     let (model, _) = train_with_provenance_projected(train_log, config, 0.5, 0.01, None);
     model
-}
-
-#[cfg(test)]
-mod tests {
-
-    #[test]
-    fn test_automation_run() {
-        // automate_discovery("data/pdc2025");
-    }
 }

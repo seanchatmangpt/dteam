@@ -51,7 +51,12 @@ mod tests {
             let state = kernel.infer();
             let reward = (state.conformance_score * 0.4) + (state.process_health * 0.4);
 
+<<<<<<< HEAD
             kernel.adapt(&crate::autonomic::AutonomicFeedback {
+=======
+            kernel.adapt(crate::autonomic::AutonomicFeedback {
+                action_id: 1,
+>>>>>>> wreckit/linear-reinforcement-learning-implement-linucb-with-zero-heap-state-matrices
                 reward,
                 human_override: false,
             });

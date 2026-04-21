@@ -75,8 +75,16 @@ impl<const N: usize> QValueStore for StaticQValues<N> {
 
 /// State for reinforcement learning (must be hashable and copyable)
 pub trait WorkflowState: Clone + Copy + Eq + Hash {
+<<<<<<< HEAD
     /// State features for function approximation (zero-heap)
     fn features(&self) -> [f32; 16];
+=======
+    /// Dimension of state features for function approximation
+    const FEATURE_DIM: usize;
+
+    /// State features for function approximation (zero-allocation)
+    fn write_features(&self, out: &mut [f32]);
+>>>>>>> wreckit/linear-reinforcement-learning-implement-linucb-with-zero-heap-state-matrices
 
     /// Is this a terminal state?
     fn is_terminal(&self) -> bool;

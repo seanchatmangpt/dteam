@@ -75,7 +75,12 @@ fn main() {
         } else {
             // Adapt with a small penalty to simulate operational decay
             debug!("Applying simulated operational decay penalty.");
+<<<<<<< HEAD
             kernel.adapt(&AutonomicFeedback {
+=======
+            kernel.adapt(dteam::autonomic::AutonomicFeedback {
+                action_id: 1,
+>>>>>>> wreckit/linear-reinforcement-learning-implement-linucb-with-zero-heap-state-matrices
                 reward: -0.5,
                 human_override: false,
             });

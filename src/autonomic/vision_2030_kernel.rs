@@ -281,8 +281,13 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
 
     fn synthesize(&self, state: &AutonomicState) -> u64 {
         // Phase 4: Contextual Bandit Action Selection (Zero-Heap)
+<<<<<<< HEAD
         let context = self.extract_context(0xABCDEF);
         let action_idx = self.bandit.select_action(&context, 3);
+=======
+        let context = self.extract_context("current_state");
+        let action_idx = self.bandit.select_action_raw(&context, 3);
+>>>>>>> wreckit/linear-reinforcement-learning-implement-linucb-with-zero-heap-state-matrices
 
         if state.drift_detected {
             // Repair is always admissible during drift
@@ -395,9 +400,16 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
         result.manifest_hash ^ self.marking.words[0]
     }
 
+<<<<<<< HEAD
     fn adapt(&mut self, feedback: &AutonomicFeedback) {
         let context = self.extract_context(0xFEED);
         self.bandit.update(&context, feedback.reward);
+=======
+    fn adapt(&mut self, feedback: AutonomicFeedback) {
+        let context = self.extract_context("adaptation");
+        let arm = (feedback.action_id.saturating_sub(101) % 3) as usize;
+        self.bandit.update_arm(arm, &context, feedback.reward);
+>>>>>>> wreckit/linear-reinforcement-learning-implement-linucb-with-zero-heap-state-matrices
 
         let _old_health = self.state.process_health;
         let decay = if feedback.reward < 0.0 {

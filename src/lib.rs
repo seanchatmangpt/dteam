@@ -123,11 +123,21 @@ impl<const WORDS: usize> reinforcement::WorkflowState for RlState<WORDS> {
         f
 =======
 impl reinforcement::WorkflowState for RlState {
+<<<<<<< HEAD
     fn features(&self) -> Vec<f32> {
         // Optimized feature vector: only allocate if necessary for function approx.
         // For Q-Table, this is rarely called in the hot path.
         vec![self.health_level as f32, self.marking_mask.pop_count() as f32]
 >>>>>>> wreckit/formal-ontology-closure-implement-strict-activity-footprint-boundaries-in-the-engine-to-enforce-o
+=======
+    const FEATURE_DIM: usize = 3;
+    fn write_features(&self, out: &mut [f32]) {
+        if out.len() >= 3 {
+            out[0] = 1.0; // Bias
+            out[1] = self.health_level as f32;
+            out[2] = self.marking_mask as f32;
+        }
+>>>>>>> wreckit/linear-reinforcement-learning-implement-linucb-with-zero-heap-state-matrices
     }
     fn is_terminal(&self) -> bool {
         self.health_level < 0 || self.health_level >= 5

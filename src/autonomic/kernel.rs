@@ -252,7 +252,21 @@ mod tests {
         let m = kernel.manifest(&res);
         assert!(m != 0);
 
+<<<<<<< HEAD
         kernel.adapt(&AutonomicFeedback {
+=======
+        // 5. Execute
+        let result = kernel.execute(action);
+        assert!(result.success);
+
+        // 6. Manifest
+        let manifest = kernel.manifest(&result);
+        assert!(manifest.contains("DEADBEEF"));
+
+        // 7. Adapt
+        kernel.adapt(AutonomicFeedback {
+            action_id: 1,
+>>>>>>> wreckit/linear-reinforcement-learning-implement-linucb-with-zero-heap-state-matrices
             reward: 1.0,
             human_override: false,
         });
