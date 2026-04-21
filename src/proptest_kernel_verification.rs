@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod proptests {
     use crate::dteam::kernel::branchless::apply_branchless_update;
-    use crate::models::petri_net::{FlatIncidenceMatrix, PetriNet, Place, Transition, Arc};
+    use crate::models::petri_net::FlatIncidenceMatrix;
     use crate::reinforcement::WorkflowAction;
     use crate::utils::dense_kernel::KBitSet;
     use crate::{RlAction, RlState};

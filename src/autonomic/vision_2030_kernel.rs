@@ -11,7 +11,6 @@ use crate::probabilistic::CountMinSketch;
 use crate::simd::SwarMarking;
 use crate::utils::bitset::select_u64;
 use crate::utils::dense_kernel::{fnv1a_64, KBitSet, PackedKeyTable};
-use log::{debug, info, warn};
 
 /// Operational dimensions for the LinUCB bandit
 const CONTEXT_DIM: usize = 10;
@@ -413,7 +412,7 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
     }
 
     fn execute(&mut self, action: AutonomicAction) -> AutonomicResult {
-        let old_drift = self.state.drift_detected;
+        let _old_drift = self.state.drift_detected;
         let is_repair = (action.action_type == ActionType::Repair) as u64;
 
         // Branchless state mutation via BCINR select
@@ -431,8 +430,8 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
             // self.powl_executed_mask remains as is (context preservation)
             // self.powl_prev_idx remains (context preservation)
 
-            let old_conf = self.state.conformance_score;
-            let old_health = self.state.process_health;
+            let _old_conf = self.state.conformance_score;
+            let _old_health = self.state.process_health;
             self.state.conformance_score =
                 (self.state.conformance_score + CONFORMANCE_REWARD_REPAIR).min(1.0);
             self.state.process_health = (self.state.process_health + HEALTH_REWARD_REPAIR).min(1.0);
@@ -457,7 +456,7 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
         let context = self.extract_context("adaptation");
         self.bandit.update(&context, feedback.reward);
 
-        let old_health = self.state.process_health;
+        let _old_health = self.state.process_health;
         let decay = if feedback.reward < 0.0 {
             HEALTH_DECAY_NEGATIVE_REWARD
         } else {

@@ -1,6 +1,5 @@
 use crate::autonomic::types::*;
 use crate::config::AutonomicConfig;
-use log::{debug, info, warn};
 
 pub trait AutonomicKernel {
     fn observe(&mut self, event: AutonomicEvent);
@@ -40,7 +39,7 @@ pub trait AutonomicKernel {
             }
         }
 
-        let hash = if let Some(last) = results.last() {
+        let _hash = if let Some(last) = results.last() {
             format!("{:X}", last.manifest_hash)
         } else {
             "N/A".to_string()
@@ -137,7 +136,7 @@ impl AutonomicKernel for DefaultKernel {
         accepted
     }
 
-    fn execute(&mut self, action: AutonomicAction) -> AutonomicResult {
+    fn execute(&mut self, _action: AutonomicAction) -> AutonomicResult {
         // Implementation of branchless reachability guards
         // M' = (M & !I) | O: Enforces that unsafe states (I) are never reached.
         
@@ -164,7 +163,7 @@ impl AutonomicKernel for DefaultKernel {
     }
 
     fn adapt(&mut self, feedback: AutonomicFeedback) {
-        let old_health = self.state.process_health;
+        let _old_health = self.state.process_health;
         if feedback.reward > 0.0 {
             self.state.process_health =
                 (self.state.process_health + feedback.reward * 0.01).min(1.0);

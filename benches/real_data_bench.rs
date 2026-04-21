@@ -1,5 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use dteam::reinforcement::{Agent, QLearning, SARSAAgent};
+use dteam::utils::dense_kernel::KBitSet;
 use dteam::{RlAction, RlState};
 use process_mining::core::event_data::case_centric::xes::{import_xes, XESImportOptions};
 use process_mining::core::event_data::case_centric::AttributeValue;
@@ -12,7 +13,7 @@ const BENCH_STEPS: usize = 1000;
 const GOAL_STATE: i32 = 100;
 const DEFAULT_REWARD: f32 = 1.0;
 
-fn create_state(h: i32) -> RlState {
+fn create_state(h: i32) -> RlState<1> {
     RlState {
         health_level: h as i8,
         event_rate_q: 0,
@@ -22,7 +23,7 @@ fn create_state(h: i32) -> RlState {
         rework_ratio_q: 0,
         circuit_state: 0,
         cycle_phase: 0,
-        marking_mask: 0,
+        marking_mask: KBitSet::zero(),
         activities_hash: 0,
     }
 }
@@ -71,8 +72,8 @@ fn bench_real_data_processing(c: &mut Criterion) {
     let actions = load_real_actions();
     println!("Loaded {} actions from real data", actions.len());
 
-    let mut q = QLearning::<RlState, RlAction>::new();
-    let mut sarsa = SARSAAgent::<RlState, RlAction>::new();
+    let mut q = QLearning::<RlState<1>, RlAction>::new();
+    let mut sarsa = SARSAAgent::<RlState<1>, RlAction>::new();
 
     let mut group = c.benchmark_group("RealDataProcessing");
 
