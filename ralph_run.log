@@ -1,9 +1,10 @@
 ==========================================================
 Starting DDS Ralph Overnight Orchestration Loop
-Target Models: gemini-3-flash-preview (1-20), gemini-3.1-flash-lite-preview (21+)
+Target Models: gemini-3.1-flash-lite-preview
 Concurrency: 5
 ==========================================================
 Running pre-flight structural checks...
+    Checking dteam v1.3.0 (/Users/sac/dteam)
 warning: unused imports: `debug`, `info`, and `warn`
  --> src/autonomic/kernel.rs:3:11
   |
@@ -63,7 +64,7 @@ warning: unused variable: `old_health`
     |             ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_old_health`
 
 warning: `dteam` (lib) generated 9 warnings (run `cargo fix --lib -p dteam` to apply 9 suggestions)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.10s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.44s
    Compiling dteam v1.3.0 (/Users/sac/dteam)
 warning: unused imports: `Arc`, `PetriNet`, `Place`, and `Transition`
  --> src/proptest_kernel_verification.rs:4:57
@@ -90,18 +91,6 @@ warning: unused imports: `debug`, `info`, and `warn`
    |
 14 | use log::{debug, info, warn};
    |           ^^^^^  ^^^^  ^^^^
-
-error[E0063]: missing field `universe` in initializer of `RlState<1>`
-  --> src/reinforcement_tests.rs:34:9
-   |
-34 |         RlState::<1> {
-   |         ^^^^^^^^^^^^ missing `universe`
-
-error[E0063]: missing field `universe` in initializer of `RlState<1>`
-  --> src/proptest_kernel_verification.rs:16:25
-   |
-16 |             let state = RlState::<1> {
-   |                         ^^^^^^^^^^^^ missing `universe`
 
 warning: unused variable: `hash`
   --> src/autonomic/kernel.rs:43:13
@@ -147,6 +136,377 @@ warning: unused variable: `old_health`
 460 |         let old_health = self.state.process_health;
     |             ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_old_health`
 
+warning: `dteam` (lib test) generated 11 warnings (run `cargo fix --lib -p dteam --tests` to apply 11 suggestions)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.46s
+     Running unittests src/lib.rs (target/debug/deps/dteam-86516b186660c1ee)
+
+running 81 tests
+test automation::tests::test_automation_run ... ok
+test b_yawl::case_studies::tests::case_study_01_simple_make_trip_process ... ok
+test b_yawl::case_studies::tests::case_study_02_make_trip_process_multiple_instances ... ok
+test b_yawl::case_studies::tests::case_study_03_credit_rating_process ... ok
+test b_yawl::jtbd::tests::jtbd_scenario_01_core_routing_and_cycles ... ok
+test b_yawl::jtbd::tests::jtbd_scenario_02_instances_and_cancellation ... ok
+test b_yawl::jtbd::tests::jtbd_scenario_04_complex_joins_and_merges ... ok
+test b_yawl::jtbd::tests::jtbd_scenario_03_triggers_and_partial_joins ... ok
+test b_yawl::jtbd::tests::jtbd_scenario_05_threads_and_termination ... ok
+test b_yawl::jtbd::tests::test_hard_pattern_cancellation_region_wcp25 ... ok
+test b_yawl::jtbd::tests::test_hard_pattern_discriminator_wcp29 ... ok
+test b_yawl::jtbd::tests::test_hard_pattern_synchronizing_merge_wcp37 ... ok
+test conformance::case_centric::adversarial_tests::tests::test_adversarial_replay_missing_tokens ... ok
+test conformance::case_centric::adversarial_tests::tests::test_adversarial_replay_overflow ... ok
+test io::xes_tests::tests::test_xes_import_missing_attribute ... ok
+test io::xes_tests::tests::test_xes_import_simple ... ok
+test io::xes_tests::tests::test_xes_import_invalid_xml ... ok
+test io::xes_tests::tests::test_xes_import_invalid_utf8 ... ok
+test autonomic::kernel::tests::test_autonomic_lifecycle ... ok
+test dteam::orchestration::tests::test_engine_builder ... ok
+test jtbd_counterfactual_tests::tests::cf_jtbd_07_counterfactual_reroute_before_action ... ok
+test dteam::orchestration::tests::test_partition_trigger ... ok
+test jtbd_counterfactual_tests::tests::cf_jtbd_01_offshore_maintenance_drift ... ok
+test jtbd_counterfactual_tests::tests::cf_jtbd_06_streaming_capacity_budget ... ok
+test jtbd_counterfactual_tests::tests::cf_jtbd_08_human_handoff_under_ambiguity ... ok
+test jtbd_counterfactual_tests::tests::cf_jtbd_02_invoice_exception_routing ... ok
+test jtbd_counterfactual_tests::tests::cf_jtbd_03_compliance_gate_violation ... ok
+test jtbd_counterfactual_tests::tests::cf_jtbd_09_object_centric_incident_timeline ... ok
+test jtbd_counterfactual_tests::tests::cf_jtbd_05_spaghetti_process_recovery ... ok
+test jtbd_counterfactual_tests::tests::cf_jtbd_11_batch_boundary_collapse ... ok
+test jtbd_counterfactual_tests::tests::cf_jtbd_04_incident_mode_activation ... ok
+test jtbd_counterfactual_tests::tests::cf_jtbd_12_digital_team_role_conflict ... ok
+test jtbd_counterfactual_tests::tests::cf_jtbd_14_forced_human_governance ... ok
+test jtbd_counterfactual_tests::tests::cf_jtbd_16_regression_reproduction ... ok
+test jtbd_counterfactual_tests::tests::cf_jtbd_10_adversarial_noise_stream ... ok
+test jtbd_counterfactual_tests::tests::cf_jtbd_17_object_centric_divergence ... ok
+test jtbd_counterfactual_tests::tests::cf_jtbd_13_fully_autonomic_closed_loop ... ok
+test jtbd_counterfactual_tests::tests::cf_jtbd_15_petabyte_stream_approximation_mode ... ok
+test jtbd_counterfactual_tests::tests::cf_jtbd_18_ocel20_predictive_prescriptive ... ok
+test jtbd_tests::tests::jtbd_03_compliance_gate_violation ... ok
+test jtbd_tests::tests::jtbd_02_invoice_exception_routing ... ok
+test jtbd_tests::tests::jtbd_04_incident_mode_activation ... ok
+test jtbd_tests::tests::jtbd_01_offshore_maintenance_drift ... ok
+test jtbd_tests::tests::jtbd_05_spaghetti_process_recovery ... ok
+test jtbd_tests::tests::jtbd_06_streaming_capacity_budget ... ok
+test jtbd_tests::tests::jtbd_08_human_handoff_under_ambiguity ... ok
+test jtbd_tests::tests::jtbd_10_adversarial_noise_stream ... ok
+test jtbd_tests::tests::jtbd_07_counterfactual_reroute_before_action ... ok
+test jtbd_tests::tests::jtbd_12_digital_team_role_conflict ... ok
+test jtbd_tests::tests::jtbd_14_forced_human_governance ... ok
+test models::petri_net::tests::test_incidence_matrix_flat_parity ... ok
+test models::petri_net::tests::test_verifies_state_equation_calculus ... ok
+test jtbd_tests::tests::jtbd_16_regression_reproduction ... ok
+test jtbd_tests::tests::jtbd_11_batch_boundary_collapse ... ok
+test powl::conversion::to_petri_net::tests::test_powl_to_wf_net ... ok
+test powl::discovery::tests::test_nanosecond_inductive_miner_sequence ... ok
+test jtbd_tests::tests::jtbd_13_fully_autonomic_closed_loop ... ok
+test powl::discovery::tests::test_discover_jtbd_13_model ... ok
+test jtbd_tests::tests::jtbd_09_object_centric_incident_timeline ... ok
+test powl::discovery::tests::test_nanosecond_inductive_miner_xor ... ok
+test jtbd_tests::tests::jtbd_17_object_centric_divergence ... ok
+test jtbd_tests::tests::jtbd_18_ocel20_predictive_prescriptive ... ok
+test jtbd_tests::tests::jtbd_15_petabyte_stream_approximation_mode ... ok
+test reinforcement_tests::tests::test_double_q_serialization_roundtrip ... ok
+test skeptic_harness::tests::evaluate_adversarial_skeptic_harness ... ok
+test utils::scc::tests::test_scc_branchless_parity ... ok
+test reinforcement_tests::tests::test_negative_reward_avoidance ... ok
+test reinforcement_tests::tests::test_perturbator_determinism ... ok
+test proptest_kernel_verification::proptests::test_branchless_kernel_equation_parity ... ok
+test proptest_kernel_verification::proptests::test_μ_kernel_determinism ... ok
+test utils::static_pkt_tests::tests::test_static_pkt_insert_and_get ... ok
+test proptest_xes::tests::test_xes_parsing_is_stable ... ok
+test utils::dense_index_proptests::test_dense_index_collision_detection ... ok
+test reinforcement_tests::tests::test_expected_sarsa_convergence ... ok
+test autonomic::kernel::tests::test_admissibility_guard_always_admissible_if_structurally_sound ... ok
+test reinforcement_tests::tests::test_q_learning_convergence ... ok
+test ontology_proptests::tests::test_strict_boundary_violation ... ok
+test reinforcement_tests::tests::test_reinforce_convergence ... ok
+test reinforcement_tests::tests::test_double_q_learning_convergence ... ok
+test ontology_proptests::tests::test_ontology_noise_invariance ... ok
+test reinforcement_tests::tests::test_sarsa_convergence ... ok
+
+test result: ok. 81 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.16s
+
+Verifying T1 admissibility across all substrate patterns...
+warning: unused imports: `debug`, `info`, and `warn`
+ --> src/autonomic/kernel.rs:3:11
+  |
+3 | use log::{debug, info, warn};
+  |           ^^^^^  ^^^^  ^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `debug`, `info`, and `warn`
+  --> src/autonomic/vision_2030_kernel.rs:14:11
+   |
+14 | use log::{debug, info, warn};
+   |           ^^^^^  ^^^^  ^^^^
+
+warning: unused variable: `hash`
+  --> src/autonomic/kernel.rs:43:13
+   |
+43 |         let hash = if let Some(last) = results.last() {
+   |             ^^^^ help: if this is intentional, prefix it with an underscore: `_hash`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `action`
+   --> src/autonomic/kernel.rs:140:27
+    |
+140 |     fn execute(&mut self, action: AutonomicAction) -> AutonomicResult {
+    |                           ^^^^^^ help: if this is intentional, prefix it with an underscore: `_action`
+
+warning: unused variable: `old_health`
+   --> src/autonomic/kernel.rs:167:13
+    |
+167 |         let old_health = self.state.process_health;
+    |             ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_old_health`
+
+warning: unused variable: `old_drift`
+   --> src/autonomic/vision_2030_kernel.rs:416:13
+    |
+416 |         let old_drift = self.state.drift_detected;
+    |             ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_old_drift`
+
+warning: unused variable: `old_conf`
+   --> src/autonomic/vision_2030_kernel.rs:434:17
+    |
+434 |             let old_conf = self.state.conformance_score;
+    |                 ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_old_conf`
+
+warning: unused variable: `old_health`
+   --> src/autonomic/vision_2030_kernel.rs:435:17
+    |
+435 |             let old_health = self.state.process_health;
+    |                 ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_old_health`
+
+warning: unused variable: `old_health`
+   --> src/autonomic/vision_2030_kernel.rs:460:13
+    |
+460 |         let old_health = self.state.process_health;
+    |             ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_old_health`
+
+warning: `dteam` (lib) generated 9 warnings (run `cargo fix --lib -p dteam` to apply 9 suggestions)
+   Compiling dteam v1.3.0 (/Users/sac/dteam)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.31s
+     Running `target/debug/bench_scanner`
+Running cargo bench to scan for thresholds > 100ns...
+   Compiling dteam v1.3.0 (/Users/sac/dteam)
+warning: unused imports: `debug`, `info`, and `warn`
+ --> src/autonomic/kernel.rs:3:11
+  |
+3 | use log::{debug, info, warn};
+  |           ^^^^^  ^^^^  ^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `debug`, `info`, and `warn`
+  --> src/autonomic/vision_2030_kernel.rs:14:11
+   |
+14 | use log::{debug, info, warn};
+   |           ^^^^^  ^^^^  ^^^^
+
+warning: unused imports: `Arc`, `PetriNet`, `Place`, and `Transition`
+ --> src/proptest_kernel_verification.rs:4:57
+  |
+4 |     use crate::models::petri_net::{FlatIncidenceMatrix, PetriNet, Place, Transition, Arc};
+  |                                                         ^^^^^^^^  ^^^^^  ^^^^^^^^^^  ^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `Engine`
+ --> src/ontology_proptests.rs:4:39
+  |
+4 |     use crate::dteam::orchestration::{Engine, EngineResult};
+  |                                       ^^^^^^
+
+warning: unused imports: `debug`, `info`, and `warn`
+ --> src/autonomic/kernel.rs:3:11
+  |
+3 | use log::{debug, info, warn};
+  |           ^^^^^  ^^^^  ^^^^
+
+warning: unused variable: `hash`
+  --> src/autonomic/kernel.rs:43:13
+   |
+43 |         let hash = if let Some(last) = results.last() {
+   |             ^^^^ help: if this is intentional, prefix it with an underscore: `_hash`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `action`
+   --> src/autonomic/kernel.rs:140:27
+    |
+140 |     fn execute(&mut self, action: AutonomicAction) -> AutonomicResult {
+    |                           ^^^^^^ help: if this is intentional, prefix it with an underscore: `_action`
+
+warning: unused variable: `old_health`
+   --> src/autonomic/kernel.rs:167:13
+    |
+167 |         let old_health = self.state.process_health;
+    |             ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_old_health`
+
+warning: unused variable: `old_drift`
+   --> src/autonomic/vision_2030_kernel.rs:416:13
+    |
+416 |         let old_drift = self.state.drift_detected;
+    |             ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_old_drift`
+
+warning: unused variable: `old_conf`
+   --> src/autonomic/vision_2030_kernel.rs:434:17
+    |
+434 |             let old_conf = self.state.conformance_score;
+    |                 ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_old_conf`
+
+warning: unused variable: `old_health`
+   --> src/autonomic/vision_2030_kernel.rs:435:17
+    |
+435 |             let old_health = self.state.process_health;
+    |                 ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_old_health`
+
+warning: unused variable: `old_health`
+   --> src/autonomic/vision_2030_kernel.rs:460:13
+    |
+460 |         let old_health = self.state.process_health;
+    |             ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_old_health`
+
+warning: `dteam` (lib) generated 9 warnings (run `cargo fix --lib -p dteam` to apply 9 suggestions)
+error[E0063]: missing field `universe` in initializer of `RlState<_>`
+  --> benches/real_data_bench.rs:17:5
+   |
+17 |     RlState {
+   |     ^^^^^^^ missing `universe`
+
 For more information about this error, try `rustc --explain E0063`.
-warning: `dteam` (lib test) generated 11 warnings
-error: could not compile `dteam` (lib test) due to 2 previous errors; 11 warnings emitted
+error: could not compile `dteam` (bench "real_data_bench") due to 1 previous error
+warning: build failed, waiting for other jobs to finish...
+warning: `dteam` (lib test) generated 11 warnings (8 duplicates) (run `cargo fix --lib -p dteam --tests` to apply 3 suggestions)
+
+=======================================================
+=== Benchmark Threshold Report (> 100ns Limit) ===
+=======================================================
+SUCCESS: All benchmarks are under the 100ns threshold!
+Pre-flight checks passed. Unleashing Ralph on the backlog...
+   Compiling dteam v1.3.0 (/Users/sac/dteam)
+warning: unused imports: `debug`, `info`, and `warn`
+ --> src/autonomic/kernel.rs:3:11
+  |
+3 | use log::{debug, info, warn};
+  |           ^^^^^  ^^^^  ^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `debug`, `info`, and `warn`
+  --> src/autonomic/vision_2030_kernel.rs:14:11
+   |
+14 | use log::{debug, info, warn};
+   |           ^^^^^  ^^^^  ^^^^
+
+warning: unused variable: `hash`
+  --> src/autonomic/kernel.rs:43:13
+   |
+43 |         let hash = if let Some(last) = results.last() {
+   |             ^^^^ help: if this is intentional, prefix it with an underscore: `_hash`
+   |
+   = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `action`
+   --> src/autonomic/kernel.rs:140:27
+    |
+140 |     fn execute(&mut self, action: AutonomicAction) -> AutonomicResult {
+    |                           ^^^^^^ help: if this is intentional, prefix it with an underscore: `_action`
+
+warning: unused variable: `old_health`
+   --> src/autonomic/kernel.rs:167:13
+    |
+167 |         let old_health = self.state.process_health;
+    |             ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_old_health`
+
+warning: unused variable: `old_drift`
+   --> src/autonomic/vision_2030_kernel.rs:416:13
+    |
+416 |         let old_drift = self.state.drift_detected;
+    |             ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_old_drift`
+
+warning: unused variable: `old_conf`
+   --> src/autonomic/vision_2030_kernel.rs:434:17
+    |
+434 |             let old_conf = self.state.conformance_score;
+    |                 ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_old_conf`
+
+warning: unused variable: `old_health`
+   --> src/autonomic/vision_2030_kernel.rs:435:17
+    |
+435 |             let old_health = self.state.process_health;
+    |                 ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_old_health`
+
+warning: unused variable: `old_health`
+   --> src/autonomic/vision_2030_kernel.rs:460:13
+    |
+460 |         let old_health = self.state.process_health;
+    |             ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_old_health`
+
+warning: `dteam` (lib) generated 9 warnings (run `cargo fix --lib -p dteam` to apply 9 suggestions)
+    Finished `release` profile [optimized] target(s) in 4.45s
+     Running `target/release/ralph --model gemini-3.1-flash-lite-preview --concurrency 5 --offset 0`
+39c9a68d2d6bf8453c4166c878de4de0d5b9200f refs/heads/dev
+fatal: 'refs/heads/wreckit/plans-004-u64-k-admission-md' - not a valid ref
+fatal: 'refs/heads/wreckit/plans-001-u64-k-t1-cell-md' - not a valid ref
+fatal: 'refs/heads/wreckit/plans-003-u64-k-t0-atoms-md' - not a valid ref
+fatal: 'refs/heads/wreckit/plans-005-u64-k-atomic-fire-md' - not a valid ref
+fatal: 'refs/heads/wreckit/plans-002-u64-k-t1-sparse-md' - not a valid ref
+Preparing worktree (checking out 'wreckit/plans-005-u64-k-atomic-fire-md')Preparing worktree (checking out 'wreckit/plans-003-u64-k-t0-atoms-md')
+
+Preparing worktree (checking out 'wreckit/plans-004-u64-k-admission-md')
+Preparing worktree (checking out 'wreckit/plans-002-u64-k-t1-sparse-md')
+Preparing worktree (checking out 'wreckit/plans-001-u64-k-t1-cell-md')
+Updating files:  26% (293/1097)Updating files:  26% (293/1097)Updating files:  26% (293/1097)Updating files:  26% (293/1097)Updating files:  26% (293/1097)Updating files:  27% (297/1097)Updating files:  27% (297/1097)Updating files:  27% (297/1097)Updating files:  27% (297/1097)Updating files:  27% (297/1097)Updating files:  28% (308/1097)Updating files:  28% (308/1097)Updating files:  28% (308/1097)Updating files:  28% (308/1097)Updating files:  28% (308/1097)Updating files:  29% (319/1097)Updating files:  29% (319/1097)Updating files:  29% (319/1097)Updating files:  29% (319/1097)Updating files:  29% (319/1097)Updating files:  30% (330/1097)Updating files:  30% (330/1097)Updating files:  30% (330/1097)Updating files:  30% (330/1097)Updating files:  30% (330/1097)Updating files:  31% (341/1097)Updating files:  31% (341/1097)Updating files:  31% (341/1097)Updating files:  31% (341/1097)Updating files:  31% (341/1097)Updating files:  32% (352/1097)Updating files:  32% (352/1097)Updating files:  32% (352/1097)Updating files:  32% (352/1097)Updating files:  32% (352/1097)Updating files:  33% (363/1097)Updating files:  33% (363/1097)Updating files:  33% (363/1097)Updating files:  33% (363/1097)Updating files:  33% (363/1097)Updating files:  34% (373/1097)Updating files:  34% (373/1097)Updating files:  34% (373/1097)Updating files:  34% (373/1097)Updating files:  34% (373/1097)Updating files:  35% (384/1097)Updating files:  35% (384/1097)Updating files:  35% (384/1097)Updating files:  35% (384/1097)Updating files:  35% (384/1097)Updating files:  36% (395/1097)Updating files:  36% (395/1097)Updating files:  36% (395/1097)Updating files:  36% (395/1097)Updating files:  36% (395/1097)Updating files:  37% (406/1097)Updating files:  37% (406/1097)Updating files:  37% (406/1097)Updating files:  37% (406/1097)Updating files:  37% (406/1097)Updating files:  38% (417/1097)Updating files:  38% (417/1097)Updating files:  38% (417/1097)Updating files:  38% (417/1097)Updating files:  38% (417/1097)Updating files:  39% (428/1097)Updating files:  39% (428/1097)Updating files:  39% (428/1097)Updating files:  39% (428/1097)Updating files:  39% (428/1097)Updating files:  40% (439/1097)Updating files:  40% (439/1097)Updating files:  40% (439/1097)Updating files:  41% (450/1097)Updating files:  41% (450/1097)Updating files:  41% (450/1097)Updating files:  40% (439/1097)Updating files:  40% (439/1097)Updating files:  42% (461/1097)Updating files:  42% (461/1097)Updating files:  42% (461/1097)Updating files:  41% (450/1097)Updating files:  41% (451/1097)Updating files:  41% (450/1097)Updating files:  42% (462/1097)Updating files:  42% (462/1097)Updating files:  42% (462/1097)Updating files:  42% (461/1097)Updating files:  42% (461/1097)Updating files:  43% (472/1097)Updating files:  43% (472/1097)Updating files:  43% (472/1097)Updating files:  43% (472/1097)Updating files:  43% (472/1097)Updating files:  44% (483/1097)Updating files:  44% (483/1097)Updating files:  44% (483/1097)Updating files:  44% (483/1097)Updating files:  44% (483/1097)Updating files:  45% (494/1097)Updating files:  45% (494/1097)Updating files:  45% (494/1097)Updating files:  45% (494/1097)Updating files:  45% (494/1097)Updating files:  46% (505/1097)Updating files:  46% (505/1097)Updating files:  46% (505/1097)Updating files:  46% (505/1097)Updating files:  46% (505/1097)Updating files:  47% (516/1097)Updating files:  47% (516/1097)Updating files:  47% (516/1097)Updating files:  47% (516/1097)Updating files:  47% (516/1097)Updating files:  48% (527/1097)Updating files:  48% (527/1097)Updating files:  48% (527/1097)Updating files:  48% (527/1097)Updating files:  48% (527/1097)Updating files:  49% (538/1097)Updating files:  49% (538/1097)Updating files:  49% (538/1097)Updating files:  49% (538/1097)Updating files:  49% (538/1097)Updating files:  50% (549/1097)Updating files:  50% (549/1097)Updating files:  50% (549/1097)Updating files:  50% (549/1097)Updating files:  50% (549/1097)Updating files:  51% (560/1097)Updating files:  51% (560/1097)Updating files:  51% (560/1097)Updating files:  51% (560/1097)Updating files:  51% (560/1097)Updating files:  52% (571/1097)Updating files:  52% (571/1097)Updating files:  52% (571/1097)Updating files:  52% (571/1097)Updating files:  52% (571/1097)Updating files:  53% (582/1097)Updating files:  53% (582/1097)Updating files:  53% (582/1097)Updating files:  53% (582/1097)Updating files:  53% (582/1097)Updating files:  54% (593/1097)Updating files:  54% (593/1097)Updating files:  54% (593/1097)Updating files:  54% (593/1097)Updating files:  54% (593/1097)Updating files:  55% (604/1097)Updating files:  55% (604/1097)Updating files:  55% (604/1097)Updating files:  55% (604/1097)Updating files:  55% (604/1097)Updating files:  56% (615/1097)Updating files:  56% (615/1097)Updating files:  56% (615/1097)Updating files:  56% (615/1097)Updating files:  56% (615/1097)Updating files:  57% (626/1097)Updating files:  57% (626/1097)Updating files:  57% (626/1097)Updating files:  57% (626/1097)Updating files:  58% (637/1097)Updating files:  58% (637/1097)Updating files:  58% (637/1097)Updating files:  58% (637/1097)Updating files:  59% (648/1097)Updating files:  59% (648/1097)Updating files:  59% (648/1097)Updating files:  59% (648/1097)Updating files:  57% (626/1097)Updating files:  60% (659/1097)Updating files:  60% (659/1097)Updating files:  60% (659/1097)Updating files:  60% (659/1097)Updating files:  61% (670/1097)Updating files:  61% (670/1097)Updating files:  61% (670/1097)Updating files:  61% (670/1097)Updating files:  62% (681/1097)Updating files:  62% (681/1097)Updating files:  62% (681/1097)Updating files:  62% (681/1097)Updating files:  58% (637/1097)Updating files:  59% (648/1097)Updating files:  63% (692/1097)Updating files:  63% (692/1097)Updating files:  63% (692/1097)Updating files:  63% (692/1097)Updating files:  60% (659/1097)Updating files:  61% (670/1097)Updating files:  64% (703/1097)Updating files:  64% (703/1097)Updating files:  64% (703/1097)Updating files:  64% (703/1097)Updating files:  62% (681/1097)Updating files:  65% (714/1097)Updating files:  65% (714/1097)Updating files:  65% (714/1097)Updating files:  65% (714/1097)Updating files:  66% (725/1097)Updating files:  66% (725/1097)Updating files:  66% (725/1097)Updating files:  66% (725/1097)Updating files:  63% (692/1097)Updating files:  64% (703/1097)Updating files:  67% (735/1097)Updating files:  67% (735/1097)Updating files:  67% (735/1097)Updating files:  67% (735/1097)Updating files:  65% (714/1097)Updating files:  68% (746/1097)Updating files:  68% (746/1097)Updating files:  68% (746/1097)Updating files:  68% (746/1097)Updating files:  66% (725/1097)Updating files:  69% (757/1097)Updating files:  69% (757/1097)Updating files:  69% (757/1097)Updating files:  69% (757/1097)Updating files:  67% (735/1097)Updating files:  68% (746/1097)Updating files:  70% (768/1097)Updating files:  70% (768/1097)Updating files:  70% (768/1097)Updating files:  70% (768/1097)Updating files:  69% (757/1097)Updating files:  71% (779/1097)Updating files:  71% (779/1097)Updating files:  71% (779/1097)Updating files:  71% (779/1097)Updating files:  70% (768/1097)Updating files:  72% (790/1097)Updating files:  72% (790/1097)Updating files:  72% (790/1097)Updating files:  72% (790/1097)Updating files:  71% (779/1097)Updating files:  72% (790/1097)Updating files:  73% (801/1097)Updating files:  73% (801/1097)Updating files:  73% (801/1097)Updating files:  73% (801/1097)Updating files:  73% (801/1097)Updating files:  73% (807/1097)Updating files:  73% (807/1097)Updating files:  73% (807/1097)Updating files:  73% (807/1097)Updating files:  73% (803/1097)Updating files:  74% (812/1097)Updating files:  74% (812/1097)Updating files:  74% (812/1097)Updating files:  74% (812/1097)Updating files:  74% (812/1097)Updating files:  75% (823/1097)Updating files:  75% (823/1097)Updating files:  75% (823/1097)Updating files:  75% (823/1097)Updating files:  75% (823/1097)Updating files:  76% (834/1097)Updating files:  76% (834/1097)Updating files:  76% (834/1097)Updating files:  76% (834/1097)Updating files:  76% (834/1097)Updating files:  77% (845/1097)Updating files:  77% (845/1097)Updating files:  77% (845/1097)Updating files:  77% (845/1097)Updating files:  77% (845/1097)Updating files:  78% (856/1097)Updating files:  78% (856/1097)Updating files:  78% (856/1097)Updating files:  78% (856/1097)Updating files:  78% (856/1097)Updating files:  79% (867/1097)Updating files:  79% (867/1097)Updating files:  79% (867/1097)Updating files:  79% (867/1097)Updating files:  79% (867/1097)Updating files:  80% (878/1097)Updating files:  80% (878/1097)Updating files:  80% (878/1097)Updating files:  80% (878/1097)Updating files:  80% (878/1097)Updating files:  81% (889/1097)Updating files:  81% (889/1097)Updating files:  81% (889/1097)Updating files:  81% (889/1097)Updating files:  81% (889/1097)Updating files:  82% (900/1097)Updating files:  82% (900/1097)Updating files:  82% (900/1097)Updating files:  82% (900/1097)Updating files:  82% (900/1097)Updating files:  83% (911/1097)Updating files:  83% (911/1097)Updating files:  83% (911/1097)Updating files:  83% (911/1097)Updating files:  83% (911/1097)Updating files:  84% (922/1097)Updating files:  84% (922/1097)Updating files:  84% (922/1097)Updating files:  84% (922/1097)Updating files:  84% (922/1097)Updating files:  85% (933/1097)Updating files:  85% (933/1097)Updating files:  85% (933/1097)Updating files:  85% (933/1097)Updating files:  85% (933/1097)Updating files:  86% (944/1097)Updating files:  86% (944/1097)Updating files:  86% (944/1097)Updating files:  86% (944/1097)Updating files:  86% (944/1097)Updating files:  87% (955/1097)Updating files:  87% (955/1097)Updating files:  87% (955/1097)Updating files:  87% (955/1097)Updating files:  87% (955/1097)Updating files:  88% (966/1097)Updating files:  88% (966/1097)Updating files:  88% (966/1097)Updating files:  88% (966/1097)Updating files:  88% (966/1097)Updating files:  89% (977/1097)Updating files:  89% (977/1097)Updating files:  89% (977/1097)Updating files:  89% (977/1097)Updating files:  89% (977/1097)Updating files:  90% (988/1097)Updating files:  90% (988/1097)Updating files:  90% (988/1097)Updating files:  90% (988/1097)Updating files:  90% (988/1097)Updating files:  91% (999/1097)Updating files:  91% (999/1097)Updating files:  91% (999/1097)Updating files:  91% (999/1097)Updating files:  91% (999/1097)Updating files:  92% (1010/1097)Updating files:  92% (1010/1097)Updating files:  92% (1010/1097)Updating files:  92% (1010/1097)Updating files:  92% (1010/1097)Updating files:  93% (1021/1097)Updating files:  93% (1021/1097)Updating files:  93% (1021/1097)Updating files:  93% (1021/1097)Updating files:  93% (1021/1097)Updating files:  94% (1032/1097)Updating files:  94% (1032/1097)Updating files:  94% (1032/1097)Updating files:  94% (1032/1097)Updating files:  94% (1032/1097)Updating files:  95% (1043/1097)Updating files:  95% (1043/1097)Updating files:  95% (1043/1097)Updating files:  95% (1043/1097)Updating files:  95% (1043/1097)Updating files:  96% (1054/1097)Updating files:  96% (1054/1097)Updating files:  96% (1054/1097)Updating files:  96% (1054/1097)Updating files:  96% (1054/1097)Updating files:  97% (1065/1097)Updating files:  97% (1065/1097)Updating files:  97% (1065/1097)Updating files:  97% (1065/1097)Updating files:  97% (1065/1097)Updating files:  98% (1076/1097)Updating files:  98% (1076/1097)Updating files:  98% (1076/1097)Updating files:  98% (1076/1097)Updating files:  98% (1076/1097)Updating files:  99% (1087/1097)Updating files:  99% (1087/1097)Updating files:  99% (1087/1097)Updating files:  99% (1087/1097)Updating files:  99% (1087/1097)Updating files: 100% (1097/1097)Updating files: 100% (1097/1097)Updating files: 100% (1097/1097), done.
+Updating files: 100% (1097/1097), done.
+Updating files: 100% (1097/1097)Updating files: 100% (1097/1097)Updating files: 100% (1097/1097)Updating files: 100% (1097/1097), done.
+Updating files: 100% (1097/1097), done.
+Updating files: 100% (1097/1097), done.
+HEAD is now at a9dfa4a fix(ralph): hard block 'pro' models, default to gemini-3.1-flash-lite-preview, enhance error logging
+HEAD is now at a9dfa4a fix(ralph): hard block 'pro' models, default to gemini-3.1-flash-lite-preview, enhance error logging
+HEAD is now at a9dfa4a fix(ralph): hard block 'pro' models, default to gemini-3.1-flash-lite-preview, enhance error logging
+HEAD is now at a9dfa4a fix(ralph): hard block 'pro' models, default to gemini-3.1-flash-lite-preview, enhance error logging
+HEAD is now at a9dfa4a fix(ralph): hard block 'pro' models, default to gemini-3.1-flash-lite-preview, enhance error logging
+[wreckit/plans-005-u64-k-atomic-fire-md 1fd0229] ralph(005): @plans/005-u64-k-atomic-fire.md
+ 1 file changed, 15 insertions(+), 19 deletions(-)
+fatal: 'dev' is already used by worktree at '/Users/sac/dteam/dev-worktree'
+Updating a9dfa4a..1fd0229
+Fast-forward
+ DOD_VERIFICATION.md | 34 +++++++++++++++-------------------
+ 1 file changed, 15 insertions(+), 19 deletions(-)
+fatal: 'refs/heads/wreckit/plans-006-u64-k-error-state-md' - not a valid ref
+Preparing worktree (checking out 'wreckit/plans-006-u64-k-error-state-md')
+Updating files:  56% (620/1097)Updating files:  57% (626/1097)Updating files:  58% (637/1097)Updating files:  59% (648/1097)Updating files:  60% (659/1097)Updating files:  61% (670/1097)Updating files:  62% (681/1097)Updating files:  63% (692/1097)Updating files:  64% (703/1097)Updating files:  65% (714/1097)Updating files:  66% (725/1097)Updating files:  67% (735/1097)Updating files:  68% (746/1097)Updating files:  69% (757/1097)Updating files:  70% (768/1097)Updating files:  71% (779/1097)Updating files:  72% (790/1097)Updating files:  73% (801/1097)Updating files:  74% (812/1097)Updating files:  75% (823/1097)Updating files:  76% (834/1097)Updating files:  77% (845/1097)Updating files:  78% (856/1097)Updating files:  79% (867/1097)Updating files:  80% (878/1097)Updating files:  81% (889/1097)Updating files:  82% (900/1097)Updating files:  83% (911/1097)Updating files:  84% (922/1097)Updating files:  85% (933/1097)Updating files:  86% (944/1097)Updating files:  87% (955/1097)Updating files:  88% (966/1097)Updating files:  89% (977/1097)Updating files:  90% (988/1097)Updating files:  91% (999/1097)Updating files:  92% (1010/1097)Updating files:  93% (1021/1097)Updating files:  94% (1032/1097)Updating files:  95% (1043/1097)Updating files:  96% (1054/1097)Updating files:  97% (1065/1097)Updating files:  98% (1076/1097)Updating files:  99% (1087/1097)Updating files: 100% (1097/1097)Updating files: 100% (1097/1097), done.
+HEAD is now at 1fd0229 ralph(005): @plans/005-u64-k-atomic-fire.md
+[wreckit/plans-001-u64-k-t1-cell-md bbdde58] ralph(001): @plans/001-u64-k-t1-cell.md
+ 1 file changed, 22 insertions(+), 19 deletions(-)
+fatal: 'dev' is already used by worktree at '/Users/sac/dteam/dev-worktree'
+Auto-merging DOD_VERIFICATION.md
+CONFLICT (content): Merge conflict in DOD_VERIFICATION.md
+Automatic merge failed; fix conflicts and then commit the result.
+[2m2026-04-21T17:31:12.665174Z[0m [33m WARN[0m [1mprocess_idea[0m[1m{[0m[3midea[0m[2m=[0m@plans/001-u64-k-t1-cell.md [3mid[0m[2m=[0m001[1m}[0m[2m:[0m [2mralph[0m[2m:[0m Failed to merge branch wreckit/plans-001-u64-k-t1-cell-md: Merge conflict
+fatal: 'refs/heads/wreckit/plans-007-u64-m-dual-plane-md' - not a valid ref
+Preparing worktree (checking out 'wreckit/plans-007-u64-m-dual-plane-md')
+Updating files:  51% (561/1097)Updating files:  52% (571/1097)Updating files:  53% (582/1097)Updating files:  54% (593/1097)Updating files:  55% (604/1097)Updating files:  56% (615/1097)Updating files:  57% (626/1097)Updating files:  58% (637/1097)Updating files:  59% (648/1097)Updating files:  60% (659/1097)Updating files:  61% (670/1097)Updating files:  62% (681/1097)Updating files:  63% (692/1097)Updating files:  64% (703/1097)Updating files:  65% (714/1097)Updating files:  66% (725/1097)Updating files:  67% (735/1097)Updating files:  68% (746/1097)Updating files:  69% (757/1097)Updating files:  70% (768/1097)Updating files:  71% (779/1097)Updating files:  72% (790/1097)Updating files:  73% (801/1097)Updating files:  74% (812/1097)Updating files:  75% (823/1097)Updating files:  76% (834/1097)Updating files:  77% (845/1097)Updating files:  78% (856/1097)Updating files:  79% (867/1097)Updating files:  80% (878/1097)Updating files:  81% (889/1097)Updating files:  82% (900/1097)Updating files:  83% (911/1097)Updating files:  84% (922/1097)Updating files:  85% (933/1097)Updating files:  86% (944/1097)Updating files:  87% (955/1097)Updating files:  88% (966/1097)Updating files:  89% (977/1097)Updating files:  90% (988/1097)Updating files:  91% (999/1097)Updating files:  92% (1010/1097)Updating files:  93% (1021/1097)Updating files:  94% (1032/1097)Updating files:  95% (1043/1097)Updating files:  96% (1054/1097)Updating files:  97% (1065/1097)Updating files:  98% (1076/1097)Updating files:  99% (1087/1097)Updating files: 100% (1097/1097)Updating files: 100% (1097/1097), done.
+HEAD is now at 1fd0229 ralph(005): @plans/005-u64-k-atomic-fire.md
+[wreckit/plans-002-u64-k-t1-sparse-md 4a9046e] ralph(002): @plans/002-u64-k-t1-sparse.md
+ 1 file changed, 11 insertions(+), 21 deletions(-)
+fatal: 'dev' is already used by worktree at '/Users/sac/dteam/dev-worktree'
+Auto-merging DOD_VERIFICATION.md
+CONFLICT (content): Merge conflict in DOD_VERIFICATION.md
+Automatic merge failed; fix conflicts and then commit the result.
+[2m2026-04-21T17:31:32.897478Z[0m [33m WARN[0m [1mprocess_idea[0m[1m{[0m[3midea[0m[2m=[0m@plans/002-u64-k-t1-sparse.md [3mid[0m[2m=[0m002[1m}[0m[2m:[0m [2mralph[0m[2m:[0m Failed to merge branch wreckit/plans-002-u64-k-t1-sparse-md: Merge conflict
+fatal: 'refs/heads/wreckit/plans-008-u64-m-delta-builder-md' - not a valid ref
+Preparing worktree (checking out 'wreckit/plans-008-u64-m-delta-builder-md')
+HEAD is now at 1fd0229 ralph(005): @plans/005-u64-k-atomic-fire.md
+[wreckit/plans-004-u64-k-admission-md d2a1657] ralph(004): @plans/004-u64-k-admission.md
+ 1 file changed, 21 insertions(+), 19 deletions(-)
+fatal: 'dev' is already used by worktree at '/Users/sac/dteam/dev-worktree'
+Auto-merging DOD_VERIFICATION.md
+CONFLICT (content): Merge conflict in DOD_VERIFICATION.md
+Automatic merge failed; fix conflicts and then commit the result.
+[2m2026-04-21T17:31:34.813265Z[0m [33m WARN[0m [1mprocess_idea[0m[1m{[0m[3midea[0m[2m=[0m@plans/004-u64-k-admission.md [3mid[0m[2m=[0m004[1m}[0m[2m:[0m [2mralph[0m[2m:[0m Failed to merge branch wreckit/plans-004-u64-k-admission-md: Merge conflict
+fatal: 'refs/heads/wreckit/plans-009-u64-m-active-set-md' - not a valid ref
+Preparing worktree (checking out 'wreckit/plans-009-u64-m-active-set-md')
+HEAD is now at 1fd0229 ralph(005): @plans/005-u64-k-atomic-fire.md

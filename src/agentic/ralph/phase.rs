@@ -137,8 +137,8 @@ impl PhaseRunner for GeminiPhaseRunner {
 
             let output = cmd.output()?;
             if !output.status.success() {
-                let _err = String::from_utf8_lossy(&output.stderr);
-                return Err(anyhow::anyhow!("Phase {} failed", phase));
+                let err_msg = String::from_utf8_lossy(&output.stderr);
+                return Err(anyhow::anyhow!("Phase {} failed. Output: {}", phase, err_msg));
             }
 
             last_output = String::from_utf8_lossy(&output.stdout).into_owned();

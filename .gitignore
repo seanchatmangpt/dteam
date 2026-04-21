@@ -6,3 +6,8 @@
 # Accidental home-path copies (must never be tracked)
 /Users/
 .wreckit/
+
+# Ralph-generated planning artifacts — never commit
+/plans/
+/ideas/
+/IDEAS.md
