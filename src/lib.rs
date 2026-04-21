@@ -6,7 +6,9 @@ pub mod models;
 pub mod reinforcement;
 pub mod reinforcement_tests;
 pub mod proptest_kernel_verification;
+pub mod ontology_proptests;
 pub mod utils;
+pub use agentic::ralph::patterns::universe64::Universe64;
 
 // Re-export models for easier access
 pub use conformance::*;
@@ -25,6 +27,8 @@ pub struct RlState<const WORDS: usize> {
     pub cycle_phase: i8,
     pub marking_mask: utils::dense_kernel::KBitSet<WORDS>,
     pub activities_hash: u64,
+    pub ontology_mask: crate::utils::dense_kernel::KBitSet<16>,
+    pub universe: Option<Universe64>,
 }
 
 #[derive(Clone, Copy, Eq, Hash, PartialEq, Debug)]
@@ -58,8 +62,15 @@ impl<const WORDS: usize> reinforcement::WorkflowState for RlState<WORDS> {
     fn features(&self) -> [f32; 16] {
         let mut f = [0.0; 16];
         f[0] = self.health_level as f32;
-        for i in 0..WORDS.min(15) {
-            f[i + 1] = self.marking_mask.words[i] as f32;
+        f[1] = self.activities_hash as f32;
+        if let Some(u) = &self.universe {
+            for i in 0..14 {
+                f[i + 2] = u.data[i] as f32;
+            }
+        } else {
+            for i in 0..WORDS.min(14) {
+                f[i + 2] = self.marking_mask.words[i] as f32;
+            }
         }
         f
     }
@@ -220,6 +231,8 @@ pub mod dteam {
             lambda: f32,
             deterministic: bool,
             config: Option<crate::config::AutonomicConfig>,
+            ontology: Option<crate::models::Ontology>,
+            prune_on_violation: bool,
         }
 
         impl EngineBuilder {
@@ -230,6 +243,8 @@ pub mod dteam {
                     lambda: 0.01,
                     deterministic: true,
                     config: None,
+                    ontology: None,
+                    prune_on_violation: false,
                 }
             }
 
@@ -255,6 +270,16 @@ pub mod dteam {
                 self
             }
 
+            pub fn with_ontology(mut self, ontology: crate::models::Ontology) -> Self {
+                self.ontology = Some(ontology);
+                self
+            }
+
+            pub fn with_pruning(mut self, prune: bool) -> Self {
+                self.prune_on_violation = prune;
+                self
+            }
+
             pub fn build(self) -> Engine {
                 let config = self.config.unwrap_or_else(|| {
                     crate::config::AutonomicConfig::load("dteam.toml").unwrap_or_default()
@@ -265,6 +290,8 @@ pub mod dteam {
                     lambda: self.lambda,
                     deterministic: self.deterministic,
                     config,
+                    ontology: self.ontology,
+                    prune_on_violation: self.prune_on_violation,
                 }
             }
         }
@@ -281,6 +308,8 @@ pub mod dteam {
             pub lambda: f32,
             pub deterministic: bool,
             pub config: crate::config::AutonomicConfig,
+            pub ontology: Option<crate::models::Ontology>,
+            pub prune_on_violation: bool,
         }
 
         pub trait DteamDoctor {
@@ -301,7 +330,8 @@ pub mod dteam {
                  zero-heap hot path: verified\n\
                  boundary batching: recommended\n\
                  manifest mode: enabled\n\
-                 determinism profile: strict"
+                 determinism profile: strict\n\
+                 ontology enforcement: active"
                     .to_string()
             }
 
@@ -418,12 +448,16 @@ pub mod dteam {
             pub mdl_score: f64,
             pub k_tier: String,
             pub latency_ns: u64,
+            pub ontology_hash: Option<u64>,
+            pub violation_count: usize,
+            pub closure_verified: bool,
         }
 
-        #[derive(Debug)]
+        #[derive(Debug, Clone)]
         pub enum EngineResult {
             Success(Box<PetriNet>, ExecutionManifest),
             PartitionRequired { required: usize, configured: usize },
+            BoundaryViolation { activity: String },
         }
 
         impl Engine {
@@ -446,22 +480,56 @@ pub mod dteam {
                     };
                 }
 
+                // Boundary Enforcement Phase (AC 1.2)
+                if let Some(ontology) = &self.ontology {
+                    if !self.prune_on_violation {
+                        for trace in &log.traces {
+                            for event in &trace.events {
+                                let activity = event.attributes.iter().find(|a| a.key == "concept:name").and_then(|a| {
+                                    if let crate::models::AttributeValue::String(s) = &a.value { Some(s.as_str()) } else { None }
+                                }).unwrap_or("No Activity");
+
+                                if !ontology.contains(activity) {
+                                    return EngineResult::BoundaryViolation { activity: activity.to_string() };
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // Use reward weights from cached config
                 let beta = *self.config.rl.reward_weights.get("fitness").unwrap_or(&0.5);
                 let lambda = *self.config.rl.reward_weights.get("soundness").unwrap_or(&0.01);
 
+                // Projection and Training
+                let projected_log = crate::conformance::ProjectedLog::generate_with_ontology(log, self.ontology.as_ref());
+                let violation_count = projected_log.violation_count;
+
                 let (net, trajectory) =
-                    crate::automation::train_with_provenance_projected(&projected, &self.config, beta, lambda);
-                
+                    crate::automation::train_with_provenance_projected(&projected_log, &self.config, beta, lambda, self.ontology.as_ref());
                 let execution_time_ns = start_time.elapsed().as_nanos() as u64;
+
+                // Closure Verification (AC 5.1, AC 2.1)
+                let mut closure_verified = true;
+                if let Some(ontology) = &self.ontology {
+                    for t in &net.transitions {
+                        if !ontology.contains(&t.label) {
+                            closure_verified = false;
+                            break;
+                        }
+                    }
+                }
 
                 let manifest = ExecutionManifest {
                     input_log_hash: log.canonical_hash(),
                     action_sequence: trajectory,
                     model_canonical_hash: net.canonical_hash(),
-                    mdl_score: net.mdl_score(),
+                    mdl_score: net.mdl_score_with_ontology(self.ontology.as_ref().map(|o| o.index.len())),
                     k_tier: format!("{:?}", self.k_tier),
                     latency_ns: execution_time_ns,
+                    ontology_hash: self.ontology.as_ref().map(|o| o.hash()),
+                    violation_count,
+                    closure_verified,
                 };
 
                 EngineResult::Success(Box::new(net), manifest)

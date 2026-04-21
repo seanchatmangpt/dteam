@@ -13,7 +13,7 @@ const BENCH_STEPS: usize = 1000;
 const GOAL_STATE: i32 = 100;
 const DEFAULT_REWARD: f32 = 1.0;
 
-fn create_state(h: i32) -> RlState<1> {
+fn create_state<const WORDS: usize>(h: i32) -> RlState<WORDS> {
     RlState {
         health_level: h as i8,
         event_rate_q: 0,
@@ -25,6 +25,8 @@ fn create_state(h: i32) -> RlState<1> {
         cycle_phase: 0,
         marking_mask: KBitSet::zero(),
         activities_hash: 0,
+        ontology_mask: KBitSet::zero(),
+        universe: None,
     }
 }
 
@@ -72,8 +74,8 @@ fn bench_real_data_processing(c: &mut Criterion) {
     let actions = load_real_actions();
     println!("Loaded {} actions from real data", actions.len());
 
-    let mut q = QLearning::<RlState<1>, RlAction>::new();
-    let mut sarsa = SARSAAgent::<RlState<1>, RlAction>::new();
+    let mut q = QLearning::<RlState<4>, RlAction>::new();
+    let mut sarsa = SARSAAgent::<RlState<4>, RlAction>::new();
 
     let mut group = c.benchmark_group("RealDataProcessing");
 
@@ -84,14 +86,14 @@ fn bench_real_data_processing(c: &mut Criterion) {
         format!("QLearning Real Data ({} steps)", BENCH_STEPS),
         |b| {
             b.iter(|| {
-                let mut state = create_state(0);
+                let mut state = create_state::<4>(0);
                 for &action in actions_chunk {
                     let next_h = match action {
                         RlAction::Idle => state.health_level,
                         RlAction::Optimize => state.health_level + 1,
                         RlAction::Rework => (state.health_level - 1).max(0),
                     };
-                    let next_state = create_state(next_h as i32);
+                    let next_state = create_state::<4>(next_h as i32);
                     let done = i32::from(next_h) >= GOAL_STATE;
                     let reward = if done { DEFAULT_REWARD } else { 0.0 };
                     q.update(
@@ -103,7 +105,7 @@ fn bench_real_data_processing(c: &mut Criterion) {
                     );
                     state = next_state;
                     if done {
-                        state = create_state(0);
+                        state = create_state::<4>(0);
                     }
                 }
             })
@@ -113,14 +115,14 @@ fn bench_real_data_processing(c: &mut Criterion) {
     group.bench_function(format!("SARSA Real Data ({} steps)", BENCH_STEPS), |b| {
         b.iter(|| {
             sarsa.reset();
-            let mut state = create_state(0);
+            let mut state = create_state::<4>(0);
             for &action in actions_chunk {
                 let next_h = match action {
                     RlAction::Idle => state.health_level,
                     RlAction::Optimize => state.health_level + 1,
                     RlAction::Rework => (state.health_level - 1).max(0),
                 };
-                let next_state = create_state(next_h as i32);
+                let next_state = create_state::<4>(next_h as i32);
                 let done = i32::from(next_h) >= GOAL_STATE;
                 let reward = if done { DEFAULT_REWARD } else { 0.0 };
                 sarsa.update(
@@ -132,7 +134,7 @@ fn bench_real_data_processing(c: &mut Criterion) {
                 );
                 state = next_state;
                 if done {
-                    state = create_state(0);
+                    state = create_state::<4>(0);
                     sarsa.reset();
                 }
             }

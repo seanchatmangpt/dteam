@@ -24,6 +24,8 @@ mod proptests {
                 cycle_phase: 0,
                 marking_mask: KBitSet::zero(),
                 activities_hash: 0,
+                ontology_mask: KBitSet::zero(),
+                universe: None,
             };
             let action = RlAction::from_index(a).unwrap();
 

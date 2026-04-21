@@ -1,0 +1,8 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 81f592f52b2c99cac5fd2145dec01569a2514b06a1371cbef681afc9c7c73cb4 # shrinks to ontology_acts = ["equg", "evmv", "awwnh"], noise_acts = ["GTIC"], trace_len = 7
+cc c805f63f38d11afb8b44f2973d7a00d25c08fa3a9bc94880272bbfe8036b20e3 # shrinks to ontology_acts = ["l", "l"], noise_act = "A"

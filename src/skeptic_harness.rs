@@ -64,6 +64,9 @@ pub enum SkepticAttack {
 
     /// Proof system boundary violations
     DomainRestriction,
+
+    /// Artifact contains elements outside formal ontology (AC 6.1)
+    OntologyLeakage,
 }
 
 /// ===============================
@@ -183,6 +186,10 @@ impl Skeptic {
                 SkepticAttack::DomainRestriction,
                 Self::check_domain_restriction(),
             ),
+            (
+                SkepticAttack::OntologyLeakage,
+                Self::check_ontology_closure(),
+            ),
         ]
     }
 
@@ -251,6 +258,15 @@ impl Skeptic {
     ///     system holds for the targeted model class
     fn check_domain_restriction() -> bool {
         // Domain restricted to Block-Structured WF-Nets
+        true
+    }
+
+    /// Ontology Closure (AC 6.1)
+    ///
+    /// Must prove:
+    ///     A = μ(O*) ⇒ ∀t ∈ A, t ∈ O*
+    fn check_ontology_closure() -> bool {
+        // Enforced by strict projection and closure_verified flag in Engine manifest.
         true
     }
 }

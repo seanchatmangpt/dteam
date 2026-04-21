@@ -72,6 +72,8 @@ fn bench_rl_hot_path(c: &mut Criterion) {
         cycle_phase: 0,
         marking_mask: KBitSet::zero(),
         activities_hash: 0,
+        ontology_mask: KBitSet::zero(),
+        universe: None,
     };
 
     c.bench_function("SARSA_SelectAction", |b| {
