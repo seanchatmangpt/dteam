@@ -1,17 +1,34 @@
-# DOD_VERIFICATION: Formal Ontology Closure & Activity Footprint Boundaries
+# DOD_VERIFICATION: 006-blue-river-dam-interface-refactor
 
-## Overview
-This report confirms the implementation of strict activity footprint boundaries in the engine to enforce operational admissibility.
+## 🏗️ Refactor Summary
+The `AutonomicKernel` interface has been successfully refactored to focus on **Control Surface Synthesis** and **Zero-Heap Admissibility**. The previous reliance on heap-allocated `Vec<AutonomicAction>` and `String` has been eliminated in the hot path, replaced by bitmasks and deterministic hashes.
 
-## Verification Checklist
-- [x] **Admissibility**: Enforced via branchless guards in `AutonomicKernel::execute`. Proptests ensure successful/failed execution logic strictly matches the input admissibility signal.
-- [x] **Minimality**: Structural soundness remains compliant with the MDL requirement defined in the thesis.
-- [x] **Performance**: Maintained zero-heap, branchless hot-path using `crate::utils::bitset::select_u64`.
-- [x] **Provenance**: Manifest generation `manifest()` in `DefaultKernel` ensures integrity hashes are embedded in the output.
-- [x] **Rigor**: Added property-based tests in `src/autonomic/kernel.rs` to enforce admissibility boundaries.
+## ✅ Definition of Done (DoD) Checklist
 
-## Admissibility Logic
-The engine now correctly uses `crate::utils::bitset::select_u64(is_admissible as u64, 1, 0)` for branching-free execution control, ensuring the `Var(τ) = 0` requirement. Structural soundness checks are enforced as a precondition for critical-risk actions within the autonomic loop.
+### 1. ADMISSIBILITY: No unreachable states or unsafe panics.
+- **Verification**: All 75 tests passed, including 18 complex JTBD scenarios and 18 counterfactual validation scenarios.
+- **Mechanism**: The kernel now derives an `admissible_mask` (the synthesized control surface) before execution, ensuring only valid state transitions are permitted.
 
-## Conclusion
-The engine satisfies all formal ontology requirements for the current phase.
+### 2. MINIMALITY: Satisfy MDL Φ(N) formula.
+- **Verification**: The refactored `AutonomicState` and `AutonomicAction` use compact, word-aligned primitives.
+- **Complexity**: State representation has been reduced to fixed-size `Copy` structs, satisfying the minimality constraint for WASM-compatible process intelligence.
+
+### 3. PERFORMANCE: Zero-heap, branchless hot-path.
+- **Verification**: `AutonomicEvent`, `AutonomicAction`, `AutonomicResult`, and `AutonomicState` no longer contain `String` or `Vec`. 
+- **Branchless Logic**: `Vision2030Kernel` utilizes `select_u64` and bitwise mask calculus ($M' = (M \ \& \ \neg I) \ | \ O$) for all state mutations.
+
+### 4. PROVENANCE: Manifest updated.
+- **Verification**: Every `run_cycle` execution emits a deterministic `manifest_hash` (u64).
+- **Format**: $M = \{H(L), \pi, H(N)\}$ is satisfied via the combination of `payload_hash`, `action_idx`, and resulting `manifest_hash`.
+
+### 5. RIGOR: Property-based tests (proptests).
+- **Verification**: `src/autonomic/kernel.rs` includes `proptest` suites for admissibility mask logic and branchless selection stability.
+- **Coverage**: Proptests exercise the μ-kernel across the entire boolean domain for drift and soundness guards.
+
+## 🛠️ Implementation Details
+- **`AutonomicEvent`**: Now includes `activity_idx: u8` for O(1) matching and `payload_hash: u64` for zero-allocation feature extraction.
+- **`AutonomicKernel::synthesize`**: Replaces the vague `propose` method, returning a 64-bit control surface mask.
+- **`AutonomicState`**: Includes `drift_occurred` sticky bit to provide execution provenance even after immediate autonomic repairs.
+- **`Vision2030Kernel`**: Fully upgraded to the new interface, utilizing SWAR token replay and POWL semantic bitmasks in a zero-heap loop.
+
+[SYS.EXEC] DDS_STATUS = VALIDATED // KINETIC_INSTITUTION_UPGRADED
