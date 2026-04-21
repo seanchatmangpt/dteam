@@ -573,12 +573,18 @@ pub mod dteam {
                         (new_manifest.mdl_score - manifest.mdl_score).abs() < f64::EPSILON;
                     let integrity_match = new_manifest.integrity_hash == manifest.integrity_hash;
 
+<<<<<<< HEAD
                     let verdict = if input_match
                         && trace_match
                         && model_match
                         && mdl_match
                         && integrity_match
                     {
+=======
+                    let ontology_match = new_manifest.ontology_hash == manifest.ontology_hash;
+
+                    let verdict = if input_match && trace_match && model_match && mdl_match && ontology_match {
+>>>>>>> wreckit/ontology-mapping-automated-activity-to-index-mapping-with-fnv-1a-collision-guards
                         "VERIFIED"
                     } else {
                         "FAILED"
@@ -588,17 +594,25 @@ pub mod dteam {
                              policy_trace: {}\n\
                              model_hash: {}\n\
                              mdl_score: {}\n\
+<<<<<<< HEAD
                              integrity: {}\n\
+=======
+                             ontology_hash: {}\n\
+>>>>>>> wreckit/ontology-mapping-automated-activity-to-index-mapping-with-fnv-1a-collision-guards
                              verdict: {}",
                         if input_match { "matched" } else { "divergent" },
                         if trace_match { "replayed" } else { "divergent" },
                         if model_match { "matched" } else { "divergent" },
                         if mdl_match { "matched" } else { "divergent" },
+<<<<<<< HEAD
                         if integrity_match {
                             "verified"
                         } else {
                             "failed"
                         },
+=======
+                        if ontology_match { "matched" } else { "divergent" },
+>>>>>>> wreckit/ontology-mapping-automated-activity-to-index-mapping-with-fnv-1a-collision-guards
                         verdict
                     )
                 } else {
@@ -617,8 +631,12 @@ pub mod dteam {
             pub h_n: u64,
             pub integrity_hash: u64,
             pub mdl_score: f64,
+<<<<<<< HEAD
             pub soundness_score: f32,
             pub is_sound: bool,
+=======
+            pub ontology_hash: u64, // AC 5: Provenance
+>>>>>>> wreckit/ontology-mapping-automated-activity-to-index-mapping-with-fnv-1a-collision-guards
             pub k_tier: String,
             pub latency_ns: u64,
             pub ontology_hash: Option<u64>,
@@ -700,12 +718,17 @@ pub mod dteam {
                 let projected_log = crate::conformance::ProjectedLog::generate_with_ontology(log, self.ontology.as_ref());
                 let violation_count = projected_log.violation_count;
 
+<<<<<<< HEAD
                 let (net, trajectory) =
 <<<<<<< HEAD
                     crate::automation::train_with_provenance_projected(&projected_log, &self.config, beta, lambda, self.ontology.as_ref());
 =======
                     crate::automation::train_with_provenance_projected(&projected_log, &config, beta, lambda, self.ontology.as_ref());
 >>>>>>> wreckit/1-formal-ontology-closure-implement-strict-activity-footprint-boundaries-in-the-engine-to-enforce-o-and-prevent-out-of-ontology-state-reachability
+=======
+                let (net, trajectory, ontology_hash) =
+                    crate::automation::train_with_provenance(log, &config, beta, lambda);
+>>>>>>> wreckit/ontology-mapping-automated-activity-to-index-mapping-with-fnv-1a-collision-guards
                 let execution_time_ns = start_time.elapsed().as_nanos() as u64;
 
 <<<<<<< HEAD
@@ -728,6 +751,7 @@ pub mod dteam {
                     mdl_score: net.mdl_score_with_ontology(self.ontology.as_ref().map(|o| o.index.len())),
 =======
                     mdl_score: net.mdl_score(),
+<<<<<<< HEAD
                     soundness_score: net.structural_unsoundness_score(),
                     is_sound: net.is_sound(),
 >>>>>>> wreckit/wf-net-soundness-judge-implement-dr-wil-s-soundness-proofs-as-branchless-bitmask-checks
@@ -751,6 +775,9 @@ pub mod dteam {
                     integrity_hash,
                     mdl_score: mdl,
 >>>>>>> wreckit/cryptographic-execution-provenance-enhance-executionmanifest-with-full-h-l-π-h-n-hashing
+=======
+                    ontology_hash,
+>>>>>>> wreckit/ontology-mapping-automated-activity-to-index-mapping-with-fnv-1a-collision-guards
                     k_tier: format!("{:?}", self.k_tier),
                     latency_ns: execution_time_ns,
                     ontology_hash: self.ontology.as_ref().map(|o| o.hash()),

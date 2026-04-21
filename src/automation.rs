@@ -37,6 +37,7 @@ pub fn automate_discovery(data_dir: &str) {
 pub fn train_with_provenance(
     train_log: &EventLog,
     config: &AutonomicConfig,
+<<<<<<< HEAD
     beta: f32,
     lambda: f32,
 <<<<<<< HEAD
@@ -47,6 +48,15 @@ pub fn train_with_provenance(
 ) -> (PetriNet, Vec<u8>) {
     train_with_provenance_projected(&ProjectedLog::from(train_log), config, beta, lambda)
 >>>>>>> wreckit/linear-reinforcement-learning-implement-linucb-with-zero-heap-state-matrices
+=======
+    _beta: f32,
+    _lambda: f32,
+) -> (PetriNet, Vec<u8>, u64) {
+    let projected = ProjectedLog::from(train_log);
+    let ontology_hash = projected.ontology_hash;
+    let (net, trajectory) = train_with_provenance_projected(&projected, config, _beta, _lambda);
+    (net, trajectory, ontology_hash)
+>>>>>>> wreckit/ontology-mapping-automated-activity-to-index-mapping-with-fnv-1a-collision-guards
 }
 
 pub fn train_with_provenance_projected(

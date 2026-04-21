@@ -24,7 +24,11 @@ pub struct ConformanceResult {
 pub struct ProjectedLog {
     pub activities: Vec<String>,
     pub traces: Vec<(Vec<usize>, u64)>, // (activity indices, frequency)
+<<<<<<< HEAD
     pub violation_count: usize,
+=======
+    pub ontology_hash: u64,
+>>>>>>> wreckit/ontology-mapping-automated-activity-to-index-mapping-with-fnv-1a-collision-guards
 }
 
 impl ProjectedLog {
@@ -68,12 +72,16 @@ impl ProjectedLog {
 
         let mut traces_map = PackedKeyTable::new();
         let activities = activity_index.symbols().to_vec();
+<<<<<<< HEAD
 =======
         let mut act_to_idx = PackedKeyTable::new();
         let mut activities = Vec::new();
         let mut traces_map = PackedKeyTable::new();
         let mut violation_count = 0;
 >>>>>>> wreckit/1-formal-ontology-closure-implement-strict-activity-footprint-boundaries-in-the-engine-to-enforce-o-and-prevent-out-of-ontology-state-reachability
+=======
+        let ontology_hash = activity_index.ontology_hash();
+>>>>>>> wreckit/ontology-mapping-automated-activity-to-index-mapping-with-fnv-1a-collision-guards
 
         for trace in &log.traces {
             let mut trace_acts = Vec::with_capacity(trace.events.len());
@@ -135,7 +143,11 @@ impl ProjectedLog {
         Self {
             activities,
             traces: traces_map.iter().map(|(_, k, v)| (k.clone(), *v)).collect(),
+<<<<<<< HEAD
             violation_count,
+=======
+            ontology_hash,
+>>>>>>> wreckit/ontology-mapping-automated-activity-to-index-mapping-with-fnv-1a-collision-guards
         }
     }
 }
