@@ -1,114 +1,122 @@
-U64-T1-Cell: Implement sub-200ns branchless Petri64 local transition in Plane_S.
-U64-T1-Sparse: Implement active-word-scoped transition for T1-admissible multi-cell firing.
-U64-T2-Full: Implement 32 KiB block scan for institutional conformance geometry (Hamming distance).
-U64-Delta-Builder: Implement sparse u64 XOR delta generation in the Scratch Plane.
-U64-Receipt-Mixer: Implement rolling FNV-1a state mixing for Delta-Receipt provenance.
-U64-Coord-Mapper: Compile 3D (domain, cell, place) coordinates into 4096-word memory offsets.
-U64-Ready-Maintainer: Implement bit-to-transition dependency mapping to automatically enable T1 firing.
-U64-Projection-Engine: Deriving disposible views (SaaS/PaaS) from U64 Delta-Receipt streams.
-U64-Instruction-Decoder: Implement zero-copy mapping of admitted operator IDs to Scratch-resident masks.
-U64-Dual-Plane-Memory: Secure 64 KiB L1 resident allocation for Data (U_t) and Scratch (S_t) planes.
-U64-Ontology-Guard: Implement LawMask enforcement in the Admission Kernel to prevent out-of-ontology state.
-U64-RL-Update: Refactor RL update kernels to consume sparse U64 Delta events as state input.
-Formal Ontology Closure: Implement strict activity footprint boundaries in the Engine to enforce O*.
-MDL Refinement: Upgrade structural scoring in src/models/petri_net.rs to follow Φ(N) exactly.
-Deterministic Kernel μ Verification: Create cross-architecture test suite to verify Var(τ) = 0.
-Admissibility Reachability Pruning: Implement branchless guards to prevent 'Bad States' in markings.
-Cryptographic Execution Provenance: Enhance ExecutionManifest with full {H(L), π, H(N)} hashing.
-Blue River Dam Interface: Refactor AutonomicKernel to focus on 'Control Surface Synthesis'.
-Branchless State-Equation Calculus: Eliminate conditional logic in PetriNet verification.
-Zero-Heap PackedKeyTable: Eliminate all latent allocations in PKT hot paths.
-K-Tier Scalability: Optimize bitset alignment for K=1024 and beyond.
-Linear Reinforcement Learning: Implement LinUCB with zero-heap state matrices.
-Deterministic SARSA: Refactor SARSA agent to eliminate stochastic exploration.
-Ontology Mapping: Automated activity-to-index mapping with FNV-1a collision guards.
-WF-Net Soundness Judge: Implement Dr. Wil's soundness proofs as branchless bitmask checks.
-Execution Manifest Replay: Tooling to perfectly reproduce N from L and π.
-Blue River Flow Stability: Implement variance-flattening logic in the adaptive kernel.
-Zero-Copy XES Parsing: Optimize XESReader to use stack-allocated buffers.
-Branchless OR-Join: Implement WCP-37 logic using purely bitwise mask calculus.
-K-Tier Memory Alignment: Enforce 64-bit word boundaries across all kernel operations.
-Deterministic Q-Table: Serialize and verify Q-matrices across different WASM hosts.
-Admissible Trace Generation: Synthetic log generator that obeys formal system ontologies.
-MDL-Based Pruning: RL agent heuristic to penalize structural complexity.
-Branchless Conflict Detection: Detect Petri net conflicts using SWAR bitwise overlaps.
-KBitSet Range Operations: Implement bitset slicing and bulk-updates without loops.
-Execution Trajectory Compression: Use Elias-Fano encoding for action trajectories.
-Deterministic Perturbation: Stable noise generation for adversarial robustness testing.
-Blue River Governance: Enforce 'Law = Execution' in the autonomic cycle.
-Zero-Heap OCEL Support: Initial OCEL 2.0 structures with zero allocation.
-Branchless Transition Firing: Perfect bitmask calculus for KTier execution.
-Admissibility Guards in WASM: Hardened boundary checks for WASM bridge.
-MDL Gradient Descent: Continuous structural optimization in the RL loop.
-Deterministic State Hashing: Verify FNV-1a stability across architectures.
-K-Tier Capacity Trigger: Implement EngineResult::PartitionRequired logic.
-Formal Soundness Benchmarks: Large-scale soundness verification performance test.
-Zero-Heap Trace Aggregation: ProjectedLog optimization to avoid Vec churn.
-Branchless Cycle Detection: Detect process cycles using bitmask reachability.
-Execution Manifest Cryptography: Sign manifests with Ed25519 for provenance.
-Blue River Feedback Loop: Adaptation step based on structural variance.
-KBitSet Logical Intersections: Parallel bitwise AND/OR/XOR performance audit.
-Deterministic Reward Functions: Reward weights as fixed-point u64 logic.
-Admissible Action Selection: Filter RL actions by reachability constraints.
-MDL Entropy Calculation: Calculate structural entropy in PetriNet models.
-Branchless Bipartite Verification: Check place-transition bipartite law with masks.
-K-Tier Word Alignment Audit: Ensure all 64-bit multiples are strictly respected.
-Zero-Heap State State Serialization: RL state keys encoded as i64 in memory.
-Deterministic Model Equivalence: Bisimulation-equivalent model verification tool.
-Execution Provenance CLI: Utility to verify manifest integrity from terminal.
-Blue River Control Surfaces: Visualizing the flattening of dashboards.
-Branchless Arc Weighting: Handle multi-token arcs with bitwise shifts.
-KBitSet Population Count: Optimize bit counting using SWAR primitives.
-Deterministic Environment Mocking: Repeatable test environments for autonomic runs.
-Admissibility Violation Alerts: Warning system for 'Tearing the Fabric' of O*.
-MDL-Driven Discovery: Inductive miner variant that targets minimal description.
-Branchless Deadlock Detection: Static analysis of nets using bitmask calculus.
-Zero-Allocation Benchmarking: Integration of DHAT into all performance paths.
-Deterministic Random Seeds: Global seed management for multi-actor Ralph loops.
-K-Tier Scalability Stress Test: Run 10,000 parallel replays at K=512.
-Execution Manifest History: Track the evolution of O* over multiple epochs.
-Blue River Institutional Evolution: Kinetic institution simulation model.
-Branchless Path Finding: Find admissible paths using bitset propagation.
-KBitSet Logical Negation: Efficient whole-tier bitwise inversion.
-Zero-Heap Attribute Storage: AttributeValue as stack-allocated enum.
-Deterministic Log Sharding: Partition logs based on activity footprint hash.
-Admissibility State Equation: Formal verification of M' = (M - I) + O.
-MDL Structural Scoring: Refactor scoring logic into the kernel core.
-Branchless Liveness Analysis: Verify net liveness using reachability masks.
-Zero-Allocation Event Buffering: Ring buffer for high-frequency event ingestion.
-Deterministic Policy Replay: Verify policy consistency during adapt() phase.
-K-Tier Memory Safety: Formal bounds check for bitset indexing.
-Execution Manifest Export: Export manifests to JSON-LD for graph provenance.
-Blue River Adaptive Thresholds: Dynamic risk_threshold adjustment in kernels.
-Branchless Sub-Net Extraction: Extract components using bitmask filters.
-Zero-Heap Hash Maps: Flat linear-probed PKT for small key spaces.
-Deterministic Agent Training: Ensure SARSA convergence is bit-perfect.
-Admissibility Reachability Graph: Exhaustive graph generation with KBitSets.
-MDL Uniqueness Proof: Formal test that MDL finds the global minimum.
-Branchless Boundedness Check: Ensure net is k-bounded via bitmasks.
-Zero-Allocation Path Paths: Use fixed-size arrays for small trajectories.
-Deterministic Time Sampling: SystemTime management for reproducible logs.
-K-Tier Vectorized Replay: SIMD optimization for token-based replay.
-Execution Manifest Comparison: Diffing manifests to detect policy drift.
-Blue River Predictive Control: Future state synthesis in AutonomicKernel.
-Branchless Guard Logic: Condition-based transition firing with masks.
-Zero-Heap Log Compression: On-the-fly log projection during ingestion.
-Deterministic State Transitions: Verify marking update stability.
-Admissibility Property Checks: Unit tests for every DDS admissibility invariant.
-MDL Formula Benchmarks: Performance audit of Φ(N) calculation.
-Branchless Dependency Analysis: DFG construction using bitwise OR-reduction.
-Zero-Allocation RL Updates: Ensure Bellman updates happen on stack.
-Deterministic Metadata Hashing: Include config.toml in execution provenance.
-K-Tier Bitset Slicing: Efficiently extract sub-word bit ranges.
-Execution Manifest Rollback: Ability to revert O* to a previous manifest.
-Blue River Governance Synthesis: Compiling policy into executable kernels.
-Branchless Soundness Prover: Static soundness verification with masks.
-Zero-Heap Petri Net Builder: Stack-allocated net construction primitives.
-Deterministic Action Probability: Probability-to-Fixed-Point mapping.
-Admissibility Constraint Solver: Solving for N* in the admissible space.
-MDL Complexity Penalty: Continuous penalty application in RL rewards.
-Branchless Net Simplification: Reduction rules implemented with masks.
-Zero-Allocation Diagnostics: System doctor report without heap usage.
-Deterministic Data Science CLI: Root CLI for the DDS toolchain.
-DDS-AUTO: Optimize Ralph Loop topology based on manifest hash 10887862267626842014
-DDS-AUTO: Optimize Ralph Loop topology based on manifest hash 10887862267626842014
+@plans/001-u64-t1-cell.md
+@plans/002-u64-t1-sparse.md
+@plans/003-u64-t2-full.md
+@plans/004-u64-delta-builder.md
+@plans/005-u64-receipt-mixer.md
+@plans/006-u64-coord-mapper.md
+@plans/007-u64-ready-maintainer.md
+@plans/008-u64-projection-engine.md
+@plans/009-u64-instruction-decoder.md
+@plans/010-u64-dual-plane-memory.md
+@plans/011-u64-ontology-guard.md
+@plans/012-u64-rl-update.md
+@plans/013-formal-ontology-closure.md
+@plans/014-mdl-refinement.md
+@plans/015-deterministic-kernel-verification.md
+@plans/016-admissibility-reachability-pruning.md
+@plans/017-cryptographic-execution-provenance.md
+@plans/018-blue-river-dam-interface.md
+@plans/019-branchless-state-equation-calculus.md
+@plans/020-zero-heap-packedkeytable.md
+@plans/021-k-tier-scalability.md
+@plans/022-linear-reinforcement-learning.md
+@plans/023-deterministic-sarsa.md
+@plans/024-ontology-mapping.md
+@plans/025-wf-net-soundness-judge.md
+@plans/026-execution-manifest-replay.md
+@plans/027-blue-river-flow-stability.md
+@plans/028-zero-copy-xes-parsing.md
+@plans/029-branchless-or-join.md
+@plans/030-k-tier-memory-alignment.md
+@plans/031-deterministic-q-table.md
+@plans/032-admissible-trace-generation.md
+@plans/033-mdl-based-pruning.md
+@plans/034-branchless-conflict-detection.md
+@plans/035-kbitset-range-operations.md
+@plans/036-execution-trajectory-compression.md
+@plans/037-deterministic-perturbation.md
+@plans/038-blue-river-governance.md
+@plans/039-zero-heap-ocel-support.md
+@plans/040-branchless-transition-firing.md
+@plans/041-admissibility-guards-in-wasm.md
+@plans/042-mdl-gradient-descent.md
+@plans/043-deterministic-state-hashing.md
+@plans/044-k-tier-capacity-trigger.md
+@plans/045-formal-soundness-benchmarks.md
+@plans/046-zero-heap-trace-aggregation.md
+@plans/047-branchless-cycle-detection.md
+@plans/048-execution-manifest-cryptography.md
+@plans/049-blue-river-feedback-loop.md
+@plans/050-kbitset-logical-intersections.md
+@plans/051-deterministic-reward-functions.md
+@plans/052-admissible-action-selection.md
+@plans/053-mdl-entropy-calculation.md
+@plans/054-branchless-bipartite-verification.md
+@plans/055-k-tier-word-alignment-audit.md
+@plans/056-zero-heap-state-state-serialization.md
+@plans/057-deterministic-model-equivalence.md
+@plans/058-execution-provenance-cli.md
+@plans/059-blue-river-control-surfaces.md
+@plans/060-branchless-arc-weighting.md
+@plans/061-kbitset-population-count.md
+@plans/062-deterministic-environment-mocking.md
+@plans/063-admissibility-violation-alerts.md
+@plans/064-mdl-driven-discovery.md
+@plans/065-branchless-deadlock-detection.md
+@plans/066-zero-allocation-benchmarking.md
+@plans/067-deterministic-random-seeds.md
+@plans/068-k-tier-scalability-stress-test.md
+@plans/069-execution-manifest-history.md
+@plans/070-blue-river-institutional-evolution.md
+@plans/071-branchless-path-finding.md
+@plans/072-kbitset-logical-negation.md
+@plans/073-zero-heap-attribute-storage.md
+@plans/074-deterministic-log-sharding.md
+@plans/075-admissibility-state-equation.md
+@plans/076-mdl-structural-scoring.md
+@plans/077-branchless-liveness-analysis.md
+@plans/078-zero-allocation-event-buffering.md
+@plans/079-deterministic-policy-replay.md
+@plans/080-k-tier-memory-safety.md
+@plans/081-execution-manifest-export.md
+@plans/082-blue-river-adaptive-thresholds.md
+@plans/083-branchless-sub-net-extraction.md
+@plans/084-zero-heap-hash-maps.md
+@plans/085-deterministic-agent-training.md
+@plans/086-admissibility-reachability-graph.md
+@plans/087-mdl-uniqueness-proof.md
+@plans/088-branchless-boundedness-check.md
+@plans/089-zero-allocation-path-paths.md
+@plans/090-deterministic-time-sampling.md
+@plans/091-k-tier-vectorized-replay.md
+@plans/092-execution-manifest-comparison.md
+@plans/093-blue-river-predictive-control.md
+@plans/094-branchless-guard-logic.md
+@plans/095-zero-heap-log-compression.md
+@plans/096-deterministic-state-transitions.md
+@plans/097-admissibility-property-checks.md
+@plans/098-mdl-formula-benchmarks.md
+@plans/099-branchless-dependency-analysis.md
+@plans/100-zero-allocation-rl-updates.md
+@plans/101-deterministic-metadata-hashing.md
+@plans/102-k-tier-bitset-slicing.md
+@plans/103-execution-manifest-rollback.md
+@plans/104-blue-river-governance-synthesis.md
+@plans/105-branchless-soundness-prover.md
+@plans/106-zero-heap-petri-net-builder.md
+@plans/107-deterministic-action-probability.md
+@plans/108-admissibility-constraint-solver.md
+@plans/109-mdl-complexity-penalty.md
+@plans/110-branchless-net-simplification.md
+@plans/111-zero-allocation-diagnostics.md
+@plans/112-deterministic-data-science-cli.md
+@plans/113-dds-auto.md
+@plans/114-dds-auto.md
+@plans/byawl-adversarial-review.md
+@plans/dogfood-defense.md
+@plans/hard-patterns-review.md
+@plans/ocel-2.0-review.md
+@plans/ocpm-adversarial-review.md
+@plans/powl-discovery-review.md
+@plans/powl-to-petrinet-review.md
+@plans/self-play-defense.md
