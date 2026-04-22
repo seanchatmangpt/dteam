@@ -1,0 +1,40 @@
+@startuml 11-work-tier-selection
+title Work Tier Selection — 8^n Kinetic Footprint
+
+skinparam shadowing false
+
+start
+:Semantic motion;
+:Compute read-set ∪ write-set;
+:Determine smallest 8^k that contains footprint;
+
+if (Footprint ≤ 8 bits?) then (yes)
+  :Tier 8^1 (atom)\n[u8];
+  :Monomorphized u8 kernel\ntarget ≤ 2 ns;
+elseif (Footprint ≤ 64 bits?) then (yes)
+  :Tier 8^2 (word)\n[u64; 1];
+  :Monomorphized u64 kernel\ntarget ≤ 10 ns;
+elseif (Footprint ≤ 512 bits?) then (yes)
+  :Tier 8^3 (semantic cache line)\n[u64; 8];
+  :Monomorphized line kernel\ntarget ≤ 100 ns;
+elseif (Footprint ≤ 4,096 bits?) then (yes)
+  :Tier 8^4 (attention block)\n[u64; 64];
+  :Monomorphized block kernel\ntarget ≤ 200 ns;
+else (≤ 32,768 bits)
+  :Tier 8^5 (active tile)\n[u64; 512];
+  :Monomorphized tile kernel\ntarget ≤ 500 ns;
+endif
+
+:Type carries tier\n(UCompiledMotion<TIER, RECEIPT>);
+:No runtime tier dispatch;
+
+stop
+
+note right
+  Work = 8^n (kinetic footprint).
+  Memory = 64^n (resident universe).
+  Planner chooses smallest lawful tier
+  that contains the motion.
+end note
+
+@enduml

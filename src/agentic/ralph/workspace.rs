@@ -1,6 +1,6 @@
+use anyhow::{anyhow, Result};
 use std::path::Path;
 use std::process::Command;
-use anyhow::{Result, anyhow};
 
 pub trait WorkspaceManager {
     fn setup_worktree(&self, branch: &str, path: &Path) -> Result<()>;
@@ -38,7 +38,7 @@ impl WorkspaceManager for GitWorktreeManager {
     fn cleanup_worktree(&self, path: &Path) -> Result<()> {
         #[cfg(debug_assertions)]
         tracing::debug!("  >> Cleaning up worktree: {}", path.display());
-        
+
         Command::new("git")
             .args(["worktree", "remove", path.to_str().unwrap(), "--force"])
             .status()?;
@@ -80,7 +80,9 @@ impl WorkspaceManager for GitWorktreeManager {
         if !status.success() {
             #[cfg(debug_assertions)]
             tracing::info!("  !! dev branch missing. Creating from main...");
-            Command::new("git").args(["checkout", "-b", "dev"]).status()?;
+            Command::new("git")
+                .args(["checkout", "-b", "dev"])
+                .status()?;
             Command::new("git").args(["checkout", "main"]).status()?;
         }
         Ok(())

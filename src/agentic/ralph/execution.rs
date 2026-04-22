@@ -66,7 +66,7 @@ impl ExecutionEngine {
 
         // Wait for all workers to complete
         for handle in worker_handles {
-            let _ = handle.await?;
+            handle.await?;
         }
 
         Ok(())

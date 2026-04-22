@@ -3,10 +3,10 @@ pub mod io;
 pub mod jtbd_counterfactual_tests;
 pub mod jtbd_tests;
 pub mod models;
+pub mod ontology_proptests;
+pub mod proptest_kernel_verification;
 pub mod reinforcement;
 pub mod reinforcement_tests;
-pub mod proptest_kernel_verification;
-pub mod ontology_proptests;
 pub mod utils;
 pub use agentic::ralph::patterns::universe64::Universe64;
 
@@ -467,7 +467,7 @@ pub mod dteam {
 
             pub fn run(&self, log: &EventLog) -> EngineResult {
                 let start_time = std::time::Instant::now();
-                
+
                 // Pre-project log once to avoid redundant scans
                 let projected = crate::conformance::ProjectedLog::from(log);
                 let required_k = projected.activities.len();
@@ -485,12 +485,23 @@ pub mod dteam {
                     if !self.prune_on_violation {
                         for trace in &log.traces {
                             for event in &trace.events {
-                                let activity = event.attributes.iter().find(|a| a.key == "concept:name").and_then(|a| {
-                                    if let crate::models::AttributeValue::String(s) = &a.value { Some(s.as_str()) } else { None }
-                                }).unwrap_or("No Activity");
+                                let activity = event
+                                    .attributes
+                                    .iter()
+                                    .find(|a| a.key == "concept:name")
+                                    .and_then(|a| {
+                                        if let crate::models::AttributeValue::String(s) = &a.value {
+                                            Some(s.as_str())
+                                        } else {
+                                            None
+                                        }
+                                    })
+                                    .unwrap_or("No Activity");
 
                                 if !ontology.contains(activity) {
-                                    return EngineResult::BoundaryViolation { activity: activity.to_string() };
+                                    return EngineResult::BoundaryViolation {
+                                        activity: activity.to_string(),
+                                    };
                                 }
                             }
                         }
@@ -499,14 +510,27 @@ pub mod dteam {
 
                 // Use reward weights from cached config
                 let beta = *self.config.rl.reward_weights.get("fitness").unwrap_or(&0.5);
-                let lambda = *self.config.rl.reward_weights.get("soundness").unwrap_or(&0.01);
+                let lambda = *self
+                    .config
+                    .rl
+                    .reward_weights
+                    .get("soundness")
+                    .unwrap_or(&0.01);
 
                 // Projection and Training
-                let projected_log = crate::conformance::ProjectedLog::generate_with_ontology(log, self.ontology.as_ref());
+                let projected_log = crate::conformance::ProjectedLog::generate_with_ontology(
+                    log,
+                    self.ontology.as_ref(),
+                );
                 let violation_count = projected_log.violation_count;
 
-                let (net, trajectory) =
-                    crate::automation::train_with_provenance_projected(&projected_log, &self.config, beta, lambda, self.ontology.as_ref());
+                let (net, trajectory) = crate::automation::train_with_provenance_projected(
+                    &projected_log,
+                    &self.config,
+                    beta,
+                    lambda,
+                    self.ontology.as_ref(),
+                );
                 let execution_time_ns = start_time.elapsed().as_nanos() as u64;
 
                 // Closure Verification (AC 5.1, AC 2.1)
@@ -524,7 +548,8 @@ pub mod dteam {
                     input_log_hash: log.canonical_hash(),
                     action_sequence: trajectory,
                     model_canonical_hash: net.canonical_hash(),
-                    mdl_score: net.mdl_score_with_ontology(self.ontology.as_ref().map(|o| o.index.len())),
+                    mdl_score: net
+                        .mdl_score_with_ontology(self.ontology.as_ref().map(|o| o.index.len())),
                     k_tier: format!("{:?}", self.k_tier),
                     latency_ns: execution_time_ns,
                     ontology_hash: self.ontology.as_ref().map(|o| o.hash()),

@@ -84,7 +84,7 @@ impl<S: WorkflowState, A: WorkflowAction> QLearning<S, A> {
     #[allow(dead_code)]
     pub fn update(&mut self, state: S, action: A, reward: f32, next_state: S, done: bool) {
         let mut q_table = self.q_table.borrow_mut();
-        ensure_state::<S, A>(&mut *q_table, state);
+        ensure_state::<S>(&mut *q_table, state);
 
         let next_val = if done {
             0.0

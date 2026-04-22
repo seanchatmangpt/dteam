@@ -1,0 +1,56 @@
+@startuml 02-container-layers
+title Container Layers — dteam → unios → unibit → Nightly Rust
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+actor "Human User" as User
+
+package "dteam deterministic intelligence" {
+  rectangle "dteam Public API\nProcess challenges, results, receipts" as API
+  rectangle "Canonical Fact Layer\nClean canonical facts" as Canonical
+  rectangle "Process Compiler\nCompiles facts → semantic motion" as Compiler
+  rectangle "dteam Runtime\nExecutes challenges through trait" as Runtime
+  rectangle "dteam Receipts\nPublic proof surface" as Receipts
+}
+
+package "dteam-unios adapter (private)" {
+  rectangle "DTeamUnios trait\nNarrow operating contract" as Adapter
+}
+
+package "unios operating layer (private)" {
+  rectangle "unios API\nAdmission, capability, law,\nscenario, projection, receipt" as UniosAPI
+  rectangle "Scope Planner\nSelects work tier + handle" as Planner
+  rectangle "Supervisor\nObserves deltas, triggers recovery" as Supervisor
+}
+
+package "unibit sealed substrate (private)" {
+  rectangle "unibit API\nboot, validate, execute, restore" as UnibitAPI
+  rectangle "Nightly Kernels\nBranchless mask algebra" as Kernels
+  rectangle "Pinned Resident Region\nUniverseBlock + UniverseScratch\n= 32 KiB + 32 KiB" as Region
+  rectangle "Assembly Check\ncargo asm / llvm-ir" as AsmCheck
+}
+
+User --> API : submits challenge
+API --> Canonical : ingests canonical facts
+API --> Compiler : builds process motion
+Compiler --> Runtime
+Runtime --> Adapter : calls DTeamUnios trait
+Adapter --> UniosAPI : private call
+UniosAPI --> Planner : admit / plan
+Planner --> UnibitAPI : typed hot handle
+UnibitAPI --> Kernels : dispatch sealed kernel
+Kernels --> Region : reads truth, writes scratch / delta
+Kernels --> AsmCheck : verified by
+Kernels --> UnibitAPI : delta + fragment
+UnibitAPI --> UniosAPI : result
+UniosAPI --> Supervisor : delta / receipt
+UniosAPI --> Receipts : proof
+Receipts --> API : verified projection
+API --> User : verified result + receipt
+
+Runtime ..> UnibitAPI : does not import
+Runtime ..> Kernels : does not import
+Runtime ..> Region : does not import
+
+@enduml

@@ -2,6 +2,17 @@
 \section{Final Performance Benchmarks}
 Table \ref{tab:final_bench} presents the finalized absolute performance metrics for the DTEAM v1.3.0 kernel, representing the peak, instruction-limit performance achievable on modern x86\_64 architectures without heap allocations.
 
+\section{Instruction-Level Calculus of Nanosecond Execution}
+To understand why DTEAM achieves update steps in the 14--27 nanosecond range, we must formalize the execution trace using implementation calculus. A single Q-Learning update step is defined by the Bellman equation:
+\begin{equation}
+Q(s, a) \leftarrow Q(s, a) + \alpha \left[ r + \gamma \max_{a'} Q(s', a') - Q(s, a) \right]
+\end{equation}
+In a traditional object-oriented runtime, evaluating this function requires resolving object references, allocating heap memory for states, and chasing pointers through hash map buckets. In DTEAM, the state $s$ is a 136-bit \texttt{Copy} struct, meaning the entire state representation fits within three 64-bit CPU registers. The memory access model follows the strict calculus:
+\begin{equation}
+\mathcal{C}(Q_{update}) = \mathcal{O}_{hash}(s) + \mathcal{O}_{search}(PKT) + \mathcal{O}_{arithmetic}
+\end{equation}
+Where $\mathcal{O}_{hash}$ is exactly one 64-bit FNV-1a hash ($\approx 3$ cycles), $\mathcal{O}_{search}$ is a hash-based lookup over the contiguous Packed Key Table ($L_1$ cache hit, $\approx 10-15$ cycles), and $\mathcal{O}_{arithmetic}$ is the floating-point SIMD unit execution ($\approx 4$ cycles). Summing the instruction latency yields an absolute lower bound of $\approx 20$ CPU cycles. On a 3.0 GHz processor, a single cycle is $0.33$ ns. Thus, the theoretical hardware limit $T_{min} \approx 20 \times 0.33 = 6.6$ ns. The empirical observation of 14.87ns indicates that DTEAM operates within a factor of $2.2\times$ of the physical silicon limit, with the delta accounted for by branching in the collision resolution loop and pipeline stalls.
+
 \begin{table}[ht]
 \centering
 \caption{DTEAM v1.3.0 Absolute Performance Metrics}

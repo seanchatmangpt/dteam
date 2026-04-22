@@ -1,0 +1,40 @@
+@startuml 25-timing-constitution
+title Timing Constitution — T0 / T1 / T2 / T3 Mapped to Modules
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+package "T0 — Atom  ≤ 2ns\nBit-level truth algebra" as T0 {
+  component "branchless mask algebra\n(deny_prereq | deny_law | deny_cap\n→ admit / reject in one word)" as T0A
+  component "fnv1a_64 per-word hash\n(inline, no-alloc)" as T0B
+  component "single cell transition\nenabled = (U & I) == I\nnext = select(enabled, candidate, U)" as T0C
+}
+
+package "T1 — Microkernel  ≤ 200ns\nScoped transitions and delta building" as T1 {
+  component "token_replay bitmask fast path\n(≤64 places, u64 marking)" as T1A
+  component "sparse multi-word transition\n(ActiveWordSet loop, bounded)" as T1B
+  component "UDelta builder\n(XOR before/after, emit changed words)" as T1C
+  component "RL Q-update (PackedKeyTable)\n(branchless, no heap)" as T1D
+}
+
+package "T2 — Orchestration  ≤ 5µs\nFull-universe scans" as T2 {
+  component "full-block Hamming scan\n(popcount over UniverseBlock words)" as T2A
+  component "replay_trace_standard\n(large net fallback, all tokens)" as T2B
+  component "ProjectedLog::generate_with_ontology\n(log projection + ontology mask)" as T2C
+}
+
+package "T3 — Epoch  ≤ 100µs\nSystem synthesis and cryptographic provenance" as T3 {
+  component "train_with_provenance_projected\n(full RL discovery loop)" as T3A
+  component "AutonomicKernel cycle\n(observe → infer → propose → accept\n→ execute → adapt)" as T3B
+  component "Receipt chain finalization\n(DeltaTape → epoch UReceipt)" as T3C
+  component "ralph orchestration phase\n(WorkspaceManager + AgentRouter)" as T3D
+}
+
+T0A ..> T1A : feeds admit result
+T0C ..> T1B : feeds per-word enabled
+T1C ..> T2A : UDelta feeds Hamming
+T1D ..> T3A : Q-updates accumulate → convergence
+T2B ..> T3A : fitness feeds reward
+T3B ..> T3D : propose/execute drives phase
+
+@enduml

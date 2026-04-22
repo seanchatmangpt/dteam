@@ -84,8 +84,8 @@ impl<S: WorkflowState, A: WorkflowAction> DoubleQLearning<S, A> {
         let mut qa = self.q_a.borrow_mut();
         let mut qb = self.q_b.borrow_mut();
 
-        ensure_state::<S, A>(&mut *qa, state);
-        ensure_state::<S, A>(&mut *qb, state);
+        ensure_state::<S>(&mut *qa, state);
+        ensure_state::<S>(&mut *qb, state);
 
         let action_idx = action.to_index();
         let h_state = hash_state(&state);

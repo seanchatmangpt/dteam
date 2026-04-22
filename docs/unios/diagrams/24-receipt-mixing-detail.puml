@@ -1,0 +1,41 @@
+@startuml 24-receipt-mixing-detail
+title UReceipt Mixing Detail — R_{t+1} = mix(R_t, I, ΔU)
+
+skinparam shadowing false
+
+participant "UDelta Builder\n(Plane S)" as DB
+participant "UReceipt Mixer" as RM
+participant "Receipt State\n(rolling hash R_t)" as RS
+participant "DeltaTape" as DT
+
+DB -> RM : instruction_id: u64\nscope: u64\nfired_mask: u64\nUDelta { changed_words[] }
+
+RM -> RS : read R_t (current receipt hash)
+
+RM -> RM : material = [\n  R_t.to_le_bytes(),\n  instruction_id.to_le_bytes(),\n  scope.to_le_bytes(),\n  fired_mask.to_le_bytes(),\n  ΔU bytes (sparse changed words)\n]
+
+RM -> RM : R_{t+1} = fnv1a_64(material)\n(deterministic — same inputs → same receipt)
+
+note right of RM
+  FNV-1a chosen: no-alloc, inline,
+  constant-time per-word, no key-scheduling.
+  Receipts are proof-of-motion, not
+  cryptographic commitments.
+  Independent replay must produce
+  identical R_{t+1} from same inputs.
+end note
+
+RM -> RS : write R_{t+1}
+
+RM -> DT : attach fragment {\n  epoch, instruction_id,\n  fired_mask, R_{t+1}\n} to tape entry
+
+DT --> RM : tape position confirmed
+
+note right of DT
+  DeltaTape stores the minimal evidence
+  needed to replay and verify any epoch.
+  Projections (UProjection) are derived
+  from ΔU + tape — not authoritative.
+end note
+
+@enduml

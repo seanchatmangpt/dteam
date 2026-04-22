@@ -4,6 +4,7 @@ use std::path::Path;
 use std::process::Command;
 
 pub trait PhaseRunner: Send + Sync {
+    #[allow(clippy::too_many_arguments)]
     fn run_phase(
         &self,
         id: &str,
@@ -17,6 +18,12 @@ pub trait PhaseRunner: Send + Sync {
 }
 
 pub struct GeminiPhaseRunner;
+
+impl Default for GeminiPhaseRunner {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl GeminiPhaseRunner {
     pub fn new() -> Self {
@@ -96,13 +103,29 @@ impl PhaseRunner for GeminiPhaseRunner {
         let target_agent = {
             let idea_lower = idea.to_lowercase();
             if phase == "Implementation" {
-                if idea_lower.contains("q-table") || idea_lower.contains("rl ") || idea_lower.contains("sarsa") || idea_lower.contains("reinforcement") {
+                if idea_lower.contains("q-table")
+                    || idea_lower.contains("rl ")
+                    || idea_lower.contains("sarsa")
+                    || idea_lower.contains("reinforcement")
+                {
                     Some("@richard_sutton")
-                } else if idea_lower.contains("wf-net") || idea_lower.contains("soundness") || idea_lower.contains("deadlock") || idea_lower.contains("liveness") {
+                } else if idea_lower.contains("wf-net")
+                    || idea_lower.contains("soundness")
+                    || idea_lower.contains("deadlock")
+                    || idea_lower.contains("liveness")
+                {
                     Some("@dr_wil_van_der_aalst")
-                } else if idea_lower.contains("replay") || idea_lower.contains("conformance") || idea_lower.contains("token") || idea_lower.contains("zero-heap") || idea_lower.contains("branchless") {
+                } else if idea_lower.contains("replay")
+                    || idea_lower.contains("conformance")
+                    || idea_lower.contains("token")
+                    || idea_lower.contains("zero-heap")
+                    || idea_lower.contains("branchless")
+                {
                     Some("@carl_adam_petri")
-                } else if idea_lower.contains("autonomic") || idea_lower.contains("discovery") || idea_lower.contains("loop") {
+                } else if idea_lower.contains("autonomic")
+                    || idea_lower.contains("discovery")
+                    || idea_lower.contains("loop")
+                {
                     Some("@arthur_ter_hofstede")
                 } else {
                     None
@@ -138,7 +161,11 @@ impl PhaseRunner for GeminiPhaseRunner {
             let output = cmd.output()?;
             if !output.status.success() {
                 let err_msg = String::from_utf8_lossy(&output.stderr);
-                return Err(anyhow::anyhow!("Phase {} failed. Output: {}", phase, err_msg));
+                return Err(anyhow::anyhow!(
+                    "Phase {} failed. Output: {}",
+                    phase,
+                    err_msg
+                ));
             }
 
             last_output = String::from_utf8_lossy(&output.stdout).into_owned();
@@ -165,7 +192,10 @@ impl PhaseRunner for GeminiPhaseRunner {
                     };
 
                     if attempt == max_attempts {
-                        return Err(anyhow::anyhow!("Implementation failed verification: {}", err_out));
+                        return Err(anyhow::anyhow!(
+                            "Implementation failed verification: {}",
+                            err_out
+                        ));
                     }
 
                     prompt = format!(

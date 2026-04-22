@@ -1,6 +1,6 @@
+use anyhow::{anyhow, Result};
 use std::path::Path;
 use std::process::Command;
-use anyhow::{Result, anyhow};
 
 pub trait DoDVerifier {
     fn verify(&self, working_dir: &Path) -> Result<()>;

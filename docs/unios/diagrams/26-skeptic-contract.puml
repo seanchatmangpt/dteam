@@ -1,0 +1,68 @@
+@startuml 26-skeptic-contract
+title Skeptic Contract — Correctness Obligations for "100% Without Overfitting"
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+package "Thesis claim under test" {
+  component "\"100% classification accuracy\nwithout overfitting\"\n(A = 1.00 across PDC-2025)" as CLAIM
+}
+
+package "Required checks (ALL must hold)" {
+  component "CHECK_RESET_AXIOM\nI(σ_{k+1}; H_k | s0) = 0\nagent.reset() between ALL traces\nno hidden state / buffer / Q-table leakage" as C1
+
+  component "CHECK_VALUE_STRUCTURE\nBellman convergence ⇒ correct PetriNet\nargmax(Q*) maps to structural update\nno equal-or-higher reward for wrong topology" as C2
+
+  component "CHECK_REWARD_TOPOLOGY\nR = F + S\nunsound nets produce strictly lower reward\nno degenerate solution (flower net) yields max" as C3
+
+  component "CHECK_IDENTIFIABILITY\nmodel selection enforces minimality\nMDL (lambda) disambiguates equivalent generators" as C4
+
+  component "CHECK_STRICT_UNIQUENESS\ntopological hash micro-penalty\nargmax R strictly unique across model space" as C5
+
+  component "CHECK_DETERMINISM\nVar(τ) → 0\nno data-dependent branching in RL loop\ndeterministic iteration order" as C6
+
+  component "CHECK_IMPULSE_ASSUMPTION\nG_t ≈ r_t\nreward horizon provably short\n(holds for token-replay step reward)" as C7
+
+  component "CHECK_DOUBLE_Q\nboth Q^A and Q^B restored from state\nno partial initialization of Q^B" as C8
+
+  component "CHECK_DATA_ISOLATION\nstrict train / test log separation\nno reuse of trace ordering across folds" as C9
+}
+
+package "Verdict" {
+  component "ALL checks hold →\n\"100% without overfitting\" is defensible\nagainst hostile technically-competent reviewer" as PASS
+
+  component "ANY check fails →\n\"100%\" claim is NOT defensible" as FAIL
+}
+
+CLAIM --> C1
+CLAIM --> C2
+CLAIM --> C3
+CLAIM --> C4
+CLAIM --> C5
+CLAIM --> C6
+CLAIM --> C7
+CLAIM --> C8
+CLAIM --> C9
+
+C1 --> PASS
+C2 --> PASS
+C3 --> PASS
+C4 --> PASS
+C5 --> PASS
+C6 --> PASS
+C7 --> PASS
+C8 --> PASS
+C9 --> PASS
+
+C1 ..> FAIL : if violated
+C2 ..> FAIL : if violated
+C3 ..> FAIL : if violated
+
+note right of PASS
+  Defined in src/skeptic_contract.rs.
+  ALL_CHECKS: &[&str] enumerates constants.
+  CONTRACT_FINALIZED = true signals
+  the obligations are stable.
+end note
+
+@enduml

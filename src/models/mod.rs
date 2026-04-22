@@ -1,8 +1,8 @@
 pub mod petri_net;
+use crate::utils::dense_kernel::{DenseIndex, KBitSet, NodeKind};
 /// Data structures derived from `rust4pm` (MIT/Apache-2.0).
 /// See ATTRIBUTION.md for details.
 use serde::{Deserialize, Serialize};
-use crate::utils::dense_kernel::{KBitSet, DenseIndex, NodeKind};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "type", content = "content")]
@@ -61,7 +61,9 @@ impl Ontology {
     }
 
     pub fn contains(&self, activity: &str) -> bool {
-        self.index.dense_id(activity).map_or(false, |id| self.bitset.contains(id as usize))
+        self.index
+            .dense_id(activity)
+            .is_some_and(|id| self.bitset.contains(id as usize))
     }
 
     pub fn hash(&self) -> u64 {

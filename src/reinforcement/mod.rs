@@ -107,10 +107,9 @@ where
         .unwrap_or(&ZEROS[..A::ACTION_COUNT])
 }
 
-pub(crate) fn ensure_state<S, A>(table: &mut PackedKeyTable<S, QArray>, state: S)
+pub(crate) fn ensure_state<S>(table: &mut PackedKeyTable<S, QArray>, state: S)
 where
     S: WorkflowState,
-    A: WorkflowAction,
 {
     let h = hash_state(&state);
     if table.get(h).is_none() {
@@ -139,9 +138,7 @@ pub(crate) fn epsilon_greedy_probs<const N: usize>(values: &[f32], epsilon: f32)
     let eps = clamp_probability(epsilon);
     let greedy = greedy_index(values);
     let uniform = eps / n as f32;
-    for i in 0..n {
-        probs[i] = uniform;
-    }
+    probs[..n].fill(uniform);
     probs[greedy] += 1.0 - eps;
     probs
 }
@@ -164,9 +161,7 @@ pub(crate) fn softmax_probs<const N: usize>(logits: &[f32]) -> [f32; N] {
 
     if z <= 0.0 || !z.is_finite() {
         let val = 1.0 / n as f32;
-        for i in 0..n {
-            probs[i] = val;
-        }
+        probs[..n].fill(val);
     } else {
         for i in 0..n {
             probs[i] = exps[i] / z;

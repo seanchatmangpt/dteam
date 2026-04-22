@@ -2,8 +2,8 @@ use dteam::ref_conformance::ref_token_replay::apply_token_based_replay_bcinr;
 use dteam::ref_models::ref_event_log::EventLogActivityProjection;
 use dteam::ref_models::ref_petri_net::{ArcType, PetriNet};
 use dteam::reinforcement::{Agent, SARSAAgent};
-use dteam::{RlAction, RlState};
 use dteam::utils::dense_kernel::KBitSet;
+use dteam::{RlAction, RlState};
 use std::collections::HashMap;
 
 #[global_allocator]

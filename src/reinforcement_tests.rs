@@ -4,8 +4,8 @@ mod tests {
         Agent, DoubleQLearning, ExpectedSARSAAgent, QLearning, ReinforceAgent, SARSAAgent,
     };
     use crate::utils::dense_kernel::KBitSet;
-    use crate::{RlAction, RlState};
     use crate::utils::perturbation::Perturbator;
+    use crate::{RlAction, RlState};
     use proptest::prelude::*;
 
     const MAX_STEPS: usize = 100;
@@ -22,10 +22,10 @@ mod tests {
         fn test_perturbator_determinism(seed: u64, mask: u64, intensity: u64) {
             let mut p1 = Perturbator::new(seed);
             let mut p2 = Perturbator::new(seed);
-            
+
             let m1 = p1.perturb_mask(mask, intensity);
             let m2 = p2.perturb_mask(mask, intensity);
-            
+
             assert_eq!(m1, m2, "Perturbator must be deterministic for a given seed");
         }
     }
@@ -43,7 +43,7 @@ mod tests {
             marking_mask: KBitSet::zero(),
             activities_hash: 0,
             ontology_mask: crate::utils::dense_kernel::KBitSet::<16>::zero(),
-                universe: None,
+            universe: None,
         }
     }
 
@@ -108,7 +108,6 @@ mod tests {
             avg_reward
         );
     }
-
 
     #[test]
     fn test_double_q_learning_convergence() {

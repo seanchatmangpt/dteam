@@ -1,0 +1,47 @@
+@startuml 20-train-with-provenance
+title train_with_provenance — Provenance-Tracked RL Discovery Loop
+
+skinparam shadowing false
+
+start
+:Load AutonomicConfig (dteam.toml);
+:Read EventLog from XES file;
+:ProjectedLog::generate_with_ontology(\n  train_log, ontology_option\n);
+
+partition "RL discovery loop\n(train_with_provenance_projected)" {
+  :Initialize PetriNet (default empty);
+  :Initialize QLearning agent\n(learning_rate, discount_factor, exploration_rate);
+  :trajectory: Vec<u8> = empty;
+
+  repeat
+    :Select trace from ProjectedLog;
+    :agent.reset() — no hidden state across traces\n(CHECK_RESET_AXIOM);
+
+    repeat
+      :Observe RlState<1> from current marking;
+      :agent.select_action(state) → WorkflowAction;
+      :Apply action to PetriNet;
+      :Run token_replay_projected → fitness delta;
+      :Compute reward (fitness + structural penalty − MDL);
+      :agent.update(s, a, reward, s_next);
+      :Append action + delta to trajectory;
+    repeat while (trace not exhausted?)
+
+  repeat while (convergence not reached?)
+}
+
+:Apply ontology_mask constraints (if ontology present);
+
+:Return (PetriNet, trajectory: Vec<u8>);
+
+stop
+
+note right
+  trajectory encodes the action sequence
+  as a compact receipt of discovery.
+  ontology_mask is a KBitSet<16> from
+  Ontology::bitset — zero if None.
+  Fitness formula: TokenBasedReplayResult::compute_fitness()
+end note
+
+@enduml

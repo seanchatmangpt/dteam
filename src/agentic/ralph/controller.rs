@@ -20,7 +20,7 @@ impl AutonomicController {
         if cfg!(debug_assertions) {
             info!("\n--- Process Complete. Running Meta-Engine (Dogfooding) ---");
         }
-        
+
         let engine = Engine::builder().build();
         let result = engine.run(log);
 
@@ -43,7 +43,7 @@ impl AutonomicController {
                 )?;
             }
         }
-        
+
         Ok(())
     }
 }

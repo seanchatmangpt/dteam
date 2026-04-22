@@ -9,8 +9,6 @@
 //! Capacity contract: Exactly 262,144 boolean facts.
 //! Proof artifact: A rolling deterministic receipt of applied transitions.
 
-
-
 /// Represents a 3D coordinate in the Universe64 lattice: (domain, cell, place).
 /// All values must be in the range [0, 63].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -24,8 +22,15 @@ impl UCoord {
     /// Creates a new UCoord, panicking in debug mode if coordinates are out of bounds.
     #[inline(always)]
     pub const fn new(domain: u8, cell: u8, place: u8) -> Self {
-        debug_assert!(domain < 64 && cell < 64 && place < 64, "UCoord out of bounds");
-        Self { domain, cell, place }
+        debug_assert!(
+            domain < 64 && cell < 64 && place < 64,
+            "UCoord out of bounds"
+        );
+        Self {
+            domain,
+            cell,
+            place,
+        }
     }
 
     /// Converts the 3D coordinate into a flat word index [0, 4095] and a bit offset [0, 63].
@@ -41,6 +46,12 @@ impl UCoord {
 pub struct UReceipt {
     pub current_hash: u64,
     pub steps: u64,
+}
+
+impl Default for UReceipt {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl UReceipt {
@@ -63,7 +74,13 @@ impl UReceipt {
 
     /// Mixes transition details into the receipt.
     #[inline(always)]
-    pub fn record_transition(&mut self, word_idx: usize, input_mask: u64, output_mask: u64, fired_mask: u64) {
+    pub fn record_transition(
+        &mut self,
+        word_idx: usize,
+        input_mask: u64,
+        output_mask: u64,
+        fired_mask: u64,
+    ) {
         let mut h = self.current_hash;
         h = Self::mix(h, self.steps);
         h = Self::mix(h, word_idx as u64);
@@ -126,9 +143,14 @@ impl Universe64 {
     /// Returns the firing mask (!0 if fired, 0 if not).
     /// This is a T1-admissible operation.
     #[inline(always)]
-    pub fn apply_local_transition(&mut self, word_idx: usize, input_mask: u64, output_mask: u64) -> u64 {
+    pub fn apply_local_transition(
+        &mut self,
+        word_idx: usize,
+        input_mask: u64,
+        output_mask: u64,
+    ) -> u64 {
         let current = self.data[word_idx];
-        
+
         // enabled = (current & input_mask) == input_mask
         // We want a full u64 mask (!0 for true, 0 for false).
         // If current & input_mask == input_mask, then (current & input_mask) ^ input_mask == 0.
@@ -139,44 +161,47 @@ impl Universe64 {
         let enabled_mask = 0u64.wrapping_sub(is_zero);
 
         let candidate = (current & !input_mask) | output_mask;
-        
+
         // Select candidate if enabled, else keep current
         self.data[word_idx] = (candidate & enabled_mask) | (current & !enabled_mask);
-        
+
         enabled_mask
     }
-    
+
     /// Applies a boundary transition between two distinct cells.
-    /// Evaluates if the combined input conditions in both cells are met, 
+    /// Evaluates if the combined input conditions in both cells are met,
     /// and if so, applies the outputs to both cells branchlessly.
     /// This is an inter-cell T1/T2 boundary operation.
     #[inline(always)]
     pub fn apply_boundary_transition(
-        &mut self, 
-        idx_a: usize, 
-        in_a: u64, 
+        &mut self,
+        idx_a: usize,
+        in_a: u64,
         out_a: u64,
-        idx_b: usize, 
-        in_b: u64, 
-        out_b: u64
+        idx_b: usize,
+        in_b: u64,
+        out_b: u64,
     ) -> u64 {
-        debug_assert!(idx_a != idx_b, "Boundary transitions require distinct cells");
+        debug_assert!(
+            idx_a != idx_b,
+            "Boundary transitions require distinct cells"
+        );
         let val_a = self.data[idx_a];
         let val_b = self.data[idx_b];
-        
+
         let diff_a = (val_a & in_a) ^ in_a;
         let diff_b = (val_b & in_b) ^ in_b;
         let total_diff = diff_a | diff_b;
-        
+
         let is_zero = ((total_diff | total_diff.wrapping_neg()) >> 63) ^ 1;
         let enabled_mask = 0u64.wrapping_sub(is_zero);
-        
+
         let cand_a = (val_a & !in_a) | out_a;
         let cand_b = (val_b & !in_b) | out_b;
-        
+
         self.data[idx_a] = (cand_a & enabled_mask) | (val_a & !enabled_mask);
         self.data[idx_b] = (cand_b & enabled_mask) | (val_b & !enabled_mask);
-        
+
         enabled_mask
     }
 
@@ -185,7 +210,11 @@ impl Universe64 {
     /// Returns the number of transitions that successfully fired.
     /// This is a T1 candidate operation if the number of transitions is small.
     #[inline(always)]
-    pub fn apply_sparse_transitions(&mut self, transitions: &[(usize, u64, u64)], receipt: &mut UReceipt) -> usize {
+    pub fn apply_sparse_transitions(
+        &mut self,
+        transitions: &[(usize, u64, u64)],
+        receipt: &mut UReceipt,
+    ) -> usize {
         let mut fired_count = 0;
         for &(idx, i_mask, o_mask) in transitions {
             let fired_mask = self.apply_local_transition(idx, i_mask, o_mask);
@@ -195,4 +224,3 @@ impl Universe64 {
         fired_count
     }
 }
-

@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
+    use crate::dteam::orchestration::EngineResult;
+    use crate::models::{Event, EventLog, Ontology, Trace};
     use proptest::prelude::*;
-    use crate::dteam::orchestration::{Engine, EngineResult};
-    use crate::models::{EventLog, Trace, Event, Ontology};
 
     proptest! {
         #[test]
@@ -15,7 +15,7 @@ mod tests {
             ontology_acts.sort();
             ontology_acts.dedup();
             let ontology = Ontology::new(ontology_acts.clone());
-            
+
             // 1. Create a base sequence of ontology activities
             let mut base_sequence = Vec::new();
             for _ in 0..trace_len {
@@ -36,7 +36,7 @@ mod tests {
             let mut trace_noisy = Trace::new("noisy".to_string());
             for act in &base_sequence {
                 trace_noisy.events.push(Event::new(act.clone()));
-                
+
                 // Inject noise
                 let noise = &noise_acts[fastrand::usize(..noise_acts.len())];
                 trace_noisy.events.push(Event::new(noise.clone()));
@@ -76,7 +76,7 @@ mod tests {
             ontology_acts.sort();
             ontology_acts.dedup();
             let ontology = Ontology::new(ontology_acts.clone());
-            
+
             let mut log_noisy = EventLog::new();
             let mut trace_noisy = Trace::new("noisy".to_string());
             trace_noisy.events.push(Event::new(noise_act.clone()));

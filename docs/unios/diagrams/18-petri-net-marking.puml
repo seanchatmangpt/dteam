@@ -1,0 +1,45 @@
+@startuml 18-petri-net-marking
+title PetriNet + PackedKeyTable Marking Architecture
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+package "PetriNet (src/models/petri_net.rs)" {
+  component "places: Vec<Place>" as PLACES
+  component "transitions: Vec<Transition>" as TRANS
+  component "arcs: Vec<Arc>" as ARCS
+  component "initial_marking:\nPackedKeyTable<String, usize>" as IMARK
+}
+
+package "PackedKeyTable<K, V>\n(src/utils/dense_kernel.rs)" as PKT {
+  component "keys: Vec<K>" as KEYS
+  component "values: Vec<V>" as VALS
+  component "hashes: Vec<u64>\n(fnv1a_64 indexed)" as HASHES
+  component "DenseIndex\n(hash → dense slot)" as DIDX
+}
+
+package "Token firing algebra" {
+  component "input_mask: u64\n(bit per input place)" as IMASK
+  component "output_mask: u64\n(bit per output place)" as OMASK
+  component "marking: u64\n(current token state)" as MWORD
+  component "enabled = (marking & input_mask)\n         == input_mask" as ENABLED
+  component "next = (marking & !input_mask)\n      | output_mask" as NEXT
+}
+
+PLACES --> IMASK : index → bit position
+PLACES --> OMASK : index → bit position
+IMARK  --> MWORD : deserialize to bitmask (fast path)
+PKT    --> IMARK  : implements
+
+IMASK --> ENABLED
+MWORD --> ENABLED
+ENABLED --> NEXT
+OMASK --> NEXT
+
+note bottom of PKT
+  FNV-1a hash is the universal ID spine.
+  Same structure used for Q-table keys,
+  net markings, and hashed event IDs.
+end note
+
+@enduml

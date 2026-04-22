@@ -1,0 +1,48 @@
+@startuml 09-branch-policy
+title Branch Policy — Allowed Only Before the Hot Handle
+
+skinparam shadowing false
+
+start
+:Semantic motion arrives\n(dteam);
+
+partition "Planning phase\n(branching permitted)" {
+  if (Footprint size?) then (64 bits)
+    :Work tier 8^2 (word);
+  elseif (512 bits) then
+    :Work tier 8^3 (line);
+  elseif (4,096 bits) then
+    :Work tier 8^4 (block);
+  else (32,768 bits)
+    :Work tier 8^5 (tile);
+  endif
+
+  if (Receipt mode?) then (none)
+    :ReceiptMode::None;
+  elseif (fragment) then
+    :ReceiptMode::Fragment;
+  else (chain)
+    :ReceiptMode::Chain;
+  endif
+
+  :Typed Hot Handle\n(monomorphized);
+}
+
+partition "Hot execution\n(branchless by default)" {
+  :Mask algebra only;
+  if (Runtime semantic branch?) then (none)
+    :Proceed — emitted as cmov/mask;
+  else (claimed)
+    if (Assembly + bench prove faster?) then (yes)
+      :Allowed — record benchmark receipt;
+    else (no)
+      :REJECTED — rewrite as mask select;
+    endif
+  endif
+
+  :Emit ΔU + receipt fragment;
+}
+
+stop
+
+@enduml

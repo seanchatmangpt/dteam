@@ -1,0 +1,46 @@
+@startuml 15-proof-loop
+title Full Proof Loop — Human Input to Verified Result
+
+skinparam shadowing false
+
+start
+:Human / operator input;
+:Form / API validates shape;
+:dteam builds canonical process challenge;
+:dteam compiles semantic motion\n(predicates: requires / law / cap / scenario);
+
+:dteam-unios adapter submits motion;
+:unios binds law / capability / scenario;
+:unios scope planner selects typed hot handle\n(monomorphized by tier + receipt mode);
+
+:unibit API receives admitted handle;
+:Nightly Rust monomorphized kernel runs;
+:Branchless mask algebra\n(cargo-asm verified);
+:Operates on pinned UniverseBlock + UniverseScratch;
+
+:Emit sparse ΔU;
+:Emit receipt fragment\n(R_{t+1} = mix(R_t, I, ΔU));
+
+:unios Supervisor observes delta;
+:unios finalizes UReceipt (tier-appropriate);
+:dteam public receipt returned;
+
+:dteam projects UProjection\n(disposable derived view);
+
+:Auditor / human verifies receipt\n(independent replay);
+
+if (Replay matches receipt?) then (yes)
+  :Verified: TRUE;
+else (no)
+  :Verified: FALSE;
+endif
+
+stop
+
+note right
+  Authority lives in ΔU + UReceipt.
+  Projections are disposable.
+  Verification is independent of implementation.
+end note
+
+@enduml

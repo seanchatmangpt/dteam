@@ -1,0 +1,38 @@
+@startuml 03-component-unios
+title Component — unios Operating Layer
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+package "unios" {
+  component "unios Public API" as API
+  component "Admission Engine" as Admission
+  component "Scope Planner\n(chooses smallest work tier\nthat contains the motion)" as Scope
+  component "Frontier Compiler\n(lawful admissible frontier)" as Frontier
+  component "Capability Binder" as Capability
+  component "Law Binder" as Law
+  component "Scenario Binder" as Scenario
+  component "Typed Hot Handle\n(kernel_id, tier, receipt mode)" as Handle
+  component "Receipt Policy\n(None / Fragment / Chain / Manifest)" as ReceiptPolicy
+  component "Projection Engine\n(UProjection outputs)" as Projection
+  component "Supervisor\n(observes ΔU, emits recovery)" as Supervisor
+  component "unibit Client\n(calls unibit API only)" as Client
+}
+
+API --> Admission : candidate motion
+Admission --> Capability
+Admission --> Law
+Admission --> Scenario
+Admission --> Scope : if admissible
+Scope --> Frontier : enumerate
+Frontier --> ReceiptPolicy : bind proof mode
+ReceiptPolicy --> Handle : construct
+Handle --> Client : execute via
+Client --> Supervisor : delta + receipt fragment
+Supervisor --> Projection : update
+Projection --> API : projection response
+
+API ..> Client : never bypasses Admission
+Handle ..> Admission : handle cannot re-enter
+
+@enduml

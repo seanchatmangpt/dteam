@@ -7,13 +7,14 @@ use std::cmp::min;
 pub fn compute_sccs_generic<const WORDS: usize>(adj: &[KBitSet<WORDS>]) -> Vec<KBitSet<WORDS>> {
     let max_nodes = WORDS * 64;
     let mut sccs = Vec::new();
-    
+
     let mut index = 0;
     let mut stack = Vec::new();
     let mut on_stack = vec![false; max_nodes];
     let mut indices = vec![-1; max_nodes];
     let mut lowlink = vec![-1; max_nodes];
 
+    #[allow(clippy::too_many_arguments)]
     fn strong_connect<const W: usize>(
         v: usize,
         adj: &[KBitSet<W>],
@@ -35,7 +36,9 @@ pub fn compute_sccs_generic<const WORDS: usize>(adj: &[KBitSet<WORDS>]) -> Vec<K
         for w in 0..max_nodes {
             if adj[v].contains(w) {
                 if indices[w] == -1 {
-                    strong_connect(w, adj, index, stack, on_stack, indices, lowlink, sccs, max_nodes);
+                    strong_connect(
+                        w, adj, index, stack, on_stack, indices, lowlink, sccs, max_nodes,
+                    );
                     lowlink[v] = min(lowlink[v], lowlink[w]);
                 } else if on_stack[w] {
                     lowlink[v] = min(lowlink[v], indices[w]);
@@ -50,7 +53,9 @@ pub fn compute_sccs_generic<const WORDS: usize>(adj: &[KBitSet<WORDS>]) -> Vec<K
                 let w = stack.pop().unwrap();
                 on_stack[w] = false;
                 let _ = scc_mask.set(w);
-                if w == v { break; }
+                if w == v {
+                    break;
+                }
             }
             sccs.push(scc_mask);
         }
@@ -58,7 +63,17 @@ pub fn compute_sccs_generic<const WORDS: usize>(adj: &[KBitSet<WORDS>]) -> Vec<K
 
     for i in 0..max_nodes {
         if indices[i] == -1 {
-            strong_connect(i, adj, &mut index, &mut stack, &mut on_stack, &mut indices, &mut lowlink, &mut sccs, max_nodes);
+            strong_connect(
+                i,
+                adj,
+                &mut index,
+                &mut stack,
+                &mut on_stack,
+                &mut indices,
+                &mut lowlink,
+                &mut sccs,
+                max_nodes,
+            );
         }
     }
 

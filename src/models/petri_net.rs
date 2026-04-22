@@ -118,26 +118,53 @@ impl PetriNet {
         let mut source_places_count = 0;
         let mut sink_places_count = 0;
 
-        for i in 0..place_count {
-            let has_in = (in_degrees[i / 64] & (1u64 << (i % 64))) != 0;
-            let has_out = (out_degrees[i / 64] & (1u64 << (i % 64))) != 0;
-            if !has_in {
-                source_places_count += 1;
+        if let Some(ref index) = self.cached_index {
+            // DenseIndex sorts alphabetically, so we must look up each node by ID.
+            for p in &self.places {
+                if let Some(i) = index.dense_id(&p.id).map(|d| d as usize) {
+                    let has_in = (in_degrees[i / 64] & (1u64 << (i % 64))) != 0;
+                    let has_out = (out_degrees[i / 64] & (1u64 << (i % 64))) != 0;
+                    if !has_in {
+                        source_places_count += 1;
+                    }
+                    if !has_out {
+                        sink_places_count += 1;
+                    }
+                }
             }
-            if !has_out {
-                sink_places_count += 1;
-            }
-        }
-
-        if source_places_count != 1 || sink_places_count != 1 {
-            return false;
-        }
-
-        for i in place_count..total_nodes {
-            let has_in = (in_degrees[i / 64] & (1u64 << (i % 64))) != 0;
-            let has_out = (out_degrees[i / 64] & (1u64 << (i % 64))) != 0;
-            if !has_in || !has_out {
+            if source_places_count != 1 || sink_places_count != 1 {
                 return false;
+            }
+            for t in &self.transitions {
+                if let Some(i) = index.dense_id(&t.id).map(|d| d as usize) {
+                    let has_in = (in_degrees[i / 64] & (1u64 << (i % 64))) != 0;
+                    let has_out = (out_degrees[i / 64] & (1u64 << (i % 64))) != 0;
+                    if !has_in || !has_out {
+                        return false;
+                    }
+                }
+            }
+        } else {
+            // Fallback: build_node_index assigns places to 0..place_count.
+            for i in 0..place_count {
+                let has_in = (in_degrees[i / 64] & (1u64 << (i % 64))) != 0;
+                let has_out = (out_degrees[i / 64] & (1u64 << (i % 64))) != 0;
+                if !has_in {
+                    source_places_count += 1;
+                }
+                if !has_out {
+                    sink_places_count += 1;
+                }
+            }
+            if source_places_count != 1 || sink_places_count != 1 {
+                return false;
+            }
+            for i in place_count..total_nodes {
+                let has_in = (in_degrees[i / 64] & (1u64 << (i % 64))) != 0;
+                let has_out = (out_degrees[i / 64] & (1u64 << (i % 64))) != 0;
+                if !has_in || !has_out {
+                    return false;
+                }
             }
         }
 
@@ -168,39 +195,32 @@ impl PetriNet {
         let transitions_count = self.transitions.len();
         let mut data = vec![0; places_count * transitions_count];
 
-        if let Some(ref index) = self.cached_index {
-            for arc in &self.arcs {
-                let weight = arc.weight.unwrap_or(1) as i32;
-                if let (Some(from_idx), Some(to_idx)) =
-                    (index.dense_id(&arc.from), index.dense_id(&arc.to))
-                {
-                    let from_idx = from_idx as usize;
-                    let to_idx = to_idx as usize;
-                    if from_idx < places_count && to_idx >= places_count {
-                        let t_idx = to_idx - places_count;
-                        data[from_idx * transitions_count + t_idx] -= weight;
-                    } else if from_idx >= places_count && to_idx < places_count {
-                        let t_idx = from_idx - places_count;
-                        data[to_idx * transitions_count + t_idx] += weight;
-                    }
-                }
-            }
-        } else {
-            let id_to_index = self.build_node_index();
-            for arc in &self.arcs {
-                let weight = arc.weight.unwrap_or(1) as i32;
-                if let (Some(&from_idx), Some(&to_idx)) = (
-                    id_to_index.get(fnv1a_64(arc.from.as_bytes())),
-                    id_to_index.get(fnv1a_64(arc.to.as_bytes())),
-                ) {
-                    if from_idx < places_count && to_idx >= places_count {
-                        let t_idx = to_idx - places_count;
-                        data[from_idx * transitions_count + t_idx] -= weight;
-                    } else if from_idx >= places_count && to_idx < places_count {
-                        let t_idx = from_idx - places_count;
-                        data[to_idx * transitions_count + t_idx] += weight;
-                    }
-                }
+        // Use insertion-order row/col indices independent of DenseIndex sort order.
+        let place_row: std::collections::HashMap<&str, usize> = self
+            .places
+            .iter()
+            .enumerate()
+            .map(|(i, p)| (p.id.as_str(), i))
+            .collect();
+        let trans_col: std::collections::HashMap<&str, usize> = self
+            .transitions
+            .iter()
+            .enumerate()
+            .map(|(i, t)| (t.id.as_str(), i))
+            .collect();
+
+        for arc in &self.arcs {
+            let weight = arc.weight.unwrap_or(1) as i32;
+            if let (Some(&p_row), Some(&t_col)) = (
+                place_row.get(arc.from.as_str()),
+                trans_col.get(arc.to.as_str()),
+            ) {
+                data[p_row * transitions_count + t_col] -= weight;
+            } else if let (Some(&t_col), Some(&p_row)) = (
+                trans_col.get(arc.from.as_str()),
+                place_row.get(arc.to.as_str()),
+            ) {
+                data[p_row * transitions_count + t_col] += weight;
             }
         }
 

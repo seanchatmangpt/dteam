@@ -1,0 +1,49 @@
+@startuml 08-no-hidden-interpretation
+title Hot Path Law — Allowed vs Forbidden Constructs
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+component "Hot Path\n(T0 ≤ 2ns,\n T1 ≤ 200ns)" as Hot
+
+package "Allowed" {
+  component "Fixed pointers\n(to pinned region)" as A1
+  component "Precompiled masks\n(prereq / law / cap / scenario)" as A2
+  component "Fixed work tier\n(monomorphized type)" as A3
+  component "Mask algebra\n(AND / OR / XOR / NOT)" as A4
+  component "Sparse ΔU\n(active-word set)" as A5
+  component "Receipt fragment\n(bounded mix)" as A6
+  component "#[inline(always)]\nleaf kernels" as A7
+}
+
+package "Forbidden" {
+  component "String lookup" as F1
+  component "Hash map / FxHashMap" as F2
+  component "dyn Trait dispatch" as F3
+  component "Heap allocation\n(Vec / Box / String)" as F4
+  component "Policy engine call" as F5
+  component "Graph traversal" as F6
+  component "JSON / serde parsing" as F7
+  component "Semantic branching\n(if / match on meaning)" as F8
+  component "panic / unwrap / expect" as F9
+}
+
+Hot --> A1
+Hot --> A2
+Hot --> A3
+Hot --> A4
+Hot --> A5
+Hot --> A6
+Hot --> A7
+
+Hot -[#red,dashed]-> F1
+Hot -[#red,dashed]-> F2
+Hot -[#red,dashed]-> F3
+Hot -[#red,dashed]-> F4
+Hot -[#red,dashed]-> F5
+Hot -[#red,dashed]-> F6
+Hot -[#red,dashed]-> F7
+Hot -[#red,dashed]-> F8
+Hot -[#red,dashed]-> F9
+
+@enduml

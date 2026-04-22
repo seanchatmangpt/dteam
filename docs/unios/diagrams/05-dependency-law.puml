@@ -1,0 +1,51 @@
+@startuml 05-dependency-law
+title Dependency Law — Each Layer's Allowed Ignorance
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+component "Canonical Facts\n(already admitted disorder)" as Facts
+component "dteam process / globe math" as DTEAM
+component "DTeamUnios trait\n(narrow operating contract)" as Trait
+component "unios admission / proof" as UNIOS
+component "unibit sealed substrate" as UNIBIT
+component "Nightly Rust branchless kernels" as KERNEL
+component "Pinned truth + scratch\n(UniverseBlock + UniverseScratch)" as REGION
+component "ΔU + UReceipt" as PROOF
+component "dteam verified result" as RESULT
+
+Facts --> DTEAM
+DTEAM --> Trait
+Trait --> UNIOS
+UNIOS --> UNIBIT
+UNIBIT --> KERNEL
+KERNEL --> REGION
+REGION --> PROOF
+PROOF --> RESULT
+
+DTEAM ..> UNIBIT : does not import
+DTEAM ..> KERNEL : does not import
+DTEAM ..> REGION : does not import
+UNIOS ..> KERNEL : does not know implementation of
+UNIOS ..> REGION : does not address directly
+RESULT ..> REGION : is not authority
+
+note right of DTEAM
+  Allowed fiction:
+  input is canonical, punctual, complete.
+  Imperfection is already an explicit fact.
+end note
+
+note right of UNIOS
+  Allowed fiction:
+  unibit API is truthful.
+  Work executes per contract.
+end note
+
+note right of UNIBIT
+  Allowed fiction:
+  every handle received
+  is already admitted.
+end note
+
+@enduml

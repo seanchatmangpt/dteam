@@ -1,0 +1,79 @@
+@startuml 14-nightly-capabilities
+title Nightly Rust Capabilities → Substrate Guarantees
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+component "Nightly Rust\n(private compiler surface)" as NR
+
+package "Nightly features" {
+  component "generic_const_exprs" as GCE
+  component "adt_const_params" as ADT
+  component "generic_const_items" as GCI
+  component "portable_simd" as SIMD
+  component "strict_provenance_lints\n(fuzzy / lossy casts)" as SPL
+  component "inline asm\n(asm! / global_asm!)" as ASM
+  component "#[target_feature]\n(popcnt, avx2, bmi2, neon)" as TF
+}
+
+package "Stable shapes used as contract" {
+  component "#[repr(C, align(64))]" as REPR
+  component "#[repr(transparent)]" as RT
+  component "Pin<Box<T>>" as PIN
+  component "const fn" as CF
+  component "PhantomData / typestate" as TS
+}
+
+package "Substrate guarantees" {
+  component "Compile-time work sizes\n[u64; BITS/64]" as WS
+  component "Tier + receipt mode in type\nUCompiledMotion<TIER, RECEIPT>" as TT
+  component "Tier math as const items\nWORK_BITS<N>, MEMORY_BITS<N>" as CM
+  component "Vector mask algebra\n(U_{1,512} and up)" as VEC
+  component "Pointer provenance discipline\n(unsafe has narrow contract)" as PROV
+  component "CPU-specialized kernels\n(chosen at boot, frozen in handle)" as CPU
+  component "Assembly smoke + verification\n(cargo asm / llvm-ir)" as ASMV
+  component "Validated resident layout\n(UniverseBlock + UniverseScratch)" as LY
+  component "Stable semantic position\n(pin + address receipt)" as POS
+  component "Raw → Planned → Admitted → Hot\n(invalid execution won't compile)" as TSS
+}
+
+component "Typed Hot Handle" as Handle
+component "Branchless Kernel" as Kernel
+component "Pinned Region" as Region
+
+NR --> GCE
+NR --> ADT
+NR --> GCI
+NR --> SIMD
+NR --> SPL
+NR --> ASM
+NR --> TF
+
+GCE --> WS
+ADT --> TT
+GCI --> CM
+SIMD --> VEC
+SPL --> PROV
+ASM --> ASMV
+TF --> CPU
+
+REPR --> LY
+RT --> LY
+PIN --> POS
+CF --> CM
+TS --> TSS
+
+WS --> Handle
+TT --> Handle
+CM --> Handle
+TSS --> Handle
+
+VEC --> Kernel
+PROV --> Kernel
+ASMV --> Kernel
+CPU --> Kernel
+
+LY --> Region
+POS --> Region
+
+@enduml

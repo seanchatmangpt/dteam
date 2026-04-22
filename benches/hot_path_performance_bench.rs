@@ -1,10 +1,10 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use dteam::utils::static_pkt::StaticPackedKeyTable;
-use dteam::simd::SwarMarking;
-use dteam::reinforcement::{Agent, SARSAAgent, WorkflowAction};
-use dteam::utils::dense_kernel::KBitSet;
-use dteam::{RlState, RlAction};
 use dteam::io::xes::XESReader;
+use dteam::reinforcement::{Agent, SARSAAgent, WorkflowAction};
+use dteam::simd::SwarMarking;
+use dteam::utils::dense_kernel::KBitSet;
+use dteam::utils::static_pkt::StaticPackedKeyTable;
+use dteam::{RlAction, RlState};
 
 fn bench_static_pkt_lookup(c: &mut Criterion) {
     let mut pkt = StaticPackedKeyTable::<u32, u32, 64>::new();
@@ -86,7 +86,13 @@ fn bench_rl_hot_path(c: &mut Criterion) {
     let action = RlAction::from_index(0).unwrap();
     c.bench_function("SARSA_Update", |b| {
         b.iter(|| {
-            agent.update(black_box(state), black_box(action), 1.0, black_box(state), false);
+            agent.update(
+                black_box(state),
+                black_box(action),
+                1.0,
+                black_box(state),
+                false,
+            );
         })
     });
 }
@@ -117,5 +123,11 @@ fn bench_xes_parsing(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, bench_static_pkt_lookup, bench_swar_marking_fire, bench_rl_hot_path, bench_xes_parsing);
+criterion_group!(
+    benches,
+    bench_static_pkt_lookup,
+    bench_swar_marking_fire,
+    bench_rl_hot_path,
+    bench_xes_parsing
+);
 criterion_main!(benches);

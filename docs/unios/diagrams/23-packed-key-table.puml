@@ -1,0 +1,52 @@
+@startuml 23-packed-key-table
+title PackedKeyTable — Universal ID / Hash Spine
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+package "PackedKeyTable<K, V>\n(src/utils/dense_kernel.rs)" as PKT {
+  component "keys: Vec<K>" as KEYS
+  component "values: Vec<V>" as VALS
+  component "index: DenseIndex\n(hash → slot)" as IDX
+}
+
+package "DenseIndex" {
+  component "buckets: [Option<DenseId>; N]" as BUCK
+  component "DenseId = u32\n(compact slot pointer)" as DID
+}
+
+package "fnv1a_64 hash\n(inline, no-alloc)" {
+  component "OFFSET = 0xcbf29ce484222325\nPRIME  = 0x100000001b3\nh ^= b; h = h.wrapping_mul(PRIME)\nper byte" as FNV
+}
+
+component "Net markings\nPackedKeyTable<String, usize>" as NM
+component "Q-table\nPackedKeyTable<RlState<N>, f32>" as QT
+component "Hashed event IDs\nPackedKeyTable<String, EventRef>" as EID
+component "Ontology bitset index\nKBitSet<16>" as ONT
+
+FNV --> IDX : produces bucket slot
+KEYS --> PKT
+VALS --> PKT
+IDX  --> PKT
+
+PKT --> NM  : net place marking
+PKT --> QT  : RL value store
+PKT --> EID : event log indexing
+PKT --> ONT : ontology constraint mask
+
+note right of FNV
+  Same hash function used in ALL
+  keyed lookups across the system.
+  No std::HashMap anywhere on hot paths.
+  NodeKind: Generic / Place / Transition / Port
+  controls semantic slot meaning.
+end note
+
+note right of PKT
+  DenseError variants: HashCollision,
+  DuplicateSymbol, UnknownSymbol,
+  CapacityExceeded — all returned
+  as Result, never panic.
+end note
+
+@enduml

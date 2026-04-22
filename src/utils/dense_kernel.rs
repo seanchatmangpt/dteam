@@ -115,6 +115,10 @@ impl DenseIndex {
             }
         }
 
+        // Sort by symbol name so dense IDs are assigned in sorted order,
+        // making symbols() deterministic regardless of input order.
+        tmp.sort_by(|a, b| a.1.cmp(&b.1));
+
         let mut entries = Vec::with_capacity(tmp.len());
         let mut dense_to_hash = Vec::with_capacity(tmp.len());
         let mut symbols = Vec::with_capacity(tmp.len());
@@ -220,7 +224,9 @@ impl<'de, const WORDS: usize> Deserialize<'de> for KBitSet<WORDS> {
             {
                 let mut words = [0u64; W];
                 for (i, word) in words.iter_mut().enumerate() {
-                    *word = seq.next_element()?.ok_or_else(|| serde::de::Error::invalid_length(i, &self))?;
+                    *word = seq
+                        .next_element()?
+                        .ok_or_else(|| serde::de::Error::invalid_length(i, &self))?;
                 }
                 Ok(words)
             }
@@ -422,7 +428,9 @@ impl<K, V> PackedKeyTable<K, V> {
 
     #[inline(always)]
     pub fn get(&self, hash: u64) -> Option<&V> {
-        if self.indices.is_empty() { return None; }
+        if self.indices.is_empty() {
+            return None;
+        }
         let mask = (self.indices.len() - 1) as u64;
         let mut idx = (hash & mask) as usize;
         loop {
@@ -440,7 +448,9 @@ impl<K, V> PackedKeyTable<K, V> {
 
     #[inline(always)]
     pub fn get_mut(&mut self, hash: u64) -> Option<&mut V> {
-        if self.indices.is_empty() { return None; }
+        if self.indices.is_empty() {
+            return None;
+        }
         let mask = (self.indices.len() - 1) as u64;
         let mut idx = (hash & mask) as usize;
         loop {

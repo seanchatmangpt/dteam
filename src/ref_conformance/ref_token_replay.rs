@@ -288,9 +288,9 @@ pub fn apply_token_based_replay_bcinr(
     // Index for activities not in the model (dummy transition with 0 in/out masks)
     let dummy_t_idx = num_transitions;
 
-    for i in 0..num_transitions {
-        trans_masks[i].in_count = trans_masks[i].in_mask.count_ones();
-        trans_masks[i].out_count = trans_masks[i].out_mask.count_ones();
+    for tm in trans_masks.iter_mut().take(num_transitions) {
+        tm.in_count = tm.in_mask.count_ones();
+        tm.out_count = tm.out_mask.count_ones();
     }
 
     let initial_mask: u64 = petri_net

@@ -1,0 +1,55 @@
+@startuml 17-conformance-path-selection
+title Conformance Path Selection — Fast vs Standard Replay
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+component "EventLog" as EL
+component "PetriNet" as PN
+
+rectangle "Path selector\n(src/conformance/mod.rs)" as SEL
+
+rectangle "Fast path\nu64 bitmask replay\n(≤ 64 places)" as FAST {
+  component "places.len() ≤ 64" as CHECK
+  component "u64 bitset marking\n(no heap allocation)" as BMARK
+  component "branchless token algebra\nenabled = (marking & input_mask) == input_mask\nnext = (marking & !input_mask) | output_mask" as BALG
+  component "ConformanceResult { fitness: f64 }" as CFAST
+}
+
+rectangle "Standard path\nreplay_trace_standard\n(any size net)" as STD {
+  component "PackedKeyTable<String, usize>\nmarkings" as PKMARK
+  component "force-fire on missing tokens\n(produced / consumed / missing / remaining)" as FIRE
+  component "TokenBasedReplayResult\n→ compute_fitness()" as CSTD
+}
+
+component "ConformanceResult" as OUT
+
+EL --> SEL
+PN --> SEL
+
+SEL --> FAST : places.len() ≤ 64
+SEL --> STD  : places.len() > 64
+
+CHECK --> BMARK
+BMARK --> BALG
+BALG --> CFAST
+
+PKMARK --> FIRE
+FIRE --> CSTD
+
+CFAST --> OUT
+CSTD  --> OUT
+
+note right of FAST
+  KTier alignment preserved.
+  No Vec / HashMap on hot path.
+  Bitmask path is T1-class (≤ 200ns).
+end note
+
+note right of STD
+  Fallback for large nets.
+  Still deterministic —
+  same fitness formula.
+end note
+
+@enduml

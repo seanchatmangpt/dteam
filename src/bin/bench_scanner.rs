@@ -1,9 +1,9 @@
-use std::process::Command;
 use std::io::{BufRead, BufReader};
+use std::process::Command;
 
 fn main() {
     println!("Running cargo bench to scan for thresholds > 100ns...");
-    
+
     // Run cargo bench with --color=never to avoid ANSI escape sequences in parsing
     let mut child = Command::new("cargo")
         .arg("bench")
@@ -23,10 +23,8 @@ fn main() {
     let stderr = child.stderr.take().unwrap();
     std::thread::spawn(move || {
         let err_reader = BufReader::new(stderr);
-        for line in err_reader.lines() {
-            if let Ok(line) = line {
-                eprintln!("{}", line);
-            }
+        for line in err_reader.lines().map_while(Result::ok) {
+            eprintln!("{}", line);
         }
     });
 
@@ -39,7 +37,11 @@ fn main() {
         if line.contains('│') && (line.starts_with("├─") || line.starts_with("╰─")) {
             let parts: Vec<&str> = line.split('│').collect();
             if parts.len() >= 3 {
-                let name_part = parts[0].replace("├─", "").replace("╰─", "").trim().to_string();
+                let name_part = parts[0]
+                    .replace("├─", "")
+                    .replace("╰─", "")
+                    .trim()
+                    .to_string();
                 let median_part = parts[2].trim();
                 let time_ns = parse_time(median_part);
                 if time_ns > 100.0 {
@@ -52,14 +54,22 @@ fn main() {
         // DTEAM/PrePass/activity_footprint
         //                         time:   [3.7614 µs 3.7671 µs 3.7735 µs]
         let trimmed = line.trim();
-        if !line.starts_with(' ') && !trimmed.is_empty() 
-            && !trimmed.contains("time:") && !trimmed.contains("Found") 
-            && !trimmed.contains("change:") && !trimmed.contains("Performance") 
-            && !trimmed.contains("Warning") && !trimmed.contains("Compiling") 
-            && !trimmed.contains("Running") && !trimmed.contains("Finished")
-            && !trimmed.contains("Gnuplot") && !trimmed.contains("Timer precision")
-            && !trimmed.starts_with("test result:") && !trimmed.starts_with("running")
-            && !trimmed.starts_with("test ") {
+        if !line.starts_with(' ')
+            && !trimmed.is_empty()
+            && !trimmed.contains("time:")
+            && !trimmed.contains("Found")
+            && !trimmed.contains("change:")
+            && !trimmed.contains("Performance")
+            && !trimmed.contains("Warning")
+            && !trimmed.contains("Compiling")
+            && !trimmed.contains("Running")
+            && !trimmed.contains("Finished")
+            && !trimmed.contains("Gnuplot")
+            && !trimmed.contains("Timer precision")
+            && !trimmed.starts_with("test result:")
+            && !trimmed.starts_with("running")
+            && !trimmed.starts_with("test ")
+        {
             current_bench = trimmed.to_string();
         }
 
@@ -99,7 +109,9 @@ fn main() {
 
 fn parse_time(s: &str) -> f64 {
     let parts: Vec<&str> = s.split_whitespace().collect();
-    if parts.len() < 2 { return 0.0; }
+    if parts.len() < 2 {
+        return 0.0;
+    }
     let val: f64 = parts[0].parse().unwrap_or(0.0);
     let unit = parts[1];
     match unit {

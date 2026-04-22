@@ -1,0 +1,40 @@
+@startuml 10-hot-execution-dynamic
+title Dynamic — Branchless Hot Execution
+
+participant "unios\n(admission, planning)" as Unios
+participant "unibit API\n(execute)" as Unibit
+participant "Branchless Kernel\n#[inline(always)]" as Kernel
+participant "Pinned Region\nUniverseBlock + UniverseScratch" as Region
+participant "ΔU + Receipt" as Proof
+
+Unios -> Unibit : execute(typed_hot_handle)
+activate Unibit
+Unibit -> Region : validate position + epoch
+Unibit -> Kernel : state_ptr, masks, scratch_ptr
+activate Kernel
+
+Kernel -> Kernel : deny_prereq = (S & prereq) ^ prereq
+Kernel -> Kernel : deny_law = (S & law) ^ law
+Kernel -> Kernel : deny_cap = (S & cap) ^ cap
+Kernel -> Kernel : deny_scenario = (S & scenario) ^ scenario
+Kernel -> Kernel : deny = OR(all deny words)
+Kernel -> Kernel : candidate = (S & !consume) | produce
+Kernel -> Kernel : admitted = mask(deny == 0)
+Kernel -> Kernel : next = select(admitted, candidate, S)
+
+Kernel -> Region : write next / ΔU to scratch
+Kernel -> Proof : emit sparse ΔU + receipt fragment
+deactivate Kernel
+
+Proof --> Unibit : result + fragment
+Unibit --> Unios : execution result + denial word
+deactivate Unibit
+
+note over Kernel
+  No allocation.
+  No dynamic dispatch.
+  No semantic branch.
+  Denial polarity: 0 = admitted.
+end note
+
+@enduml

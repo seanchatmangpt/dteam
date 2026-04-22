@@ -1,12 +1,12 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use dteam::agentic::ralph::patterns::universe64::{UCoord, UReceipt, Universe64};
+use dteam::agentic::ralph::patterns::universe64::{UReceipt, Universe64};
 
 fn bench_universe64_fire(c: &mut Criterion) {
     let mut group = c.benchmark_group("Universe64");
 
     group.bench_function("fire_t1_admissibility", |b| {
         let mut universe = Universe64::empty();
-        
+
         // Setup initial facts
         universe.data[0] = 0b1010;
         universe.data[5] = 0xFF;
@@ -16,14 +16,18 @@ fn bench_universe64_fire(c: &mut Criterion) {
         let output_mask = 0b0100; // produces bit 2
 
         b.iter(|| {
-            let mask = universe.apply_local_transition(black_box(word_idx), black_box(input_mask), black_box(output_mask));
+            let mask = universe.apply_local_transition(
+                black_box(word_idx),
+                black_box(input_mask),
+                black_box(output_mask),
+            );
             black_box(mask);
         });
     });
 
     group.bench_function("fire_t1_complex", |b| {
         let mut universe = Universe64::empty();
-        
+
         let mut transitions = Vec::new();
         for i in 0..8 {
             universe.data[i] = 1 << i;
@@ -31,11 +35,12 @@ fn bench_universe64_fire(c: &mut Criterion) {
             let output_mask = 1 << (i + 1);
             transitions.push((i, input_mask, output_mask));
         }
-        
+
         let mut receipt = UReceipt::new();
 
         b.iter(|| {
-            let count = universe.apply_sparse_transitions(black_box(&transitions), black_box(&mut receipt));
+            let count =
+                universe.apply_sparse_transitions(black_box(&transitions), black_box(&mut receipt));
             black_box(count);
         });
     });
@@ -67,8 +72,12 @@ fn bench_universe64_fire(c: &mut Criterion) {
 
         b.iter(|| {
             let mask = universe.apply_boundary_transition(
-                black_box(idx_a), black_box(in_a), black_box(out_a),
-                black_box(idx_b), black_box(in_b), black_box(out_b)
+                black_box(idx_a),
+                black_box(in_a),
+                black_box(out_a),
+                black_box(idx_b),
+                black_box(in_b),
+                black_box(out_b),
             );
             black_box(mask);
         });

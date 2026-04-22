@@ -1,0 +1,37 @@
+@startuml 27-core-law-sequence
+title Core Law Sequence — UInstruction Moves, Data Stays Resident
+
+skinparam shadowing false
+
+participant "Data Plane\nUniverseBlock U_t\n[u64; 4096]" as DP
+participant "UniverseScratch\nPlane S\noperands + masks" as SP
+participant "Admission Kernel\n(branchless mask algebra)" as AK
+participant "UReceipt\nR_t (rolling hash)" as RCPT
+participant "UProjection\n(disposable view)" as PROJ
+
+SP -> AK : bring tiny UInstruction\n(instruction_id, scope, input_mask, output_mask)
+
+AK -> DP : test lawful motion:\n(U_t & input_mask) == input_mask
+
+note right of AK
+  Instructions move to the universe.
+  The universe does NOT move to instructions.
+  T0 ≤ 2ns — single branchless word op.
+end note
+
+AK -> DP : transition scoped words (branchless):\nnext = select(enabled, (U & !I) | O, U)
+
+DP -> SP : emit UDelta:\nΔU = U_t ⊕ U_{t+1}\n(only changed words, sparse)
+
+DP -> RCPT : update UReceipt:\nR_{t+1} = mix(R_t, instruction_id, ΔU)
+
+DP -> PROJ : update projections from UDelta:\nView_i = π_i(U_t)
+
+note right of PROJ
+  UProjection is NOT authority.
+  Authority is ΔU + UReceipt.
+  Projections are disposable —
+  regenerate from receipt + replay.
+end note
+
+@enduml

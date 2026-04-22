@@ -44,8 +44,8 @@ mod proptests {
             let places_count = 10;
             // Generate a random incidence matrix
             let mut data = vec![0i32; places_count * transitions];
-            for i in 0..places_count * transitions {
-                data[i] = if i % 3 == 0 { -1 } else if i % 3 == 1 { 1 } else { 0 };
+            for (i, item) in data.iter_mut().enumerate().take(places_count * transitions) {
+                *item = if i % 3 == 0 { -1 } else if i % 3 == 1 { 1 } else { 0 };
             }
             let incidence = FlatIncidenceMatrix {
                 data,
@@ -56,7 +56,7 @@ mod proptests {
             let transition_idx = 0; // Test first transition
             let result1 = apply_branchless_update(mask, transition_idx, &incidence);
             let result2 = apply_branchless_update(mask, transition_idx, &incidence);
-            
+
             assert_eq!(result1, result2, "Branchless transition failed: not deterministic");
         }
     }

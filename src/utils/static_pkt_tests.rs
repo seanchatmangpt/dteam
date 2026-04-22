@@ -11,10 +11,10 @@ mod tests {
         ) {
             let mut table = StaticPackedKeyTable::<u32, u32, 10>::new();
             for (h, v) in keys.iter() {
-                let _ = table.insert(*h, *v as u32, *v as u32);
+                let _ = table.insert(*h, *v, *v);
             }
             for (h, v) in keys.iter() {
-                assert_eq!(table.get(*h), Some(&(*v as u32)));
+                assert_eq!(table.get(*h), Some(v));
             }
         }
     }

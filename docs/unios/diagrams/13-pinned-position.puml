@@ -1,0 +1,60 @@
+@startuml 13-pinned-position
+title Pinned Position as Semantic Contract
+
+skinparam shadowing false
+
+start
+:Allocate L1 Region\n(UniverseBlock + UniverseScratch);
+:Box::pin — Pin<Box<L1Region>>;
+
+partition "Position validation\n(runtime-admitted fact)" {
+  :Read base address;
+  :Read truth address;
+  :Read scratch address;
+
+  if (base % 64 == 0?) then (yes)
+  else (no)
+    :REJECT — alignment violated;
+    stop
+  endif
+
+  if (truth_offset == 0?) then (yes)
+  else (no)
+    :REJECT — layout violated;
+    stop
+  endif
+
+  if (scratch_offset == 32 KiB?) then (yes)
+  else (no)
+    :REJECT — layout violated;
+    stop
+  endif
+}
+
+partition "OS residency attempt" {
+  :mlock(region, sizeof(L1Region));
+  if (OS lock succeeded?) then (yes)
+    :record lock = true;
+  else (no)
+    :record lock = false\n(explicit, not silent);
+  endif
+}
+
+partition "Boot receipt emission" {
+  :Emit L1PositionReceipt {\n  base, truth_offset,\n  scratch_offset, bytes,\n  align, epoch, kernel_table_hash,\n  os_lock_status\n};
+}
+
+:Admit region for hot execution;
+:Hot kernels may now run\n(typed handles only);
+
+stop
+
+note right
+  Pinning is mandatory because
+  the position of the resident region
+  may carry semantic meaning.
+  Address must be admitted,
+  not assumed.
+end note
+
+@enduml

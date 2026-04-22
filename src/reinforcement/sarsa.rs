@@ -81,7 +81,7 @@ impl<S: WorkflowState, A: WorkflowAction> SARSAAgent<S, A> {
         done: bool,
     ) {
         let mut q_table = self.q_table.borrow_mut();
-        ensure_state::<S, A>(&mut *q_table, state);
+        ensure_state::<S>(&mut *q_table, state);
 
         let next_q = if done {
             0.0

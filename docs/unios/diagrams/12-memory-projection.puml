@@ -1,0 +1,32 @@
+@startuml 12-memory-projection
+title Memory Projection — 64^n Resident Universe
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+component "64^2 attention memory\n4,096 bits = 512 B\n(where dteam should look)" as Att
+component "64^3 active universe\n262,144 bits = 32 KiB\nUniverseBlock = [u64; 4096]\n(what is currently true)" as Active
+component "64^4 meaning field\n16,777,216 bits = 2 MiB\n(law / risk / reward /\n scenario / projection planes)" as Meaning
+
+component "dteam attention cells\n(focus set)" as AttCells
+component "dteam process truth\n(route / state / control)" as Truth
+component "dteam semantic planes\n(law, reward, risk, scenario, projection)" as Planes
+
+component "dteam UProjection\n(verified human-readable view)" as Projection
+
+Att --> AttCells : projection rule π_att
+Active --> Truth : projection rule π_active
+Meaning --> Planes : projection rule π_meaning
+
+AttCells --> Projection
+Truth --> Projection
+Planes --> Projection
+
+note bottom of Projection
+  UProjection is not authority.
+  Authority is ΔU + UReceipt.
+  Projections are disposable
+  (dteam_receipt + regenerate).
+end note
+
+@enduml

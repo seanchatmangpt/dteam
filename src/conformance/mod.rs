@@ -1,6 +1,6 @@
 use crate::models::petri_net::{Arc, PetriNet};
 use crate::models::{EventLog, Trace};
-use crate::utils::dense_kernel::{fnv1a_64, PackedKeyTable, DenseIndex, NodeKind};
+use crate::utils::dense_kernel::{fnv1a_64, DenseIndex, NodeKind, PackedKeyTable};
 use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 
@@ -32,7 +32,10 @@ impl ProjectedLog {
         Self::generate_with_ontology(log, None)
     }
 
-    pub fn generate_with_ontology(log: &EventLog, ontology: Option<&crate::models::Ontology>) -> Self {
+    pub fn generate_with_ontology(
+        log: &EventLog,
+        ontology: Option<&crate::models::Ontology>,
+    ) -> Self {
         let mut unique_activities = std::collections::HashSet::new();
         let mut violation_count = 0;
 
@@ -62,8 +65,11 @@ impl ProjectedLog {
         }
 
         let activity_index = DenseIndex::compile(
-            unique_activities.into_iter().map(|s| (s, NodeKind::Generic))
-        ).expect("Collision in activity names");
+            unique_activities
+                .into_iter()
+                .map(|s| (s, NodeKind::Generic)),
+        )
+        .expect("Collision in activity names");
 
         let mut traces_map = PackedKeyTable::new();
         let activities = activity_index.symbols().to_vec();
@@ -95,7 +101,9 @@ impl ProjectedLog {
                 }
             }
 
-            if trace_acts.is_empty() { continue; }
+            if trace_acts.is_empty() {
+                continue;
+            }
 
             let mut hasher = rustc_hash::FxHasher::default();
             trace_acts.hash(&mut hasher);
@@ -175,9 +183,9 @@ pub fn token_replay_projected(log: &ProjectedLog, petri_net: &PetriNet) -> f64 {
         }
     }
 
-    for i in 0..num_transitions {
-        trans_masks[i].in_count = trans_masks[i].in_mask.count_ones();
-        trans_masks[i].out_count = trans_masks[i].out_mask.count_ones();
+    for tm in trans_masks.iter_mut().take(num_transitions) {
+        tm.in_count = tm.in_mask.count_ones();
+        tm.out_count = tm.out_mask.count_ones();
     }
 
     let mut initial_mask = 0u64;
@@ -316,9 +324,9 @@ pub fn token_replay(log: &EventLog, petri_net: &PetriNet) -> Vec<ConformanceResu
         }
     }
 
-    for i in 0..num_transitions {
-        trans_masks[i].in_count = trans_masks[i].in_mask.count_ones();
-        trans_masks[i].out_count = trans_masks[i].out_mask.count_ones();
+    for tm in trans_masks.iter_mut().take(num_transitions) {
+        tm.in_count = tm.in_mask.count_ones();
+        tm.out_count = tm.out_mask.count_ones();
     }
 
     let mut initial_mask = 0u64;

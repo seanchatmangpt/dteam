@@ -1,0 +1,59 @@
+@startuml 07-motion-lowering
+title Motion Lowering — Semantic Predicates → Compiled Masks
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+component "Semantic Motion\n(dteam-level)" as Motion
+
+component "requires predicates" as Req
+component "law predicates" as Law
+component "capability predicates" as Cap
+component "scenario predicates" as Scen
+component "consume predicates" as Cons
+component "produce predicates" as Prod
+
+component "prereq mask\n(u64 bits)" as PrereqMask
+component "law mask" as LawMask
+component "capability mask" as CapMask
+component "scenario mask" as ScenMask
+component "consume mask" as ConsMask
+component "produce mask" as ProdMask
+
+component "Compiled Motion Packet\n(sealed, aligned, typed by tier)" as Packet
+component "unios admit\n(denial polarity 0 = admit)" as Admit
+component "unibit execute\n(branchless mask kernel)" as Execute
+component "ΔU + UReceipt" as Proof
+
+Motion --> Req
+Motion --> Law
+Motion --> Cap
+Motion --> Scen
+Motion --> Cons
+Motion --> Prod
+
+Req --> PrereqMask
+Law --> LawMask
+Cap --> CapMask
+Scen --> ScenMask
+Cons --> ConsMask
+Prod --> ProdMask
+
+PrereqMask --> Packet
+LawMask --> Packet
+CapMask --> Packet
+ScenMask --> Packet
+ConsMask --> Packet
+ProdMask --> Packet
+
+Packet --> Admit
+Admit --> Execute
+Execute --> Proof
+
+note right of Motion
+  dteam reasons in predicates.
+  unios lowers to masks.
+  unibit executes words.
+end note
+
+@enduml

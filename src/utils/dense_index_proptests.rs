@@ -1,4 +1,4 @@
-use crate::utils::dense_kernel::{DenseIndex, NodeKind, DenseError};
+use crate::utils::dense_kernel::{DenseError, DenseIndex, NodeKind};
 use proptest::prelude::*;
 
 fn any_node_kind() -> impl Strategy<Value = NodeKind> {
@@ -29,7 +29,7 @@ proptest! {
         shuffled.reverse();
         let index2 = DenseIndex::compile(shuffled).expect("Failed to compile shuffled symbols");
         assert_eq!(index.symbols(), index2.symbols(), "Symbols must be sorted and deterministic");
-        
+
         // AC 3: Structural Minimality (Contiguous IDs)
         let n = index.len();
         for i in 0..n {
@@ -54,7 +54,7 @@ proptest! {
             (s.clone(), k1),
             (s.clone(), k2),
         ];
-        
+
         let result = DenseIndex::compile(symbols);
         assert!(matches!(result, Err(DenseError::DuplicateSymbol { .. })));
     }

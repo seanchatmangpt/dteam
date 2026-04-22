@@ -1,0 +1,54 @@
+@startuml 16-token-replay-flow
+title Token-Based Replay Flow — XES to Fitness Score
+
+skinparam shadowing false
+
+start
+:Read XES file\n(XESReader via quick-xml);
+:Parse into EventLog { traces: Vec<Trace> };
+
+partition "Per-trace replay" {
+  :Load initial marking\n(PackedKeyTable<String, usize>);
+
+  :Iterate events in Trace;
+
+  partition "Per-event token firing" {
+    :Extract concept:name attribute;
+
+    if (Transition found in PetriNet?) then (yes)
+      :Collect input arcs → input places;
+      :Collect output arcs → output places;
+
+      if (All input places have tokens?) then (yes)
+        :Consume tokens from input places;
+        :Produce tokens to output places;
+        :produced++; consumed++;
+      else (no)
+        :Force-fire — add missing tokens;
+        :missing += input tokens lacking;
+        :produced++; consumed++;
+      endif
+    else (no)
+      :Skip event (silent / unmodelled);
+    endif
+  }
+
+  :Count remaining tokens after trace ends;
+  :remaining += leftover non-final tokens;
+}
+
+partition "Fitness calculation" {
+  :fitness = 0.5 × (1 − missing / consumed)\n       + 0.5 × (1 − remaining / produced);
+}
+
+:Return TokenBasedReplayResult {\n  produced, consumed, missing, remaining,\n  fitness: f64\n};
+
+stop
+
+note right
+  TokenBasedReplayResult::compute_fitness()
+  in src/conformance/case_centric/token_based_replay.rs
+  Fitness ∈ [0.0, 1.0].  1.0 = perfect replay.
+end note
+
+@enduml

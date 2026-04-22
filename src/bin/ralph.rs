@@ -9,8 +9,8 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-use opentelemetry::{global, KeyValue};
 use opentelemetry::trace::TracerProvider as _;
+use opentelemetry::{global, KeyValue};
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::trace::SdkTracerProvider;
 use opentelemetry_sdk::Resource;
@@ -26,10 +26,11 @@ fn init_telemetry() -> anyhow::Result<SdkTracerProvider> {
 
     let provider = SdkTracerProvider::builder()
         .with_batch_exporter(exporter)
-        .with_resource(Resource::builder().with_attributes(vec![KeyValue::new(
-            "service.name",
-            "ralph-orchestrator",
-        )]).build())
+        .with_resource(
+            Resource::builder()
+                .with_attributes(vec![KeyValue::new("service.name", "ralph-orchestrator")])
+                .build(),
+        )
         .build();
 
     global::set_tracer_provider(provider.clone());
@@ -152,10 +153,8 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    if is_test {
-        if cfg!(debug_assertions) {
-            info!("!! TEST MODE ENABLED: Skipping LLM calls and using mock responses.");
-        }
+    if is_test && cfg!(debug_assertions) {
+        info!("!! TEST MODE ENABLED: Skipping LLM calls and using mock responses.");
     }
 
     let ideas_path = Path::new("IDEAS.md");
@@ -178,7 +177,7 @@ async fn main() -> anyhow::Result<()> {
         .take(limit.unwrap_or(usize::MAX))
         .collect();
 
-    let workspace_manager = GitWorktreeManager::default();
+    let workspace_manager = GitWorktreeManager;
     workspace_manager.ensure_dev_branch()?;
 
     let meta_log = Arc::new(Mutex::new(EventLog::default()));
@@ -209,17 +208,22 @@ async fn main() -> anyhow::Result<()> {
                 fs::create_dir_all(&working_dir)?;
 
                 if cfg!(debug_assertions) {
-                    info!("
-[Idea {}] Processing: {}", id, idea);
+                    info!(
+                        "
+[Idea {}] Processing: {}",
+                        id, idea
+                    );
                 }
 
-                let mut trace = Trace::default();
-                trace.id = id.clone();
+                let mut trace = Trace {
+                    id: id.clone(),
+                    ..Default::default()
+                };
 
                 let branch_name = format!("wreckit/{}", slug);
                 let worktree_path = working_dir.join("worktree");
 
-                let workspace = GitWorktreeManager::default();
+                let workspace = GitWorktreeManager;
                 if let Err(e) = workspace.setup_worktree(&branch_name, &worktree_path) {
                     error!("Failed to setup worktree: {}", e);
                     return Ok::<(), anyhow::Error>(());
@@ -229,7 +233,8 @@ async fn main() -> anyhow::Result<()> {
                 let phases = vec!["UserStory", "BacklogRefinement", "Implementation"];
                 for phase in phases {
                     let start = Instant::now();
-                    let _phase_span = info_span!("run_phase", phase = %phase, idea = %idea).entered();
+                    let _phase_span =
+                        info_span!("run_phase", phase = %phase, idea = %idea).entered();
                     if let Err(e) = runner.run_phase(
                         &id,
                         phase,
@@ -275,7 +280,8 @@ async fn main() -> anyhow::Result<()> {
                 meta_log.lock().unwrap().add_trace(trace);
 
                 Ok::<(), anyhow::Error>(())
-            }).await?
+            })
+            .await?
         }
     };
 
@@ -288,8 +294,10 @@ async fn main() -> anyhow::Result<()> {
     }
 
     if cfg!(debug_assertions) {
-        info!("
---- All ideas processed! ---");
+        info!(
+            "
+--- All ideas processed! ---"
+        );
     }
 
     if let Some(p) = provider {

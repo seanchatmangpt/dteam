@@ -1,0 +1,48 @@
+@startuml 19-rl-agent-comparison
+title RL Agent Ecosystem — Shared Interface, Distinct Update Rules
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+interface "RlAgent<S, A>" as AGENT {
+  + select_action(state) → A
+  + update(s, a, r, s_next)
+  + reset()
+}
+
+component "QLearning<S,A>\n(src/reinforcement/q_learning.rs)\n\nQ(s,a) ← Q(s,a) + α[r + γ·max Q(s',·) − Q(s,a)]\nOff-policy. Greedy target." as QL
+
+component "DoubleQLearning<S,A>\n(src/reinforcement/double_q.rs)\n\nQ^A → action selection\nQ^B → value estimate\nReduces maximization bias." as DQL
+
+component "SARSAAgent<S,A>\n(src/reinforcement/sarsa.rs)\n\nQ(s,a) ← Q(s,a) + α[r + γ·Q(s',a') − Q(s,a)]\nOn-policy. Next action a' from current policy." as SARSA
+
+component "ExpectedSARSAAgent<S,A>\n(src/reinforcement/expected_sarsa.rs)\n\nTarget = Σ_a π(a|s')·Q(s',a)\nLower variance than SARSA." as ESARSA
+
+component "ReinforceAgent<S,A>\n(src/reinforcement/reinforce.rs)\n\nPolicy gradient: ∇J ∝ G_t · ∇log π(a|s)\nEpisodic. G_t ≈ r_t (impulse assumption)." as REINF
+
+component "PackedKeyTable<RlState, f32>\n(universal Q-table store\nfnv1a_64 keyed)" as QTABLE
+
+AGENT <|.. QL
+AGENT <|.. DQL
+AGENT <|.. SARSA
+AGENT <|.. ESARSA
+AGENT <|.. REINF
+
+QL    --> QTABLE
+DQL   --> QTABLE : Q^A + Q^B (two tables)
+SARSA --> QTABLE
+ESARSA --> QTABLE
+REINF --> QTABLE : policy parameters
+
+note right of REINF
+  G_t ≈ r_t holds when reward horizon
+  is short (CHECK_IMPULSE_ASSUMPTION
+  in skeptic_contract.rs).
+end note
+
+note right of DQL
+  Both Q^A and Q^B must be restored
+  from state (CHECK_DOUBLE_Q).
+end note
+
+@enduml

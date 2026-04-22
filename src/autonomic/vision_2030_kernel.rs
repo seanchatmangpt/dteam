@@ -396,8 +396,6 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
 
         if action.risk_profile >= ActionRisk::High {
             let accepted = expected_reward > 0.0;
-            if !accepted {
-            }
             return accepted;
         }
 
@@ -437,12 +435,11 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
             self.state.process_health = (self.state.process_health + HEALTH_REWARD_REPAIR).min(1.0);
         }
 
-        let result = AutonomicResult {
+        AutonomicResult {
             success: true,
             execution_latency_ms: 1,
             manifest_hash: 0x2030_ABCD,
-        };
-        result
+        }
     }
 
     fn manifest(&self, result: &AutonomicResult) -> String {

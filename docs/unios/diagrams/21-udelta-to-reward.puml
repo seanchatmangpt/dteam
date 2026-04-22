@@ -1,0 +1,40 @@
+@startuml 21-udelta-to-reward
+title UDelta → Reward Kernel → Q-Table Update
+
+skinparam shadowing false
+
+participant "UDelta Bus" as BUS
+participant "Reward Kernel\n(RL loop)" as RK
+participant "UniverseScratch\n(Plane S)" as SP
+participant "PackedKeyTable\nQ-table" as QT
+
+BUS -> RK : UDelta { changed_words, before, after }
+
+RK -> SP : read good_mask\n(popcount = positive reward signal)
+RK -> SP : read bad_mask\n(popcount = penalty signal)
+RK -> SP : read target_mask\n(structural soundness reference)
+
+RK -> RK : reward =\n  popcount(UDelta & good_mask)\n  − popcount(UDelta & bad_mask)\n  − MDL_penalty(structural_complexity)
+
+note right of RK
+  R = F + S
+  F = fitness contribution
+  S = structural penalty (MDL λ)
+  Degenerate nets (flower) yield
+  strictly lower reward (CHECK_REWARD_TOPOLOGY).
+end note
+
+RK -> QT : branchless Q-update:\n  Q(s,a) ← Q(s,a) + α[r + γ·max Q(s',·) − Q(s,a)]
+
+QT --> RK : updated Q-value
+
+RK -> SP : write updated state ref back to scratch
+
+note right of QT
+  PackedKeyTable keyed by fnv1a_64(RlState).
+  No HashMap. No heap on hot path.
+  Branchless update — Var(τ) → 0
+  (CHECK_DETERMINISM).
+end note
+
+@enduml

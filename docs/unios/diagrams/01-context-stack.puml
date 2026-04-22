@@ -1,0 +1,31 @@
+@startuml 01-context-stack
+title dteam / unios / unibit / nightly Rust — Context Stack
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+actor "Human operator /\nexecutive / analyst" as Human
+actor "Auditor /\nreceipt verifier" as Auditor
+actor "Internal builder" as Builder
+
+rectangle "dteam\nDeterministic process intelligence.\nConsumes canonical facts.\nEmits verified results + receipts." as DTEAM
+rectangle "unios\nPrivate admission / proof / projection\noperating contract layer." as UNIOS
+rectangle "unibit\nSealed substrate.\nResident truth + scratch,\nbranchless lawful motion." as UNIBIT
+rectangle "Nightly Rust\nPrivate compiler surface:\nconst generics, asm, SIMD,\npinned layout, provenance lints." as NIGHTLY
+
+Human --> DTEAM : submits process challenges\nviews verified results
+Auditor --> DTEAM : verifies receipts
+Auditor ..> UNIOS : does not see
+Auditor ..> UNIBIT : does not see
+Builder --> UNIBIT : builds sealed substrate
+Builder --> UNIOS : builds operating layer
+
+DTEAM --> UNIOS : calls only public operating contract
+UNIOS --> UNIBIT : submits admitted typed handles
+UNIBIT --> NIGHTLY : implemented with
+
+DTEAM ..> UNIBIT : does not know
+DTEAM ..> NIGHTLY : does not know
+UNIOS ..> NIGHTLY : does not know internals
+
+@enduml

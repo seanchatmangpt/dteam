@@ -1,0 +1,43 @@
+@startuml 28-sparse-multiword-transition
+title Sparse Multi-Word Transition — ActiveWordSet Loop
+
+skinparam shadowing false
+
+participant "UniverseScratch\nPlane S" as SP
+participant "ActiveWordSet\n(bounded list of\nactive word indices)" as AW
+participant "UniverseBlock\nPlane D\n[u64; 4096]" as DP
+participant "Sparse Microkernel" as SM
+participant "UDelta Builder" as DB
+
+SP -> AW : active word list\n(sparse — only words with transitions)
+
+AW -> SM : bounded active words\n(T1 ≤ 200ns budget)
+
+loop for each active word i
+  SM -> DP : read U[word_i]
+  SM -> SP : read I_i (input mask for word i)
+  SM -> SP : read O_i (output mask for word i)
+  SM -> SM : enabled_contribution_i =\n  ((U_i & I_i) == I_i) ? 1 : 0
+end
+
+SM -> SM : reduce enabled_contribution\ninto fired_mask\n(all words must contribute)
+
+loop for each active word i
+  SM -> SM : candidate_i = (U_i & !I_i) | O_i
+  SM -> SM : next_i = select(fired_mask, candidate_i, U_i)
+  SM -> DP : commit next_i to U[word_i]
+  SM -> DB : emit (word_index_i, before_i ⊕ next_i)
+end
+
+DB -> SP : store sparse UDelta\n{ word_indices[], delta_words[] }
+
+note right of SM
+  Fired_mask is global: ALL input
+  conditions across ALL active words
+  must hold for the transition to fire.
+  No partial firing — atomicity is
+  enforced by the reduction step.
+  T1 ≤ 200ns for typical sparse scope.
+end note
+
+@enduml

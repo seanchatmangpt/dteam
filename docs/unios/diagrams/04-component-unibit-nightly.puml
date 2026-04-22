@@ -1,0 +1,49 @@
+@startuml 04-component-unibit-nightly
+title Component — unibit Sealed Substrate (Nightly Rust)
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+package "unibit private substrate" {
+  component "unibit API\nboot, validate,\nexecute, restore" as API
+
+  component "Nightly Toolchain\nrust-toolchain.toml (pinned)" as Toolchain
+  component "Const Geometry\ngeneric_const_exprs\nderives [u64; BITS/64]" as ConstGeo
+  component "Const Tier Types\nadt_const_params\nUWorkTier, UReceiptMode" as Tiers
+  component "Generic Const Items\ngeneric_const_items\nWORK_BITS<N>, MEMORY_BITS<N>" as ConstItems
+
+  component "Pinned Resident Region\nPin<Box<...>> +\nrepr(C, align(64))\nUniverseBlock + UniverseScratch" as Region
+  component "Position Validator\nbase, truth offset,\nscratch offset, alignment" as Position
+  component "OS Lock Attempt\nmlock / explicit failure" as Lock
+
+  component "Strict Provenance\nfuzzy_provenance_casts\nlossy_provenance_casts" as Provenance
+  component "Branchless Kernel\nmask algebra, no branches" as Kernel
+  component "SIMD Kernel (optional)\nportable_simd\nor target_feature" as SIMD
+  component "Inline Assembly Smoke\nasm! / global_asm!" as ASM
+  component "Assembly Verification\ncargo asm / llvm-ir" as AsmCheck
+
+  component "Sparse Delta\nword index + before + after + ΔU" as Delta
+  component "Receipt Fragment\nbounded hot-path proof" as Fragment
+  component "Sealed Artifact\nstripped, LTO,\npanic=abort, trim-paths" as Sealed
+}
+
+API --> Toolchain : built with
+Toolchain --> ConstGeo
+Toolchain --> Tiers
+Toolchain --> ConstItems
+
+API --> Region : boots
+Region --> Position : validated by
+Region --> Lock : attempts
+Region --> Kernel : operated on by
+
+Kernel --> Provenance : constrained by
+Kernel --> SIMD : optional specialization
+Kernel --> ASM : smoke path
+Kernel --> Delta : emits
+Kernel --> Fragment : emits
+Kernel --> AsmCheck : verified by
+
+API --> Sealed : packaged as
+
+@enduml

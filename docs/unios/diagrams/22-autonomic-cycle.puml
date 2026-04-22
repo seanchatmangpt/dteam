@@ -1,0 +1,49 @@
+@startuml 22-autonomic-cycle
+title Autonomic Kernel Cycle — observe → infer → propose → accept → execute → adapt
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+interface "AutonomicKernel\n(src/autonomic/kernel.rs)" as AK {
+  + observe(log: &EventLog) → Observation
+  + infer(obs: &Observation) → Inference
+  + propose(inf: &Inference) → Proposal
+  + accept(p: &Proposal) → Decision
+  + execute(d: &Decision) → Effect
+  + adapt(effect: &Effect)
+}
+
+component "DefaultKernel\n(src/autonomic/kernel.rs)\nBaseline — no Vision 2030 guards" as DK
+
+component "Vision2030Kernel\n(src/autonomic/vision_2030_kernel.rs)\nExtended — KPI guards, autonomic\npolicy from AutonomicConfig" as VK
+
+component "AutonomicConfig\n(dteam.toml → src/config.rs)\n[autonomic] guards + policy\n[rl] learning_rate / discount / exploration" as CFG
+
+component "EventLog\n(XES traces)" as EL
+component "PetriNet\n(current discovered model)" as PN
+component "RL Agent ensemble" as RLAGENT
+
+AK <|.. DK
+AK <|.. VK
+
+CFG --> VK : policy + guard thresholds
+CFG --> DK : rl hyperparams
+
+EL --> AK : observe()
+AK --> PN : propose() / execute() modifies net
+AK --> RLAGENT : adapt() tunes RL hyperparams
+
+note right of VK
+  Vision2030Kernel adds KPI-aware guards:
+  blocks proposals that violate configured
+  autonomic policy thresholds before accept().
+end note
+
+note bottom of AK
+  Cycle runs per-epoch (T3 ≤ 100µs).
+  observe + infer are read-only.
+  execute is the only write path.
+  adapt feeds back into next epoch.
+end note
+
+@enduml

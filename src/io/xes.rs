@@ -25,9 +25,15 @@ impl fmt::Display for XesError {
             XesError::IoError { message } => write!(f, "IO error: {}", message),
             XesError::XmlError { message } => write!(f, "XML parsing error: {}", message),
             XesError::MissingAttribute { element, attribute } => {
-                write!(f, "Missing attribute '{}' in element '{}'", attribute, element)
+                write!(
+                    f,
+                    "Missing attribute '{}' in element '{}'",
+                    attribute, element
+                )
             }
-            XesError::InvalidUtf8 { element } => write!(f, "Invalid UTF-8 in element '{}'", element),
+            XesError::InvalidUtf8 { element } => {
+                write!(f, "Invalid UTF-8 in element '{}'", element)
+            }
             XesError::MalformedFormat { reason } => write!(f, "Malformed XES format: {}", reason),
         }
     }
@@ -78,7 +84,11 @@ impl XESReader {
     }
 
     /// Parse XES XML from bytes
-    pub fn parse_bytes(&self, content: &[u8], source_path: Option<&Path>) -> Result<EventLog, XesError> {
+    pub fn parse_bytes(
+        &self,
+        content: &[u8],
+        source_path: Option<&Path>,
+    ) -> Result<EventLog, XesError> {
         let mut log = EventLog::new();
         if let Some(p) = source_path {
             log.attributes.push(Attribute {
@@ -129,14 +139,14 @@ impl XESReader {
                         }
 
                         if let (Some(k), Some(v)) = (attr_key.as_ref(), attr_value.as_ref()) {
-                            let key = std::str::from_utf8(k).map_err(|_| XesError::InvalidUtf8 {
-                                element: "attribute key".to_string(),
-                            })?;
-                            let value = std::str::from_utf8(v).map_err(|_| {
-                                XesError::InvalidUtf8 {
+                            let key =
+                                std::str::from_utf8(k).map_err(|_| XesError::InvalidUtf8 {
+                                    element: "attribute key".to_string(),
+                                })?;
+                            let value =
+                                std::str::from_utf8(v).map_err(|_| XesError::InvalidUtf8 {
                                     element: format!("attribute value for key '{}'", key),
-                                }
-                            })?;
+                                })?;
 
                             if key == "concept:name" {
                                 if inside_event {
@@ -147,7 +157,7 @@ impl XESReader {
                                 }
                             }
                         } else if attr_key.is_some() {
-                             return Err(XesError::MissingAttribute {
+                            return Err(XesError::MissingAttribute {
                                 element: "string/date".to_string(),
                                 attribute: "value".to_string(),
                             });

@@ -83,7 +83,7 @@ impl<S: WorkflowState, A: WorkflowAction> ReinforceAgent<S, A> {
         let mut theta = self.theta.borrow_mut();
 
         for (t, (state, action, _)) in trajectory.iter().enumerate() {
-            ensure_state::<S, A>(&mut *theta, *state);
+            ensure_state::<S>(&mut *theta, *state);
             let logits = get_q_values::<S, A>(&*theta, state);
             let probs = softmax_probs::<ACTION_MAX_LIMIT>(logits);
             let a_idx = action.to_index();

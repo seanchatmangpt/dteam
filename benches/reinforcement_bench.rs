@@ -1,7 +1,7 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use dteam::reinforcement::{Agent, DoubleQLearning, QLearning, SARSAAgent};
-use dteam::{RlAction, RlState};
 use dteam::utils::dense_kernel::KBitSet;
+use dteam::{RlAction, RlState};
 
 fn create_mock_state<const WORDS: usize>(h: i8) -> RlState<WORDS> {
     RlState {

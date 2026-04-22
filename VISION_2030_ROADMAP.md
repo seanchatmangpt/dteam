@@ -53,10 +53,17 @@ The `dteam` engine, currently optimized for bounded WASM and deterministic K-Tie
 *   **Object-Centric Petri Nets**: Discover and replay over multi-object models.
     *   *Status*: **Not in this repository yet** (backlog; classic net + replay: [`src/models/petri_net.rs`](src/models/petri_net.rs), [`src/conformance/mod.rs`](src/conformance/mod.rs)).
 
-## 7. Quality Assurance: Autonomic Acceptance Suite (dteam-jtbd-suite)
+## 7. Phase 6: Geometric Scaling on the unibit Substrate (2030+)
+**Goal:** Transition from the current WASM/K-Tier environment to the 32 KiB L1-cache pinned `unibit` engine to achieve true nanosecond-scale operational intelligence.
+
+*   **Exhaustive Future Simulation**: Leverage zero-heap reinforcement learning over the mathematically bounded 262,144 discrete memory positions to simulate and prove optimal supply chain trajectories before physical execution.
+*   **Instantaneous Planetary Rerouting**: Handle chaos and massive disruptions by flipping law/prereq masks at specific geometric cells, enabling immediate route recalculation without traversing complex graph databases.
+*   **Real-Time Verifiable Projections**: Utilize cryptographically secure BLAKE3 receipts and exact sparse bit-deltas generated natively by the substrate to power unbroken, causally-tied visualizations without "phantom data".
+
+## 8. Quality Assurance: Autonomic Acceptance Suite (dteam-jtbd-suite)
 **Goal:** Verify that all hyper-optimized algorithms (SWAR, CMS, LinUCB, Simulator, OCPM) combine successfully into a coherent "Digital Team" closure. We move beyond isolated micro-benches to combinatorial end-to-end Jobs-To-Be-Done (JTBD) scenarios.
 
-### 7.1. Suite Architecture & Execution Flow
+### 8.1. Suite Architecture & Execution Flow
 The following sequence demonstrates how the 5 phases interoperate during a live operational event (e.g., Scenario 1: Offshore Maintenance Drift):
 
 ```mermaid
@@ -79,10 +86,10 @@ sequenceDiagram
     Manifest-->>Log: Emit Reproducible Receipt
 ```
 
-### 7.2. Feature Interaction Matrix
+### 8.2. Feature Interaction Matrix
 The suite validates combinatorial interactions across 16 critical scenarios.
 
-### 7.3. Definition of Done (DoD)
+### 8.3. Definition of Done (DoD)
 I must personally validate these criteria before reporting "done":
 1. **Zero-Heap Verification**: No allocations (`vec!`, `Box`, `HashMap::insert`) occur inside the operational `observe`, `propose`, `accept`, or `update` loops during steady-state.
 2. **Branchless Purity**: Performance benchmarks must show 1-15ns latency for state updates and `<2µs` for bandit selections.

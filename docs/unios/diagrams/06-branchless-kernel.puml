@@ -1,0 +1,47 @@
+@startuml 06-branchless-kernel
+title Branchless Hot Execution Kernel — Mask Algebra Only
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+component "State word S\n(resident UniverseBlock u64)" as S
+
+component "deny_prereq =\n(S & prereq) ^ prereq" as Dp
+component "deny_law =\n(S & law) ^ law" as Dl
+component "deny_cap =\n(S & capability) ^ capability" as Dc
+component "deny_scenario =\n(S & scenario) ^ scenario" as Ds
+
+component "deny =\ndeny_prereq | deny_law |\ndeny_cap | deny_scenario" as Deny
+component "candidate =\n(S & !consume) | produce" as Cand
+component "admitted_mask =\n((deny == 0) as u64).wrapping_neg()" as Mask
+component "next =\n(candidate & admitted_mask) |\n(S & !admitted_mask)" as Next
+component "ΔU = S ^ next" as Delta
+component "denial word\n(0 = admitted, nonzero = denied)" as Result
+component "receipt fragment\nmix(R, I, ΔU)" as Fragment
+
+S --> Dp
+S --> Dl
+S --> Dc
+S --> Ds
+
+Dp --> Deny
+Dl --> Deny
+Dc --> Deny
+Ds --> Deny
+
+S --> Cand
+Deny --> Mask
+Cand --> Next
+Mask --> Next
+S --> Next
+Next --> Delta
+Deny --> Result
+Delta --> Fragment
+
+note bottom of Mask
+  CI must verify this
+  lowers to cmov / setcc / and-mask
+  on the target (not a runtime branch).
+end note
+
+@enduml

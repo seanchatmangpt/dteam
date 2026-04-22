@@ -37,7 +37,13 @@ pub fn train_with_provenance(
     lambda: f32,
     ontology: Option<&crate::models::Ontology>,
 ) -> (PetriNet, Vec<u8>) {
-    train_with_provenance_projected(&ProjectedLog::generate_with_ontology(train_log, ontology), config, beta, lambda, ontology)
+    train_with_provenance_projected(
+        &ProjectedLog::generate_with_ontology(train_log, ontology),
+        config,
+        beta,
+        lambda,
+        ontology,
+    )
 }
 
 pub fn train_with_provenance_projected(
@@ -56,7 +62,9 @@ pub fn train_with_provenance_projected(
     );
 
     let mut trajectory = Vec::new();
-    let ontology_mask = ontology.map(|o| o.bitset).unwrap_or_else(|| crate::utils::dense_kernel::KBitSet::<16>::zero());
+    let ontology_mask = ontology
+        .map(|o| o.bitset)
+        .unwrap_or_else(crate::utils::dense_kernel::KBitSet::<16>::zero);
 
     for _epoch in 0..config.discovery.max_training_epochs {
         let avg_f = token_replay_projected(train_log, &model);

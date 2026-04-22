@@ -84,7 +84,7 @@ impl<S: WorkflowState, A: WorkflowAction> ExpectedSARSAAgent<S, A> {
         };
 
         let mut q_table = self.q_table.borrow_mut();
-        ensure_state::<S, A>(&mut *q_table, state);
+        ensure_state::<S>(&mut *q_table, state);
 
         let action_idx = action.to_index();
         let h = hash_state(&state);
