@@ -22,8 +22,9 @@ mod proptests {
                 rework_ratio_q: 0,
                 circuit_state: 0,
                 cycle_phase: 0,
-                marking_mask: KBitSet::zero(),
+                marking_mask: crate::utils::dense_kernel::KBitSet::default(),
                 activities_hash: 0,
+                ontology_mask: crate::utils::dense_kernel::KBitSet::default(),
             };
             let action = RlAction::from_index(a).unwrap();
 
