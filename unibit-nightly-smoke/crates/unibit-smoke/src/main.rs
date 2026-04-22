@@ -4,58 +4,12 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
-use std::arch::asm;
 use std::mem::{align_of, size_of};
 use std::pin::Pin;
 
-const WORDS: usize = 4096;
-const BLOCK_BITS: usize = 262144;
-const REGION_BITS: usize = 524288;
-const ALIGN_BITS: usize = 512;
-
-struct Work<const BITS: usize>
-where
-    [(); BITS / 64]:,
-{
-    words: [u64; BITS / 64],
-}
-
-#[repr(C, align(64))]
-struct TruthBlock {
-    words: [u64; WORDS],
-}
-
-#[repr(C, align(64))]
-struct Scratchpad {
-    words: [u64; WORDS],
-}
-
-#[repr(C, align(64))]
-struct L1Region {
-    truth: TruthBlock,
-    scratch: Scratchpad,
-}
-
-impl L1Region {
-    fn zeroed() -> Self {
-        Self {
-            truth: TruthBlock { words: [0; WORDS] },
-            scratch: Scratchpad { words: [0; WORDS] },
-        }
-    }
-
-    fn base_addr(&self) -> usize {
-        self as *const L1Region as usize
-    }
-
-    fn truth_addr(&self) -> usize {
-        &self.truth as *const TruthBlock as usize
-    }
-
-    fn scratch_addr(&self) -> usize {
-        &self.scratch as *const Scratchpad as usize
-    }
-}
+use unibit_l1::{L1Region, TruthBlock, Scratchpad, ALIGN_BITS, BLOCK_BITS, REGION_BITS, WORDS};
+use unibit_kernel::{asm_add_one, execute_hot_path};
+use unibit_motion::{Work, GlobeCell, TIER_8_1, TIER_8_2, TIER_8_3, TIER_8_4, TIER_8_5};
 
 #[derive(Debug, Clone, Copy)]
 struct L1Position {
@@ -111,31 +65,11 @@ unsafe fn lock_region(region: &L1Region) -> std::io::Result<()> {
     }
 }
 
-#[cfg(target_arch = "x86_64")]
-#[inline(always)]
-unsafe fn asm_add_one(x: u64) -> u64 {
-    let out: u64;
-    unsafe {
-        asm!(
-            "lea {out}, [{x} + 1]",
-            x = in(reg) x,
-            out = lateout(reg) out,
-            options(nomem, nostack, preserves_flags)
-        );
-    }
-    out
-}
-
-#[cfg(not(target_arch = "x86_64"))]
-#[inline(always)]
-unsafe fn asm_add_one(x: u64) -> u64 {
-    x + 1
-}
-
 fn main() {
-    let _work: Work<512> = Work { words: [0; 8] };
+    let _work_tier3: Work<TIER_8_3> = Work { words: [0; TIER_8_3 / 64] };
+    let _cell = GlobeCell { domain: 0, cell: 42, place: 5 };
 
-    let region: Pin<Box<L1Region>> = Box::pin(L1Region::zeroed());
+    let mut region: Pin<Box<L1Region>> = Box::pin(L1Region::zeroed());
 
     let pos1 = validate_l1_position(&region);
     let pos2 = validate_l1_position(&region);
@@ -154,6 +88,9 @@ fn main() {
 
     let asm_result = unsafe { asm_add_one(41) };
     assert_eq!(asm_result, 42);
+    
+    // Simulate hot path execution
+    execute_hot_path(&mut region);
 
     println!("nightly compiler passed");
     println!("generic_const_exprs passed");

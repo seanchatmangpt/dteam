@@ -1,0 +1,23 @@
+\chapter{unibit: The Sealed Motion Substrate}
+
+With admission granted by \texttt{unios}, \textbf{\texttt{unibit}} provides the physical substrate that executes the geometry at nanosecond scale. It is a software-defined physics engine enforcing hardware-level constraints.
+
+\section{Truth Resident / Motion Scratch}
+
+\texttt{unibit} guarantees that truth stays resident and motion happens in scratch memory. The physical execution path remains uncontaminated by external events.
+
+\section{Lexical and Geometric Axioms}
+
+The substrate strictly adheres to the Lexicon Law: standard software storage terminology is banished to prevent conceptual drift towards conventional heap structures. Geometry dictates that kinetic footprint scales by $8^n$, while semantic residence scales by $64^n$.
+
+\section{L1 Resident Region}
+
+To achieve true nanosecond-scale execution, the working set is designed to fit within an $L_1$-resident envelope. The region is composed of a pinned $262144$-bit \texttt{TruthBlock} and a $262144$-bit \texttt{Scratchpad}. Both structures are strictly aligned to $512$-bit boundaries, ensuring perfect utilization of CPU cache lines without locking overhead.
+
+\section{Nightly Rust Compiler Edge}
+
+\texttt{unibit} relies on the Nightly Rust compiler to enforce its physical constraints. It utilizes \texttt{generic\_const\_exprs} to derive array bounds from $8^n$ constants, \texttt{adt\_const\_params} to define state transitions, and \texttt{strict\_provenance\_lints} to ensure pointer logic remains mathematically pure.
+
+\section{Branchless T0/T1 Hot Paths}
+
+The execution kernels are entirely \texttt{no\_std} and \texttt{no\_alloc}. Dynamic dispatch is forbidden. Logic is implemented using mask calculus and branchless SWAR operations, allowing the CPU to execute deterministic, linear pipelines of operations over the defined geometric trajectory.

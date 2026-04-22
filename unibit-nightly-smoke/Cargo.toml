@@ -1,10 +1,13 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/unibit-smoke"
+    "crates/unibit-smoke",
+    "crates/unibit-l1",
+    "crates/unibit-kernel",
+    "crates/unibit-motion"
 ]
 
 [workspace.package]
 edition = "2024"
 license = "MIT OR Apache-2.0"
-rust-version = "1.82"
+rust-version = "1.85"

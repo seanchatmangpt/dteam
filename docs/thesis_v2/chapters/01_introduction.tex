@@ -1,0 +1,21 @@
+\chapter{Introduction}
+
+The original DTEAM v1.3 engine demonstrated the profound advantages of zero-heap, branchless execution in the domain of process intelligence. By employing bounded, word-aligned bitsets ($K \in \{64, 128, 256, 512, 1024\}$) and a packed key table structure, DTEAM achieved nanosecond-scale discovery loops. However, DTEAM was fundamentally an analytical layer, observing historical data and inferring models post-facto.
+
+As the demands for autonomic intelligence grew, the necessity to move from retrospective analysis to real-time, deterministic execution became apparent. The limitation was no longer the discovery algorithm, but the substrate upon which reality was recorded and executed. 
+
+The \textbf{uni*} ecosystem represents a paradigm shift: transitioning from an application operating atop a conventional kernel, to a sealed execution substrate where the operating system disappears entirely once work commences.
+
+\section{Separation of Concerns}
+
+The ecosystem is partitioned into distinct architectural layers, ensuring strict isolation between physical execution, admission control, semantic compilation, external membrane interactions, and intelligence:
+
+\begin{enumerate}
+    \item \textbf{\texttt{unibit}}: The sealed execution substrate representing the physical layer.
+    \item \textbf{\texttt{unios}}: The admission and proof operating layer that is the only authority to configure and admit substrate motion, stepping aside during execution.
+    \item \textbf{\texttt{AtomVM}}: The real-world disorder membrane, canonicalizing external disorder into explicit facts.
+    \item \textbf{\texttt{dteam}}: Deterministic process intelligence, consuming canonical facts and verified projections, never raw disorder or substrate internals.
+    \item \textbf{\texttt{MuStar}}: The compiler that translates POWL and ontology-level intent into unios-admissible motion packets.
+\end{enumerate}
+
+This formal separation ensures that the physical execution path remains uncontaminated by non-deterministic external events.

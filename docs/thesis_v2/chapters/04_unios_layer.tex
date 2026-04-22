@@ -1,0 +1,19 @@
+\chapter{UniverseOS: Admission and Proof}
+
+Once MuStar compiles a geometric motion packet, \textbf{UniverseOS} (\texttt{unios}) acts as the strict authority that decides whether that compiled geometry may become physical motion.
+
+\section{The Admission Gate}
+
+Traditional operating systems continually interrupt execution. \texttt{unios} fundamentally alters this contract by serving as an admission controller prior to execution. It evaluates the proof obligations attached to the motion packet by MuStar.
+
+\section{Law and Capability Binding}
+
+During admission, \texttt{unios} performs capability, law, and scenario bindings, ensuring the requested trajectory through the $64^3$ coordinate-state space does not violate fundamental structural constraints.
+
+\section{The Typed Hot Handle}
+
+If admission is granted, \texttt{unios} allocates and pins the working memory regions (utilizing \texttt{mlock}), maps the initial state into the \texttt{TruthBlock}, and generates a typed hot handle representing the permitted execution boundary.
+
+\section{The Disappearing Operating System}
+
+Crucially, after configuring the substrate and yielding the typed hot handle to \texttt{unibit}, \texttt{unios} \textit{disappears}. During the execution phase, \texttt{unios} exercises no authority and incurs zero context switches. Only upon explicit termination or hardware fault does \texttt{unios} regain control to finalize the proof of execution and commit the resulting state to the persistence layer.

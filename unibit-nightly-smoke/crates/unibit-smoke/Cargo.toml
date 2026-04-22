@@ -5,6 +5,9 @@ edition = "2024"
 
 [dependencies]
 libc = "0.2"
+unibit-l1 = { path = "../unibit-l1" }
+unibit-kernel = { path = "../unibit-kernel" }
+unibit-motion = { path = "../unibit-motion" }
 
 [lints.rust]
 unsafe_op_in_unsafe_fn = "deny"

@@ -1230,3 +1230,121 @@ end fork
 stop
 
 @enduml
+
+@startuml
+title Routing as Geometry vs Old Routing
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+package "Old Routing" {
+  component "Shipment event" as OldA
+  component "Normalize data" as OldB
+  component "Build abstract graph" as OldC
+  component "Run route algorithm" as OldD
+  component "Interpret constraints" as OldE
+  component "Update dashboard" as OldF
+  
+  OldA --> OldB
+  OldB --> OldC
+  OldC --> OldD
+  OldD --> OldE
+  OldE --> OldF
+}
+
+package "New Routing (DTEAM / MuStar)" {
+  component "Canonical fact" as NewG
+  component "GlobeCell coordinate" as NewH
+  component "64^2 attention surface" as NewI
+  component "64^3 operational depth" as NewJ
+  component "Lawful trajectory" as NewK
+  component "unios admission" as NewL
+  component "Receipt-backed projection" as NewM
+  
+  NewG --> NewH
+  NewH --> NewI
+  NewI --> NewJ
+  NewJ --> NewK
+  NewK --> NewL
+  NewL --> NewM
+}
+@enduml
+
+@startuml
+title 64^2 and 64^3 Geometry
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+component "64^2 Globe = 4,096 cells" as A
+component "Attention geometry" as B
+component "Blocked cells" as C
+component "Risk cells" as D
+component "Capacity cells" as E
+component "Candidate route cells" as F
+
+A --> B
+B --> C
+B --> D
+B --> E
+B --> F
+
+component "64^3 Globe = 262,144 positions" as G
+component "Operational geometry" as H
+component "surface cell × local process place" as I
+component "Berth state" as J
+component "Customs state" as K
+component "Cold-chain state" as L
+component "Legal state" as M
+component "Carrier capability state" as N
+
+G --> H
+H --> I
+H --> J
+H --> K
+H --> L
+H --> M
+H --> N
+
+component "Route trajectory" as O
+
+F --> O
+I --> O
+J --> O
+K --> O
+L --> O
+M --> O
+N --> O
+
+@enduml
+
+@startuml
+title Route Trajectory Through 64^3
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+component "Pacific.LA.RouteCommitted" as A
+component "Pacific.LA.ManifestAmendable" as B
+component "Pacific.Ensenada.TradeLawOpen" as C
+component "Pacific.Ensenada.BerthAvailable" as D
+component "Pacific.Ensenada.ColdChainAvailable" as E
+component "Pacific.Ensenada.RouteCommitted" as F
+
+A --> B
+B --> C
+C --> D
+D --> E
+E --> F
+
+component "Carrier.Authorized" as G
+component "CargoClass.Legal" as H
+component "Port.CapacityPresent" as I
+component "Reefer.PowerAvailable" as J
+
+B ..> G : requires
+C ..> H : requires
+D ..> I : requires
+E ..> J : requires
+
+@enduml
