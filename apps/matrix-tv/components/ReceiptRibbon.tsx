@@ -12,10 +12,16 @@ export function ReceiptRibbon({
   history: MotionResponse[];
 }) {
   return (
-    <div style={styles.ribbon}>
+    <div
+      style={styles.ribbon}
+      data-testid="receipt-ribbon"
+      data-length={history.length}
+    >
       {history.slice(-12).map((r, i) => (
         <div
           key={i}
+          data-testid="receipt-fragment"
+          data-admitted={r.denyTotal === 0n ? 'true' : 'false'}
           style={{
             ...styles.box,
             background:

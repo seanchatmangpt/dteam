@@ -3,10 +3,10 @@ import { notFound } from 'next/navigation';
 import { runBySlug } from '@/lib/runs';
 import { EpisodeScene } from './scene';
 
-export default async function EpisodePage(props: {
-  params: Promise<{ slug: string }>;
+export default function EpisodePage(props: {
+  params: { slug: string };
 }) {
-  const { slug } = await props.params;
+  const { slug } = props.params;
   const run = runBySlug(slug);
   if (!run) notFound();
 

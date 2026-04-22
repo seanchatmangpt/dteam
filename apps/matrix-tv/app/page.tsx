@@ -12,7 +12,10 @@ export default function EpisodeSelector() {
   );
 
   return (
-    <main style={{ padding: 40, maxWidth: 960, margin: '0 auto' }}>
+    <main
+      style={{ padding: 40, maxWidth: 960, margin: '0 auto' }}
+      data-testid="episode-selector"
+    >
       <h1 style={{ fontSize: 40, letterSpacing: 2, marginBottom: 8 }}>
         Matrix · Sprawl Trilogy
       </h1>
@@ -41,6 +44,7 @@ export default function EpisodeSelector() {
               <li key={run.id} style={{ marginBottom: 8 }}>
                 <Link
                   href={`/episode/${run.id.toLowerCase()}`}
+                  data-testid={`run-link-${run.id.toLowerCase()}`}
                   style={{
                     display: 'flex',
                     gap: 16,

@@ -56,17 +56,27 @@ export function EpisodeScene({ run }: { run: Run }) {
   };
 
   return (
-    <div style={{ position: 'relative', height: '100vh' }}>
-      <Canvas camera={{ position: [0, 0, 6], fov: 50 }}>
-        <ambientLight intensity={0.4} />
-        <pointLight position={[5, 5, 5]} intensity={0.6} />
-        <Globe response={response} />
-      </Canvas>
+    <div
+      style={{ position: 'relative', height: '100vh' }}
+      data-testid="episode-scene"
+      data-history-length={history.length}
+    >
+      <div data-testid="globe-canvas-wrapper" style={{ width: '100%', height: '100%' }}>
+        <Canvas
+          camera={{ position: [0, 0, 6], fov: 50 }}
+          gl={{ preserveDrawingBuffer: true }}
+        >
+          <ambientLight intensity={0.4} />
+          <pointLight position={[5, 5, 5]} intensity={0.6} />
+          <Globe response={response} />
+        </Canvas>
+      </div>
 
       <VerdictBadge response={response} />
 
       {currentAnnotation && (
         <div
+          data-testid="annotation"
           style={{
             position: 'absolute',
             bottom: 120,
@@ -95,10 +105,14 @@ export function EpisodeScene({ run }: { run: Run }) {
           gap: 8,
         }}
       >
-        <button onClick={rerun} style={buttonStyle}>
+        <button onClick={rerun} style={buttonStyle} data-testid="run-button">
           RUN
         </button>
-        <button onClick={tamper} style={{ ...buttonStyle, borderColor: '#e63333' }}>
+        <button
+          onClick={tamper}
+          style={{ ...buttonStyle, borderColor: '#e63333' }}
+          data-testid="tamper-button"
+        >
           TAMPER
         </button>
       </div>

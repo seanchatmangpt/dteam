@@ -5,16 +5,20 @@ import { MotionResponse } from '@/lib/unibit';
 export function VerdictBadge({ response }: { response: MotionResponse | null }) {
   if (!response) {
     return (
-      <div style={styles.idle}>
+      <div style={styles.idle} data-testid="verdict-badge" data-verdict="idle">
         <div style={styles.label}>IDLE</div>
       </div>
     );
   }
   const admitted = response.denyTotal === 0n;
   return (
-    <div style={admitted ? styles.admit : styles.deny}>
+    <div
+      style={admitted ? styles.admit : styles.deny}
+      data-testid="verdict-badge"
+      data-verdict={admitted ? 'lawful' : 'unlawful'}
+    >
       <div style={styles.label}>{admitted ? 'LAWFUL' : 'UNLAWFUL'}</div>
-      <div style={styles.small}>
+      <div style={styles.small} data-testid="verdict-fragment">
         fragment: {response.fragment.toString(16).padStart(16, '0')}
       </div>
     </div>
