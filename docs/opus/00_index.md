@@ -71,6 +71,7 @@ posture.
 | 55 | [55_unibit_bcinr_audit.md](55_unibit_bcinr_audit.md) | Code audit of ~/unibit and ~/chatmangpt/bcinr vs the 5 criteria: unibit 4.5/5 (GO), bcinr 2.5/5 (promote bit-math, merge) |
 | 56 | [56_geometry_jtbd.md](56_geometry_jtbd.md) | Eight Jobs-to-be-Done the 64ⁿ geometry is hired to perform — address, route, residence, shard, witness, attribute, zoom, nearest — each with artifact + measurement |
 | 57 | [57_what_is_missing.md](57_what_is_missing.md) | Honest inventory: 4 P1 items (POWL AST, Orchestrator, LanePolicy<MODE>, 8-core run), 5 P2 quality gates, naming drift, conceptual unfinished |
+| 58 | [58_finish_all.md](58_finish_all.md) | Closing P1/P2: POWL + Orchestrator crates, cargo deny clean, docs clean, C-ABI verified. 22 crates, 43 test suites pass. False flag retracted. |
 
 ## The spine, in one paragraph
 
