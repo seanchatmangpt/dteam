@@ -9,7 +9,7 @@ use std::pin::Pin;
 
 use unibit_l1::{L1Region, TruthBlock, Scratchpad, ALIGN_BITS, BLOCK_BITS, REGION_BITS, WORDS};
 use unibit_kernel::{asm_add_one, execute_hot_path};
-use unibit_motion::{Work, GlobeCell, TIER_8_1, TIER_8_2, TIER_8_3, TIER_8_4, TIER_8_5};
+use unibit_motion::{Work, GlobeCell, MotionPacket, TIER_8_1, TIER_8_2, TIER_8_3, TIER_8_4, TIER_8_5};
 
 #[derive(Debug, Clone, Copy)]
 struct L1Position {
@@ -90,7 +90,8 @@ fn main() {
     assert_eq!(asm_result, 42);
     
     // Simulate hot path execution
-    execute_hot_path(&mut region);
+    let packet = MotionPacket::new(0, 0, 0, 0);
+    execute_hot_path(&mut region, &packet);
 
     println!("nightly compiler passed");
     println!("generic_const_exprs passed");
