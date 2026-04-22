@@ -1,0 +1,78 @@
+# matrix-tv
+
+Three.js + Next.js visualisation of `unibit` arenas, mapped to runs
+from the Gibson Sprawl trilogy (Neuromancer, Count Zero, Mona Lisa
+Overdrive).
+
+Designed in [`docs/opus/60_threejs_neuromancer_tv.md`](../../docs/opus/60_threejs_neuromancer_tv.md).
+
+## Status
+
+**Phase 1 shipped** — standalone TS implementation mirrors the
+branchless admission algebra. No napi-rs yet; the visualiser runs
+self-contained.
+
+**Phase 2 (deferred)** — wire `unibit-cabi`'s `unibit_motion_tick`
+through napi-rs so the same binary drives the UI and production.
+
+## What's here
+
+```
+app/
+  page.tsx                     — episode selector, runs grouped by novel
+  episode/[slug]/page.tsx      — scene viewer
+  episode/[slug]/scene.tsx     — Three.js canvas + controls
+components/
+  GlobeRenderer.tsx            — 64³ point-cloud sphere + 8 lane rings
+  VerdictBadge.tsx             — Lawful / Unlawful surface
+  ReceiptRibbon.tsx            — Cornell-box chain at the bottom
+lib/
+  unibit.ts                    — pure-TS motion_tick + CANONICAL_FIELDS
+  runs.ts                      — 11 Sprawl-trilogy runs mapped to arenas
+```
+
+## Running
+
+```bash
+cd apps/matrix-tv
+npm install
+npm run dev
+```
+
+Open http://localhost:3000.
+
+## Design notes
+
+Every on-screen element corresponds to a measurable architectural
+concept:
+
+| Element | unibit concept |
+|---|---|
+| Point-cloud sphere | TruthBlock (64³ cells) |
+| 8 colored torus rings | FieldLane (4 required + 4 forbidden) |
+| Green/red sphere flares | LaneOutcome denial fragments |
+| Lawful/Unlawful badge | Verifier verdict |
+| Cornell-box ribbon | Receipt chain, oldest → newest |
+
+The TS motion_tick exactly mirrors `unibit-hot::t0::admit8_t0`
+semantics:
+
+```
+deny_required  = (state & required) XOR required
+deny_forbidden = state & forbidden
+deny_total     = OR across 8 lanes
+admitted_mask  = ((deny_total == 0) as u64).wrapping_neg()
+next_marking   = (candidate & admitted_mask) | (old & ~admitted_mask)
+```
+
+Same algebra, TS types; the Rust kernel-side and TS-side produce
+identical denials given identical masks.
+
+## Next steps (Phase 2)
+
+1. `crates/matrix-bridge/` — napi-rs bridge that exposes
+   `unibit_motion_tick` to Node.
+2. Swap `motionTick()` in `lib/unibit.ts` for the bridge call.
+3. Add the remaining 29 Sprawl runs (currently 11 of 40).
+4. Wire the 64³-cell count via a WebGPU compute shader — direct
+   `TruthBlock` read-out from the Rust side.
