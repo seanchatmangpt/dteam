@@ -73,6 +73,7 @@ posture.
 | 57 | [57_what_is_missing.md](57_what_is_missing.md) | Honest inventory: 4 P1 items (POWL AST, Orchestrator, LanePolicy<MODE>, 8-core run), 5 P2 quality gates, naming drift, conceptual unfinished |
 | 58 | [58_finish_all.md](58_finish_all.md) | Closing P1/P2: POWL + Orchestrator crates, cargo deny clean, docs clean, C-ABI verified. 22 crates, 43 test suites pass. False flag retracted. |
 | 59 | [59_eighty_twenty.md](59_eighty_twenty.md) | 80/20 final: recursive Snapshot, WorkerPool (23µs honest), variance harness; fusion is pessimization; Condvar caps pool at 3µs. 23 crates. |
+| 60 | [60_threejs_neuromancer_tv.md](60_threejs_neuromancer_tv.md) | Three.js + Next.js interface for the Neuromancer TV series: 40 Sprawl-trilogy runs mapped to arenas 01–44; shader strategy; 5-week scope |
 
 ## The spine, in one paragraph
 
