@@ -280,10 +280,12 @@ fn main() -> ExitCode {
             let best_ok = check(
                 "best_per_log dominates all individual strategies",
                 dq.best_per_log_dominates || !dq.strategy_accuracies_ok,
-                if dq.best_per_log_dominates {
-                    "invariant holds"
+                if !dq.strategy_accuracies_ok {
+                    "skipped — strategy_accuracies.json missing"
+                } else if dq.best_per_log_dominates {
+                    "invariant holds — best_per_log ≥ max(individual strategy)"
                 } else {
-                    "best_per_log < best individual — lie detected"
+                    "INVARIANT VIOLATION: best_per_log < some individual strategy"
                 },
             );
 
