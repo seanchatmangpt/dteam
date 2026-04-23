@@ -39,7 +39,14 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000.
+Open **http://localhost:31337** — the dev and start scripts pin port
+31337 so they don't collide with Grafana (which defaults to 3000).
+
+Pages:
+- `/` — episode selector (the 30+ Gibson runs)
+- `/sprawl` — blockchain-MUD replay: Case → Loa, nine rooms
+- `/ocel` — live observer: tails `ocel-log.jsonl` via SSE; open alongside
+  `/sprawl` in another tab to watch the session in real time
 
 ## Design notes
 
