@@ -75,9 +75,14 @@ export default function OcelObserverPage() {
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
         <div>
-          <Link href="/" style={{ color: '#9ab', fontSize: 12, textDecoration: 'none' }}>
-            ← back
-          </Link>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <Link href="/" style={{ color: '#9ab', fontSize: 12, textDecoration: 'none' }}>
+              ← back
+            </Link>
+            <Link href="/help/tutorial" style={{ color: '#9ab', fontSize: 12, textDecoration: 'none' }}>
+              ? help
+            </Link>
+          </div>
           <h1 style={{ fontSize: 28, margin: '8px 0' }}>
             OCEL · live observer
           </h1>

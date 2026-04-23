@@ -24,24 +24,61 @@ export default function EpisodeSelector() {
         algebra shipped in the <code>unibit</code> crates. No cliché text
         waterfall — the 64³ globe is the instrument.
       </p>
-      <Link
-        href="/sprawl"
-        data-testid="sprawl-link"
-        style={{
-          display: 'inline-block',
-          padding: '10px 18px',
-          marginBottom: 32,
-          background: 'linear-gradient(90deg, #4db2ff 0%, #9a1acc 100%)',
-          color: '#0c0f18',
-          textDecoration: 'none',
-          borderRadius: 6,
-          fontWeight: 700,
-          letterSpacing: 1,
-          fontSize: 13,
-        }}
-      >
-        ▶ play the Sprawl MUD — Case to Loa
-      </Link>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 32, flexWrap: 'wrap' }}>
+        <Link
+          href="/sprawl"
+          data-testid="sprawl-link"
+          style={{
+            display: 'inline-block',
+            padding: '10px 18px',
+            background: 'linear-gradient(90deg, #4db2ff 0%, #9a1acc 100%)',
+            color: '#0c0f18',
+            textDecoration: 'none',
+            borderRadius: 6,
+            fontWeight: 700,
+            letterSpacing: 1,
+            fontSize: 13,
+          }}
+        >
+          ▶ play the Sprawl MUD — Case to Loa
+        </Link>
+        <Link
+          href="/ocel"
+          data-testid="ocel-link"
+          style={{
+            display: 'inline-block',
+            padding: '10px 18px',
+            background: '#0a1a2a',
+            color: '#4db2ff',
+            textDecoration: 'none',
+            borderRadius: 6,
+            fontWeight: 700,
+            letterSpacing: 1,
+            fontSize: 13,
+            border: '1px solid #1a3a5a',
+          }}
+        >
+          👁 watch (OCEL)
+        </Link>
+        <Link
+          href="/help/tutorial"
+          data-testid="help-link"
+          style={{
+            display: 'inline-block',
+            padding: '10px 18px',
+            background: 'transparent',
+            color: '#9ab',
+            textDecoration: 'none',
+            borderRadius: 6,
+            fontWeight: 400,
+            letterSpacing: 1,
+            fontSize: 13,
+            border: '1px solid #333',
+          }}
+        >
+          ? first time — tutorial
+        </Link>
+      </div>
 
       {Object.entries(bySource).map(([source, runs]) => (
         <section key={source} style={{ marginBottom: 40 }}>

@@ -25,12 +25,20 @@ export default async function EpisodePage(props: {
           maxWidth: 420,
         }}
       >
-        <Link
-          href="/"
-          style={{ color: '#9ab', textDecoration: 'none', fontSize: 12 }}
-        >
-          ← back
-        </Link>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <Link
+            href="/"
+            style={{ color: '#9ab', textDecoration: 'none', fontSize: 12 }}
+          >
+            ← back
+          </Link>
+          <Link
+            href="/help/tutorial"
+            style={{ color: '#9ab', textDecoration: 'none', fontSize: 12 }}
+          >
+            ? help
+          </Link>
+        </div>
         <div
           style={{
             fontSize: 10,

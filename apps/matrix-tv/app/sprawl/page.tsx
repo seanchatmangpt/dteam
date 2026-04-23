@@ -110,6 +110,9 @@ export default function SprawlPage() {
           <Link href="/ocel" style={{ color: '#4db2ff', textDecoration: 'none', fontSize: 12 }}>
             open OCEL observer →
           </Link>
+          <Link href="/help/tutorial" style={{ color: '#9ab', textDecoration: 'none', fontSize: 12 }}>
+            ? help
+          </Link>
         </div>
         <div style={{ fontSize: 10, opacity: 0.5, marginTop: 4, letterSpacing: 1 }}>
           SPRAWL · blockchain MUD
