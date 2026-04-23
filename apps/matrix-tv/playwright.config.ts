@@ -8,7 +8,7 @@ export default defineConfig({
   workers: 1,
   reporter: [['list']],
   use: {
-    baseURL: 'http://localhost:3412',
+    baseURL: 'http://localhost:31337',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     viewport: { width: 1280, height: 800 },
@@ -20,8 +20,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'npx next dev --port 3412',
-    url: 'http://localhost:3412',
+    command: 'npx next dev --port 31337',
+    url: 'http://localhost:31337',
     timeout: 60_000,
     reuseExistingServer: true,
   },

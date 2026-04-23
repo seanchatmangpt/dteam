@@ -48,6 +48,22 @@ Pages:
 - `/ocel` — live observer: tails `ocel-log.jsonl` via SSE; open alongside
   `/sprawl` in another tab to watch the session in real time
 
+## DX / QoL — `matrix-tv-doctor`
+
+A citty-based CLI lives under `cli/` and drives every diagnostic signal
+we care about. Run these from `apps/matrix-tv/`:
+
+| Command | What it does |
+|---|---|
+| `npm run doctor` | Coloured health-check summary (node, ports, files, HTTP routes, Rust). Exits 1 on any MISS. |
+| `npm run doctor:json` | Same checks, machine-readable `{ checks, summary }`. |
+| `npm run ports` | Listeners on :31337 (us), :3000 (Grafana), :4317/:4318 (OTLP), :8088 (unibit-sprawl WS), :3412 (Playwright). |
+| `npm run replay` | Regenerate `public/sprawl-replay.ndjson` by shelling to the unibit repo. |
+| `npm run tail` | Follow `ocel-log.jsonl` — one compact coloured line per turn. |
+| `npm run ocel:reset` | Truncate the session log. |
+| `npm run ocel:stats` | Aggregate: players / rooms / verbs / verdicts. |
+| `npm run play` | Open `/sprawl` and `/ocel` in the default browser. |
+
 ## Design notes
 
 Every on-screen element corresponds to a measurable architectural
