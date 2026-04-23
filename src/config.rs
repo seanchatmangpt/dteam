@@ -94,6 +94,23 @@ pub struct AutomlConfig {
     pub strategy: String,
     pub budget: usize,
     pub seed: u64,
+    /// TPOT2 successive halving: enable 2-rung evaluation for HDIT signal selection.
+    /// When true, rung-0 scores all signals on a subsample; only top fraction advance.
+    #[serde(default)]
+    pub successive_halving: bool,
+    /// Rung-0 subsample fraction (e.g. 0.2 = 20% of traces). Only used if successive_halving=true.
+    #[serde(default = "default_sh_subsample")]
+    pub sh_subsample: f64,
+    /// Promotion ratio: keep top 1/ratio candidates (e.g. 3.0 = top third).
+    #[serde(default = "default_sh_ratio")]
+    pub sh_promotion_ratio: f64,
+}
+
+fn default_sh_subsample() -> f64 {
+    0.2
+}
+fn default_sh_ratio() -> f64 {
+    3.0
 }
 
 impl Default for AutomlConfig {
@@ -103,6 +120,9 @@ impl Default for AutomlConfig {
             strategy: "random".to_string(),
             budget: 20,
             seed: 42,
+            successive_halving: false,
+            sh_subsample: 0.2,
+            sh_promotion_ratio: 3.0,
         }
     }
 }

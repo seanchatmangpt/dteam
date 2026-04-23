@@ -10,7 +10,7 @@
 //! 6. Returns a compiled [`AutomlPlan`] artifact — NOT just a best model.
 
 use crate::ml::rank_fusion::{bool_to_score, borda_count};
-use crate::ml::stacking::stack_ensemble;
+use crate::ml::stacking::stack_ensemble_oof;
 use crate::ml::weighted_vote::auto_weighted_vote;
 
 // ---------------------------------------------------------------------------
@@ -100,6 +100,28 @@ pub enum FusionOp {
     Stack,
 }
 
+/// A single candidate point on the Pareto front.
+///
+/// TPOT2-style: every non-dominated (accuracy, complexity, timing) combination
+/// is a valid answer; the consumer picks a tradeoff. The "chosen" candidate is
+/// the one HDIT's greedy selection landed on, but others may dominate on
+/// different axes (e.g. lower timing for 99% of the accuracy).
+#[derive(Debug, Clone)]
+pub struct PlanCandidate {
+    /// Signal names in selection order.
+    pub signals: Vec<String>,
+    /// Fusion operator applied.
+    pub fusion: FusionOp,
+    /// Accuracy vs anchor (fraction that agree).
+    pub accuracy_vs_anchor: f64,
+    /// Sum of signal timings (μs).
+    pub total_timing_us: u64,
+    /// Complexity = `signals.len()` + fusion cost (Stack adds 2, Borda/Weighted add 1).
+    pub complexity: usize,
+    /// True if this candidate is the one HDIT greedily selected.
+    pub chosen: bool,
+}
+
 /// The compiled output artifact — describes the selected decision machine.
 #[derive(Debug, Clone)]
 pub struct AutomlPlan {
@@ -123,6 +145,62 @@ pub struct AutomlPlan {
     /// Number of candidates rejected because marginal accuracy gain was below
     /// `gain_threshold`.
     pub signals_rejected_no_gain: usize,
+    /// TPOT2-style Pareto front: non-dominated (accuracy, complexity, timing) points.
+    /// Each evaluated signal and each prefix of the selected set is a candidate;
+    /// only non-dominated points survive. The `chosen` row is the default pick.
+    pub pareto_front: Vec<PlanCandidate>,
+}
+
+/// Fusion op complexity cost — Stack requires a meta-learner (≈+2), Borda/Weighted (+1), Single (+0).
+fn fusion_complexity(op: FusionOp) -> usize {
+    match op {
+        FusionOp::Single => 0,
+        FusionOp::WeightedVote => 1,
+        FusionOp::BordaCount => 1,
+        FusionOp::Stack => 2,
+    }
+}
+
+/// Filter candidates to the Pareto front on (accuracy↑, complexity↓, timing↓).
+/// A candidate is dominated if another has ≥ accuracy, ≤ complexity, ≤ timing,
+/// with at least one strict inequality.
+fn pareto_filter(mut cands: Vec<PlanCandidate>) -> Vec<PlanCandidate> {
+    let n = cands.len();
+    let mut keep = vec![true; n];
+    for i in 0..n {
+        if !keep[i] {
+            continue;
+        }
+        for j in 0..n {
+            if i == j || !keep[j] {
+                continue;
+            }
+            // Does j dominate i?
+            let a_ge = cands[j].accuracy_vs_anchor >= cands[i].accuracy_vs_anchor;
+            let c_le = cands[j].complexity <= cands[i].complexity;
+            let t_le = cands[j].total_timing_us <= cands[i].total_timing_us;
+            let strict = cands[j].accuracy_vs_anchor > cands[i].accuracy_vs_anchor
+                || cands[j].complexity < cands[i].complexity
+                || cands[j].total_timing_us < cands[i].total_timing_us;
+            if a_ge && c_le && t_le && strict {
+                keep[i] = false;
+                break;
+            }
+        }
+    }
+    let mut filtered: Vec<PlanCandidate> = cands
+        .drain(..)
+        .zip(keep.iter())
+        .filter_map(|(c, &k)| if k { Some(c) } else { None })
+        .collect();
+    // Sort by accuracy descending, then complexity ascending (stable output)
+    filtered.sort_by(|a, b| {
+        b.accuracy_vs_anchor
+            .partial_cmp(&a.accuracy_vs_anchor)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then(a.complexity.cmp(&b.complexity))
+    });
+    filtered
 }
 
 // ---------------------------------------------------------------------------
@@ -157,6 +235,7 @@ pub fn run_hdit_automl(
             signals_evaluated: n_evaluated,
             signals_rejected_correlation: 0,
             signals_rejected_no_gain: 0,
+            pareto_front: vec![],
         };
     }
 
@@ -204,6 +283,78 @@ pub fn run_hdit_automl(
         anchor.len(),
     );
 
+    // ── TPOT2-style Pareto front ─────────────────────────────────────────────
+    // Build a candidate for EACH singleton, EACH prefix of the selected set, and
+    // the chosen set itself; then filter to the non-dominated frontier.
+    let mut pareto_cands: Vec<PlanCandidate> = Vec::with_capacity(n_evaluated + selected.len());
+
+    // Singletons: each individual candidate with Single fusion
+    for sp in &candidates {
+        let acc = accuracy_vs_anchor(&sp.predictions, anchor);
+        pareto_cands.push(PlanCandidate {
+            signals: vec![sp.name.clone()],
+            fusion: FusionOp::Single,
+            accuracy_vs_anchor: acc,
+            total_timing_us: sp.timing_us,
+            complexity: 1 + fusion_complexity(FusionOp::Single),
+            chosen: false,
+        });
+    }
+
+    // Prefixes of the selected set: 2..=selected.len()
+    for prefix_len in 2..=selected.len() {
+        let prefix: Vec<&SignalProfile> = selected.iter().take(prefix_len).collect();
+        let prefix_owned: Vec<SignalProfile> = prefix.iter().map(|&s| s.clone()).collect();
+        let prefix_fusion = choose_fusion(&prefix_owned);
+        let prefix_preds = apply_fusion(&prefix_owned, prefix_fusion, anchor, n_target);
+        let prefix_acc = accuracy_vs_anchor(&prefix_preds, anchor);
+        let prefix_timing: u64 = prefix.iter().map(|s| s.timing_us).sum();
+        pareto_cands.push(PlanCandidate {
+            signals: prefix.iter().map(|s| s.name.clone()).collect(),
+            fusion: prefix_fusion,
+            accuracy_vs_anchor: prefix_acc,
+            total_timing_us: prefix_timing,
+            complexity: prefix_len + fusion_complexity(prefix_fusion),
+            chosen: false,
+        });
+    }
+
+    // Mark the chosen candidate (matches the HDIT greedy result exactly)
+    let mut pareto_front = pareto_filter(pareto_cands);
+    let chosen_signals: Vec<String> = selected_names.clone();
+    let chosen_complexity = selected.len() + fusion_complexity(fusion);
+    let mut found_chosen = false;
+    for cand in pareto_front.iter_mut() {
+        if cand.signals == chosen_signals
+            && cand.fusion == fusion
+            && cand.complexity == chosen_complexity
+        {
+            cand.chosen = true;
+            found_chosen = true;
+            break;
+        }
+    }
+    // If the chosen candidate was dominated and filtered out, add it back explicitly —
+    // the consumer must always be able to see what HDIT actually picked.
+    if !found_chosen {
+        pareto_front.push(PlanCandidate {
+            signals: chosen_signals,
+            fusion,
+            accuracy_vs_anchor: plan_accuracy,
+            total_timing_us,
+            complexity: chosen_complexity,
+            chosen: true,
+        });
+    }
+
+    // ── Anti-lie invariant: Pareto front must contain exactly one chosen==true ──
+    let chosen_count = pareto_front.iter().filter(|c| c.chosen).count();
+    assert_eq!(
+        chosen_count, 1,
+        "Pareto front lie: {} candidates marked chosen, expected exactly 1",
+        chosen_count,
+    );
+
     AutomlPlan {
         selected: selected_names,
         tiers,
@@ -214,7 +365,132 @@ pub fn run_hdit_automl(
         signals_evaluated: n_evaluated,
         signals_rejected_correlation: n_rejected_corr,
         signals_rejected_no_gain: n_rejected_gain,
+        pareto_front,
     }
+}
+
+// ---------------------------------------------------------------------------
+// TPOT2 Successive Halving (TPOT-SH, Parmentier et al. 2021)
+// ---------------------------------------------------------------------------
+
+/// TPOT2-style successive halving: evaluate candidates on a subsampled anchor
+/// first (rung 0), promote the top `1/promotion_ratio` fraction to the full
+/// anchor (rung 1), then run standard HDIT selection on promoted candidates only.
+///
+/// # Arguments
+/// * `candidates` — full candidate pool
+/// * `anchor` — full-size ground-truth proxy
+/// * `n_target` — positives to calibrate output to
+/// * `rung0_subsample` — fraction of traces to use for rung-0 scoring (e.g. 0.2 = 20%)
+/// * `promotion_ratio` — keep top 1/ratio; e.g. 3.0 = keep top 1/3
+///
+/// # Returns
+/// An `AutomlPlan` identical in structure to `run_hdit_automl`, but evaluated
+/// only on the promoted set. Expected speedup: promotion_ratio × linearly.
+///
+/// # Anti-lie
+/// The returned plan's `signals_evaluated` MUST reflect the ORIGINAL candidate
+/// count (the true search space), not the promoted count — otherwise downstream
+/// accounting would lie about how many signals were considered.
+pub fn run_hdit_automl_sh(
+    candidates: Vec<SignalProfile>,
+    anchor: &[bool],
+    n_target: usize,
+    rung0_subsample: f64,
+    promotion_ratio: f64,
+) -> AutomlPlan {
+    let n_total = candidates.len();
+
+    // Validate inputs
+    assert!(
+        (0.0..=1.0).contains(&rung0_subsample),
+        "rung0_subsample must be in [0,1], got {}",
+        rung0_subsample,
+    );
+    assert!(
+        promotion_ratio >= 1.0,
+        "promotion_ratio must be ≥ 1.0, got {}",
+        promotion_ratio,
+    );
+
+    // Edge case: tiny pool — no point in SH, just run full
+    if n_total <= 2 || anchor.len() < 10 {
+        return run_hdit_automl(candidates, anchor, n_target);
+    }
+
+    // Rung 0: subsampled deterministic stride sampling (no RNG — determinism preserved)
+    let n_sub = ((anchor.len() as f64) * rung0_subsample).max(5.0) as usize;
+    let n_sub = n_sub.min(anchor.len());
+    let stride = anchor.len() / n_sub.max(1);
+    let sub_anchor: Vec<bool> = (0..n_sub)
+        .map(|i| anchor[(i * stride).min(anchor.len() - 1)])
+        .collect();
+    let n_target_sub = ((n_target as f64) * (n_sub as f64) / (anchor.len() as f64))
+        .round()
+        .max(1.0) as usize;
+    let n_target_sub = n_target_sub.min(n_sub);
+
+    // Score each candidate on the subsampled anchor via singleton accuracy
+    let mut rung0_scores: Vec<(usize, f64)> = candidates
+        .iter()
+        .enumerate()
+        .map(|(i, sp)| {
+            let sub_preds: Vec<bool> = (0..n_sub)
+                .map(|j| sp.predictions[(j * stride).min(sp.predictions.len() - 1)])
+                .collect();
+            let calibrated = calibrate_to_n_target(&sub_preds, n_target_sub);
+            let acc = accuracy_vs_anchor(&calibrated, &sub_anchor);
+            (i, acc)
+        })
+        .collect();
+
+    // Sort by rung-0 accuracy descending, tie-break by index for determinism
+    rung0_scores.sort_by(|a, b| {
+        b.1.partial_cmp(&a.1)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then(a.0.cmp(&b.0))
+    });
+
+    // Promote top 1/promotion_ratio (at least 2)
+    let n_promoted = ((n_total as f64) / promotion_ratio).ceil().max(2.0) as usize;
+    let n_promoted = n_promoted.min(n_total);
+    let promoted_idx: Vec<usize> = rung0_scores
+        .iter()
+        .take(n_promoted)
+        .map(|(i, _)| *i)
+        .collect();
+
+    // Build promoted candidate pool preserving original order
+    let mut promoted_idx_sorted = promoted_idx.clone();
+    promoted_idx_sorted.sort();
+    let promoted: Vec<SignalProfile> = promoted_idx_sorted
+        .iter()
+        .map(|&i| candidates[i].clone())
+        .collect();
+
+    // Rung 1: full HDIT AutoML on the promoted pool
+    let mut plan = run_hdit_automl(promoted, anchor, n_target);
+
+    // ── Anti-lie: signals_evaluated MUST reflect the ORIGINAL pool size ──────
+    // Otherwise the summary would report that we evaluated fewer signals than
+    // the user actually handed us. The rejected counts also need to include
+    // the SH-dropped candidates (they were rejected at rung 0).
+    let n_sh_rejected = n_total - n_promoted;
+    plan.signals_evaluated = n_total;
+    plan.signals_rejected_no_gain += n_sh_rejected;
+
+    // Re-verify accounting identity after patching
+    assert_eq!(
+        plan.selected.len() + plan.signals_rejected_correlation + plan.signals_rejected_no_gain,
+        plan.signals_evaluated,
+        "SH accounting lie: selected({}) + rej_corr({}) + rej_gain({}) != evaluated({})",
+        plan.selected.len(),
+        plan.signals_rejected_correlation,
+        plan.signals_rejected_no_gain,
+        plan.signals_evaluated,
+    );
+
+    plan
 }
 
 // ---------------------------------------------------------------------------
@@ -521,7 +797,8 @@ fn apply_fusion(
             let higher_is_better: Vec<bool> = vec![true; scores.len()];
             borda_count(&scores, &higher_is_better, n_target)
         }
-        FusionOp::Stack => stack_ensemble(&preds, anchor, n_target),
+        // TPOT2 anti-leakage: use OOF stacking so meta-learner never sees own training data
+        FusionOp::Stack => stack_ensemble_oof(&preds, anchor, n_target),
     }
 }
 
@@ -562,6 +839,75 @@ mod tests {
     // -----------------------------------------------------------------------
     // Anti-lie invariants — every plan MUST satisfy these, always.
     // -----------------------------------------------------------------------
+
+    /// SH anti-lie: signals_evaluated MUST equal the ORIGINAL pool size,
+    /// not the promoted subset. Otherwise the summary lies about search breadth.
+    #[test]
+    fn invariant_sh_signals_evaluated_preserves_original_pool() {
+        let anchor: Vec<bool> = (0..100).map(|i| i % 2 == 0).collect();
+        let mut candidates = Vec::new();
+        for j in 0..10 {
+            let preds: Vec<bool> = (0..100).map(|i| (i + j) % 2 == 0).collect();
+            candidates.push(SignalProfile::new(
+                format!("s{}", j),
+                preds,
+                &anchor,
+                100 + j as u64,
+            ));
+        }
+        let plan = run_hdit_automl_sh(candidates, &anchor, 50, 0.2, 3.0);
+        assert_eq!(
+            plan.signals_evaluated, 10,
+            "SH lied about signals_evaluated: got {}, expected 10",
+            plan.signals_evaluated
+        );
+        assert_eq!(
+            plan.selected.len() + plan.signals_rejected_correlation + plan.signals_rejected_no_gain,
+            plan.signals_evaluated,
+            "SH accounting broken"
+        );
+    }
+
+    /// SH anti-lie: running SH on 2-or-fewer candidates MUST delegate to full HDIT
+    /// (successive halving is meaningless on tiny pools).
+    #[test]
+    fn invariant_sh_delegates_on_tiny_pool() {
+        let anchor: Vec<bool> = vec![true, false, true, false];
+        let c = vec![SignalProfile::new(
+            "a",
+            vec![true, true, false, false],
+            &anchor,
+            100,
+        )];
+        let plan = run_hdit_automl_sh(c, &anchor, 2, 0.2, 3.0);
+        assert_eq!(plan.signals_evaluated, 1);
+    }
+
+    /// TPOT2 Pareto: every plan must have exactly one chosen=true candidate.
+    #[test]
+    fn invariant_pareto_front_has_exactly_one_chosen() {
+        let anchor = vec![true, false, true, false, true, false];
+        let candidates = vec![
+            SignalProfile::new(
+                "a",
+                vec![true, false, true, false, true, false],
+                &anchor,
+                100,
+            ),
+            SignalProfile::new(
+                "b",
+                vec![false, true, false, true, false, true],
+                &anchor,
+                200,
+            ),
+        ];
+        let plan = run_hdit_automl(candidates, &anchor, 3);
+        let chosen_count = plan.pareto_front.iter().filter(|c| c.chosen).count();
+        assert_eq!(
+            chosen_count, 1,
+            "Pareto front must have exactly one chosen=true"
+        );
+    }
 
     /// Property test: for any combination of candidates and anchor, the accounting
     /// identity MUST hold. Any bug in greedy_orthogonal_select that loses or

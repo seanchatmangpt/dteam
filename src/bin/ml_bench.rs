@@ -1,6 +1,5 @@
-/// ML Module Benchmark — timing and accuracy for each classifier
-/// Runs against first 3 PDC logs to get representative timing data
-
+/// ML Module Benchmark — timing and accuracy for each classifier.
+/// Runs against first 3 PDC logs to get representative timing data.
 use dteam::conformance::bitmask_replay::{classify_exact, in_language, replay_log, NetBitmask64};
 use dteam::io::pnml::read_pnml;
 use dteam::io::xes::XESReader;
@@ -76,14 +75,23 @@ fn main() {
                 if dnet.places.len() <= 64 {
                     let bm = NetBitmask64::from_petri_net(&dnet);
 
-                    println!("Log: {} ({} traces, {} places)", stem, log.traces.len(), dnet.places.len());
+                    println!(
+                        "Log: {} ({} traces, {} places)",
+                        stem,
+                        log.traces.len(),
+                        dnet.places.len()
+                    );
                     println!("├─ Conformance Strategies");
 
                     // F: classify_exact
                     let t0 = Instant::now();
                     let f = classify_exact(&bm, &log, 500);
                     let tf = t0.elapsed();
-                    let acc_f = f.iter().zip(&labels_gt).filter(|(p, &gt)| **p == gt).count() as f64
+                    let acc_f = f
+                        .iter()
+                        .zip(&labels_gt)
+                        .filter(|(p, &gt)| **p == gt)
+                        .count() as f64
                         / labels_gt.len() as f64;
                     results.push(BenchResult {
                         log: stem.clone(),
@@ -115,7 +123,11 @@ fn main() {
                         out
                     };
                     let tg = t0.elapsed();
-                    let acc_g = g.iter().zip(&labels_gt).filter(|(p, &gt)| **p == gt).count() as f64
+                    let acc_g = g
+                        .iter()
+                        .zip(&labels_gt)
+                        .filter(|(p, &gt)| **p == gt)
+                        .count() as f64
                         / labels_gt.len() as f64;
                     results.push(BenchResult {
                         log: stem.clone(),
@@ -132,7 +144,8 @@ fn main() {
 
                     // H: in_language + fitness fill
                     let t0 = Instant::now();
-                    let in_lang: Vec<bool> = log.traces.iter().map(|t| in_language(&bm, t)).collect();
+                    let in_lang: Vec<bool> =
+                        log.traces.iter().map(|t| in_language(&bm, t)).collect();
                     let h = {
                         let n_clean = in_lang.iter().filter(|&&b| b).count();
                         if n_clean >= 500 {
@@ -154,7 +167,11 @@ fn main() {
                         }
                     };
                     let th = t0.elapsed();
-                    let acc_h = h.iter().zip(&labels_gt).filter(|(p, &gt)| **p == gt).count() as f64
+                    let acc_h = h
+                        .iter()
+                        .zip(&labels_gt)
+                        .filter(|(p, &gt)| **p == gt)
+                        .count() as f64
                         / labels_gt.len() as f64;
                     results.push(BenchResult {
                         log: stem.clone(),
@@ -189,7 +206,7 @@ fn main() {
 
                     // Supervised
                     let t0 = Instant::now();
-                    let sup = run_supervised(&features, &in_lang_flags);
+                    let _sup = run_supervised(&features, &in_lang_flags);
                     let t_sup = t0.elapsed();
                     results.push(BenchResult {
                         log: stem.clone(),
@@ -205,7 +222,8 @@ fn main() {
 
                     // Unsupervised
                     let t0 = Instant::now();
-                    let unsup = run_unsupervised(&features, &[].to_vec().iter().map(|_| None).collect::<Vec<_>>(), &fitness, 500);
+                    let seed_labels: Vec<Option<bool>> = vec![None; log.traces.len()];
+                    let _unsup = run_unsupervised(&features, &seed_labels, &fitness, 500);
                     let t_unsup = t0.elapsed();
                     results.push(BenchResult {
                         log: stem.clone(),
@@ -237,7 +255,10 @@ fn main() {
         if r.accuracy > 0.0 {
             println!(
                 "| {:<27} | {:<10} | {:>10} | {:>7.2}% |",
-                r.module, r.log, r.timing_us, r.accuracy * 100.0
+                r.module,
+                r.log,
+                r.timing_us,
+                r.accuracy * 100.0
             );
         } else {
             println!(
@@ -264,7 +285,12 @@ fn main() {
 
     for (cat, (total, count)) in sorted {
         let avg = total / count as u64;
-        println!("{:<30} {:.2} ms avg ({} runs)", cat, avg as f64 / 1000.0, count);
+        println!(
+            "{:<30} {:.2} ms avg ({} runs)",
+            cat,
+            avg as f64 / 1000.0,
+            count
+        );
     }
 
     println!();

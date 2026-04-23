@@ -73,10 +73,16 @@ max_pages = 16
 
 [automl]
 # Disabled by default — enable to run RL hyperparameter search per log
-enabled = false
+enabled = true
 # Search strategy: "random" (budget-capped) or "grid" (exhaustive)
 strategy = "random"
 # Number of RandomSearch trials per log
-budget = 20
+budget = 2
 # Base seed for reproducibility
 seed = 42
+# TPOT2 successive halving: rung-0 subsamples, only top fraction advance to rung-1 full data
+successive_halving = true
+# Fraction of traces used for rung-0 scoring (0.2 = 20%)
+sh_subsample = 0.2
+# Keep top 1/ratio after rung 0 (3.0 = top third)
+sh_promotion_ratio = 3.0

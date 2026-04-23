@@ -80,10 +80,11 @@ Process discovery challenge — specialized for trace classification.
 |--------|---------|------------|
 | `pdc_supervised.rs` | Train all 11 supervised classifiers on features | `run_supervised` → (11 prediction vectors) |
 | `pdc_unsupervised.rs` | Run 5 unsupervised methods on features | `run_unsupervised` → (5 prediction vectors) |
+| `hdc.rs` | Hyperdimensional trace classification (independent of nets) | `fit(traces) → HdcClassifier`, `classify(clf, traces, n_target) → Vec<bool>` |
 
-### 5c. Signal Fusion
+### 5c. Signal Fusion & AutoML
 
-Combine multiple classifiers into one prediction.
+Combine multiple classifiers into one prediction, or automatically select best subset.
 
 | Module | Purpose | Key Exports |
 |--------|---------|------------|
@@ -91,6 +92,7 @@ Combine multiple classifiers into one prediction.
 | `rank_fusion.rs` | Score aggregation | `borda_count`, `reciprocal_rank_fusion`, `bool_to_score`, `edit_dist_to_score` |
 | `weighted_vote.rs` | Weighted majority voting | `auto_weighted_vote`, `precision_weighted_vote`, `signal_weights`, `signal_correlations` |
 | `stacking.rs` | Meta-learners | `stack_logistic`, `stack_tree`, `stack_linear`, `stack_ensemble` (trains on classifier outputs) |
+| `hdit_automl.rs` | HDIT-oriented AutoML: greedy orthogonal signal selection + tier assignment | `run_hdit_automl(candidates, anchor, n_target) → AutomlPlan` with signal selection, fusion choice, tier assignment |
 | `pdc_combinator.rs` | Orchestration (if separate) | — |
 
 ---
@@ -177,13 +179,15 @@ Plus PDC-specific:
 | **F** | **67.78%** | **BFS exact language membership (Conformance)** |
 | G | 67.29% | Fitness replay only |
 | H | 67.78% | in_language + fitness fill |
+| **HDC** | **?** | **Hyperdimensional trace encoding (independent of nets)** |
 | Combo | 67.78% | Combinatorial ensemble on supervised+unsupervised |
 | Vote500 | 67.78% | Vote fractions ranking |
 | S | 60.84% | Synthetic training (failed — distributional shift) |
 | E | ~67.78% | Edit-distance k-NN |
 | **Fusion (Borda/RRF/Weighted/Stack)** | **~67.78%** | All hit same ceiling |
+| **AutoML (HDIT)** | **?** | **Greedy orthogonal signal selection + tier assignment + fusion** |
 
-**Ceiling: 67.78%** — structural limit from approximate nets, not algorithm weakness.
+**Previous Ceiling: 67.78%** — structural limit from approximate nets. **HDC and AutoML running** to test if better projections break ceiling.
 
 ---
 

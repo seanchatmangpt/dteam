@@ -601,6 +601,7 @@ dependencies = [
  "process_mining",
  "proptest",
  "quick-xml",
+ "rayon",
  "rustc-hash 1.1.0",
  "serde",
  "serde-wasm-bindgen",
