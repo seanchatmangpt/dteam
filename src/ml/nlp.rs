@@ -169,8 +169,7 @@ impl TopicModel {
             for (word_pos, token) in doc.iter().enumerate() {
                 if let Some(&word_idx) = word_index.get(token.as_str()) {
                     // 2. Deterministic initialisation: topic = (doc_idx*31 + word_pos*7 + word_idx) % n_topics
-                    let topic =
-                        (doc_idx * 31 + word_pos * 7 + word_idx) % n_topics;
+                    let topic = (doc_idx * 31 + word_pos * 7 + word_idx) % n_topics;
                     flat.push((doc_idx, word_idx));
                     assignments.push(topic);
                     word_topic_counts[topic][word_idx] += 1;
@@ -241,8 +240,7 @@ impl TopicModel {
             return vec![];
         }
         let row = &self.word_topic_counts[topic];
-        let total: f64 =
-            row.iter().map(|&c| c as f64).sum::<f64>() + self.n_words as f64;
+        let total: f64 = row.iter().map(|&c| c as f64).sum::<f64>() + self.n_words as f64;
         row.iter().map(|&c| (c as f64 + 1.0) / total).collect()
     }
 
@@ -251,8 +249,7 @@ impl TopicModel {
         (0..self.n_topics)
             .map(|t| {
                 let dist = self.topic_word_distribution(t);
-                let mut indexed: Vec<(usize, f64)> =
-                    dist.iter().copied().enumerate().collect();
+                let mut indexed: Vec<(usize, f64)> = dist.iter().copied().enumerate().collect();
                 indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap().then(a.0.cmp(&b.0)));
                 indexed
                     .iter()
@@ -388,10 +385,7 @@ mod tests {
 
     #[test]
     fn test_ngram_probability_sums_to_one_approx() {
-        let docs = vec![
-            tok(&["a", "b", "c", "a", "b"]),
-            tok(&["a", "c", "b", "c"]),
-        ];
+        let docs = vec![tok(&["a", "b", "c", "a", "b"]), tok(&["a", "c", "b", "c"])];
         let model = NgramModel::fit(&docs, 2);
         let context = tok(&["a"]);
         let total: f64 = model
@@ -461,10 +455,7 @@ mod tests {
 
     #[test]
     fn test_topic_model_doc_topic_dist_sums_to_one() {
-        let docs = vec![
-            tok(&["a", "b", "c"]),
-            tok(&["d", "e", "f"]),
-        ];
+        let docs = vec![tok(&["a", "b", "c"]), tok(&["d", "e", "f"])];
         let model = TopicModel::fit(&docs, 3, 1.0, 0.1, 5);
         for d in 0..docs.len() {
             let dist = model.doc_topic_distribution(d);
@@ -527,10 +518,7 @@ mod tests {
 
     #[test]
     fn test_tf_idf_shape() {
-        let docs = vec![
-            tok(&["a", "b", "c"]),
-            tok(&["a", "d"]),
-        ];
+        let docs = vec![tok(&["a", "b", "c"]), tok(&["a", "d"])];
         let vocab = build_vocabulary(&docs);
         let matrix = tf_idf(&docs, &vocab);
         assert_eq!(matrix.len(), 2);
@@ -570,8 +558,11 @@ mod tests {
         ];
         let vocab = build_vocabulary(&docs);
         // Must be sorted and deduplicated
-        let mut expected = vec!["apple", "banana", "cherry", "date"];
+        let mut expected = ["apple", "banana", "cherry", "date"];
         expected.sort();
-        assert_eq!(vocab, expected.iter().map(|s| s.to_string()).collect::<Vec<_>>());
+        assert_eq!(
+            vocab,
+            expected.iter().map(|s| s.to_string()).collect::<Vec<_>>()
+        );
     }
 }

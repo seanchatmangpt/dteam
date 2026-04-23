@@ -78,10 +78,7 @@ impl Default for Graph {
 /// BFS from `source` over directed edges.
 /// Returns (distances, predecessors) where predecessors[v] = list of nodes that are
 /// on a shortest path to v (i.e. the previous hop).
-fn bfs_shortest_paths(
-    graph: &Graph,
-    source: usize,
-) -> (Vec<Option<usize>>, Vec<Vec<usize>>) {
+fn bfs_shortest_paths(graph: &Graph, source: usize) -> (Vec<Option<usize>>, Vec<Vec<usize>>) {
     let n = graph.nodes.len();
     let mut dist: Vec<Option<usize>> = vec![None; n];
     let mut preds: Vec<Vec<usize>> = vec![Vec::new(); n];
@@ -140,21 +137,18 @@ pub fn page_rank(
 
     for _ in 0..max_iters {
         // Dangling node mass (nodes with out_degree == 0)
-        let dangling_sum: f64 = (0..n)
-            .filter(|&i| out_deg[i] == 0)
-            .map(|i| rank[i])
-            .sum();
+        let dangling_sum: f64 = (0..n).filter(|&i| out_deg[i] == 0).map(|i| rank[i]).sum();
         let dangling_contrib = damping_factor * dangling_sum / n as f64;
 
         let mut new_rank = vec![0.0_f64; n];
-        for v in 0..n {
+        for (v, nr) in new_rank.iter_mut().enumerate().take(n) {
             // Contributions from in-neighbors
             let in_contrib: f64 = graph
                 .in_neighbors(v)
                 .iter()
                 .map(|&u| rank[u] / out_deg[u] as f64)
                 .sum();
-            new_rank[v] = base + dangling_contrib + damping_factor * in_contrib;
+            *nr = base + dangling_contrib + damping_factor * in_contrib;
         }
 
         // Check convergence
@@ -211,12 +205,9 @@ pub fn betweenness_centrality(graph: &Graph) -> HashMap<usize, f64> {
             stack.push(v);
             let d_v = dist[v].unwrap();
             for w in graph.neighbors(v) {
-                match dist[w] {
-                    None => {
-                        dist[w] = Some(d_v + 1);
-                        queue.push_back(w);
-                    }
-                    _ => {}
+                if dist[w].is_none() {
+                    dist[w] = Some(d_v + 1);
+                    queue.push_back(w);
                 }
                 if dist[w] == Some(d_v + 1) {
                     sigma[w] += sigma[v];
@@ -246,9 +237,7 @@ pub fn betweenness_centrality(graph: &Graph) -> HashMap<usize, f64> {
         1.0
     };
 
-    (0..n)
-        .map(|i| (i, centrality[i] / norm))
-        .collect()
+    (0..n).map(|i| (i, centrality[i] / norm)).collect()
 }
 
 // ── Closeness Centrality ──────────────────────────────────────────────────────
@@ -437,7 +426,10 @@ mod tests {
         let pr = page_rank(&g, 0.85, 100, 1e-8);
         // Sanity: all ranks sum to ~1
         let total: f64 = pr.values().sum();
-        assert!((total - 1.0).abs() < 1e-6, "PageRank should sum to 1, got {total}");
+        assert!(
+            (total - 1.0).abs() < 1e-6,
+            "PageRank should sum to 1, got {total}"
+        );
 
         // A, B, C receive the same rank (symmetric)
         let a = *g.node_index.get("A").unwrap();

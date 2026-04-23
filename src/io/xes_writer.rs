@@ -82,10 +82,7 @@ pub fn write_classified_log_to_writer<W: Write>(
     Ok(())
 }
 
-fn write_xes_attribute<W: Write>(
-    w: &mut Writer<W>,
-    a: &Attribute,
-) -> Result<(), std::io::Error> {
+fn write_xes_attribute<W: Write>(w: &mut Writer<W>, a: &Attribute) -> Result<(), std::io::Error> {
     let (tag_name, value_str): (&str, String) = match &a.value {
         AttributeValue::String(s) => ("string", s.clone()),
         AttributeValue::Int(i) => ("int", i.to_string()),

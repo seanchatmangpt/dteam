@@ -49,16 +49,16 @@ pub fn fit(train: &[Vec<f64>], labels: &[bool], lr: f64, epochs: usize) -> Logis
             let error = pred - if label { 1.0 } else { 0.0 };
 
             // Accumulate per-feature gradient; treat missing dims as 0.
-            for j in 0..n_features {
+            for (j, gw) in grad_w.iter_mut().enumerate().take(n_features) {
                 let xi_j = x.get(j).copied().unwrap_or(0.0);
-                grad_w[j] += error * xi_j;
+                *gw += error * xi_j;
             }
             grad_b += error;
         }
 
         // Apply mean gradient step.
-        for j in 0..n_features {
-            weights[j] -= lr * (grad_w[j] / n_f64);
+        for (w, gw) in weights.iter_mut().zip(grad_w.iter()).take(n_features) {
+            *w -= lr * (*gw / n_f64);
         }
         bias -= lr * (grad_b / n_f64);
     }
@@ -102,11 +102,7 @@ pub fn classify(
 }
 
 /// Convenience wrapper: lr = 0.01, epochs = 1000.
-pub fn classify_default(
-    train: &[Vec<f64>],
-    labels: &[bool],
-    test: &[Vec<f64>],
-) -> Vec<bool> {
+pub fn classify_default(train: &[Vec<f64>], labels: &[bool], test: &[Vec<f64>]) -> Vec<bool> {
     classify(train, labels, test, 0.01, 1000)
 }
 
@@ -164,7 +160,10 @@ mod tests {
         for p in &probas {
             assert!(*p >= 0.0 && *p <= 1.0);
         }
-        assert!(probas[1] > probas[0], "P(true|x=1) should exceed P(true|x=0)");
+        assert!(
+            probas[1] > probas[0],
+            "P(true|x=1) should exceed P(true|x=0)"
+        );
     }
 
     #[test]

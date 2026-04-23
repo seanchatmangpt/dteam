@@ -119,13 +119,7 @@ pub fn forward(net: &Network, input: &[f64]) -> (Vec<f64>, f64) {
 /// 3. Hidden errors: `δ_h[i] = output_weights[i] · δ_out · hidden[i] · (1 − hidden[i])`.
 /// 4. Update `output_weights[i] -= lr · δ_out · hidden_with_bias[i]`.
 /// 5. Update `hidden_weights[i][j] -= lr · δ_h[i] · input_with_bias[j]`.
-pub fn train(
-    net: &mut Network,
-    train_data: &[Vec<f64>],
-    labels: &[bool],
-    lr: f64,
-    epochs: usize,
-) {
+pub fn train(net: &mut Network, train_data: &[Vec<f64>], labels: &[bool], lr: f64, epochs: usize) {
     if train_data.is_empty() || labels.is_empty() || net.hidden_weights.is_empty() {
         return;
     }
@@ -167,14 +161,14 @@ pub fn train(
 
             // ── weight updates ────────────────────────────────────────────────
             // Output weights (including bias at index hidden_size).
-            for i in 0..=hidden_size {
-                net.output_weights[i] -= lr * delta_out * hidden_with_bias[i];
+            for (i, hw) in hidden_with_bias.iter().enumerate().take(hidden_size + 1) {
+                net.output_weights[i] -= lr * delta_out * hw;
             }
 
             // Hidden weights.
-            for i in 0..hidden_size {
-                for j in 0..=input_size {
-                    net.hidden_weights[i][j] -= lr * delta_hidden[i] * input_with_bias[j];
+            for (i, dh) in delta_hidden.iter().enumerate().take(hidden_size) {
+                for (j, iw) in input_with_bias.iter().enumerate().take(input_size + 1) {
+                    net.hidden_weights[i][j] -= lr * dh * iw;
                 }
             }
         }
@@ -225,11 +219,7 @@ pub fn classify(
 }
 
 /// Convenience wrapper: `hidden_size = 4`, `lr = 0.01`, `epochs = 200`.
-pub fn classify_default(
-    train_data: &[Vec<f64>],
-    labels: &[bool],
-    test: &[Vec<f64>],
-) -> Vec<bool> {
+pub fn classify_default(train_data: &[Vec<f64>], labels: &[bool], test: &[Vec<f64>]) -> Vec<bool> {
     classify(train_data, labels, test, 4, 0.01, 200)
 }
 
@@ -289,7 +279,11 @@ mod tests {
         let train = vec![vec![1.0, 1.0]];
         let labels = vec![true];
         let result = classify(&train, &labels, &train, 4, 0.5, 2000);
-        assert_eq!(result, vec![true], "single positive example should converge");
+        assert_eq!(
+            result,
+            vec![true],
+            "single positive example should converge"
+        );
     }
 
     // ── 4. Forward pass shape ──────────────────────────────────────────────────

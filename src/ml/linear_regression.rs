@@ -1,6 +1,5 @@
-/// Simple Linear Regression (OLS, chapter 14) and Multiple Regression (GD, chapter 15)
-/// from "Data Science from Scratch" by Joel Grus.
-
+// Simple Linear Regression (OLS, chapter 14) and Multiple Regression (GD, chapter 15)
+// from "Data Science from Scratch" by Joel Grus.
 // ---------------------------------------------------------------------------
 // Simple Linear Regression (OLS)
 // ---------------------------------------------------------------------------
@@ -30,7 +29,10 @@ fn mean(v: &[f64]) -> f64 {
 pub fn fit_simple(x: &[f64], y: &[f64]) -> SimpleLinear {
     let n = x.len().min(y.len());
     if n == 0 {
-        return SimpleLinear { alpha: 0.0, beta: 0.0 };
+        return SimpleLinear {
+            alpha: 0.0,
+            beta: 0.0,
+        };
     }
 
     let mx = mean(&x[..n]);
@@ -186,11 +188,7 @@ pub fn predict_multiple(model: &MultipleLinear, test: &[Vec<f64>]) -> Vec<f64> {
 ///
 /// Fits a model treating `true → 1.0`, `false → 0.0`, then predicts on `test`
 /// and thresholds at `0.5`.  Returns all `false` when `train` is empty.
-pub fn classify_multiple(
-    train: &[Vec<f64>],
-    labels: &[bool],
-    test: &[Vec<f64>],
-) -> Vec<bool> {
+pub fn classify_multiple(train: &[Vec<f64>], labels: &[bool], test: &[Vec<f64>]) -> Vec<bool> {
     let n = train.len().min(labels.len());
     if n == 0 {
         return vec![false; test.len()];
@@ -223,8 +221,16 @@ mod tests {
         let y: Vec<f64> = x.iter().map(|&xi| 2.0 * xi + 1.0).collect();
 
         let model = fit_simple(&x, &y);
-        assert!((model.beta - 2.0).abs() < 1e-10, "beta should be 2.0, got {}", model.beta);
-        assert!((model.alpha - 1.0).abs() < 1e-10, "alpha should be 1.0, got {}", model.alpha);
+        assert!(
+            (model.beta - 2.0).abs() < 1e-10,
+            "beta should be 2.0, got {}",
+            model.beta
+        );
+        assert!(
+            (model.alpha - 1.0).abs() < 1e-10,
+            "alpha should be 1.0, got {}",
+            model.alpha
+        );
     }
 
     /// R² for a perfect fit should be 1.0.
@@ -233,7 +239,10 @@ mod tests {
         let y_true = vec![1.0, 2.0, 3.0, 4.0, 5.0];
         let y_pred = y_true.clone();
         let r2 = r_squared(&y_true, &y_pred);
-        assert!((r2 - 1.0).abs() < 1e-10, "R² for perfect fit should be 1.0, got {r2}");
+        assert!(
+            (r2 - 1.0).abs() < 1e-10,
+            "R² for perfect fit should be 1.0, got {r2}"
+        );
     }
 
     /// R² for a constant prediction equal to the mean should be 0.0.
@@ -244,7 +253,10 @@ mod tests {
         let mean_val = mean(&y_true);
         let y_pred = vec![mean_val; y_true.len()];
         let r2 = r_squared(&y_true, &y_pred);
-        assert!(r2.abs() < 1e-10, "R² for mean prediction should be 0.0, got {r2}");
+        assert!(
+            r2.abs() < 1e-10,
+            "R² for mean prediction should be 0.0, got {r2}"
+        );
     }
 
     /// Empty inputs should return zero-weight SimpleLinear without panic.
@@ -317,7 +329,10 @@ mod tests {
     /// predict_simple: intercept-only model (beta=0) predicts constant alpha.
     #[test]
     fn test_predict_simple_constant() {
-        let model = SimpleLinear { alpha: 7.0, beta: 0.0 };
+        let model = SimpleLinear {
+            alpha: 7.0,
+            beta: 0.0,
+        };
         let x = vec![1.0, 2.0, 3.0];
         let preds = predict_simple(&model, &x);
         assert!(preds.iter().all(|&p| (p - 7.0).abs() < 1e-12));

@@ -7,9 +7,8 @@
 //! used for both training and inference (train on all → predict on all).
 
 use crate::ml::{
-    decision_stump, decision_tree, gaussian_naive_bayes, gradient_boosting, knn,
-    linear_regression, logistic_regression, naive_bayes, nearest_centroid, neural_network,
-    perceptron,
+    decision_stump, decision_tree, gaussian_naive_bayes, gradient_boosting, knn, linear_regression,
+    logistic_regression, naive_bayes, nearest_centroid, neural_network, perceptron,
 };
 
 // ---------------------------------------------------------------------------

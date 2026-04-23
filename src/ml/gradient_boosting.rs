@@ -321,7 +321,7 @@ mod tests {
         let test = vec![vec![0.0, 0.0], vec![1.0, 1.0]];
         let result = classify(&train, &labels, &test, 100, 0.3);
         // With enough estimators this simple pattern should be learnable.
-        assert_eq!(result[1], true, "high-signal point should be classified true");
+        assert!(result[1], "high-signal point should be classified true");
     }
 
     #[test]

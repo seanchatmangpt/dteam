@@ -2,9 +2,9 @@ use std::f64::consts::PI;
 
 #[derive(Debug, Clone)]
 pub struct GaussianNB {
-    pub means: [Vec<f64>; 2],    // [0]=negative, [1]=positive
-    pub vars: [Vec<f64>; 2],     // [0]=negative, [1]=positive; Bessel-corrected, floor 1e-9
-    pub log_priors: [f64; 2],    // [0]=log P(neg), [1]=log P(pos)
+    pub means: [Vec<f64>; 2], // [0]=negative, [1]=positive
+    pub vars: [Vec<f64>; 2],  // [0]=negative, [1]=positive; Bessel-corrected, floor 1e-9
+    pub log_priors: [f64; 2], // [0]=log P(neg), [1]=log P(pos)
 }
 
 /// Compute per-feature means and Bessel-corrected sample variances for a slice of samples.
@@ -14,8 +14,8 @@ fn class_stats(samples: &[&Vec<f64>], n_features: usize) -> (Vec<f64>, Vec<f64>)
     let mut means = vec![0.0_f64; n_features];
 
     for &x in samples.iter() {
-        for j in 0..n_features {
-            means[j] += x.get(j).copied().unwrap_or(0.0);
+        for (j, mean) in means.iter_mut().enumerate().take(n_features) {
+            *mean += x.get(j).copied().unwrap_or(0.0);
         }
     }
     for mean in means.iter_mut() {
@@ -34,7 +34,11 @@ fn class_stats(samples: &[&Vec<f64>], n_features: usize) -> (Vec<f64>, Vec<f64>)
             .into_iter()
             .map(|s| {
                 let v = s / (n - 1) as f64;
-                if v < 1e-9 { 1e-9 } else { v }
+                if v < 1e-9 {
+                    1e-9
+                } else {
+                    v
+                }
             })
             .collect()
     } else {
@@ -47,7 +51,11 @@ fn class_stats(samples: &[&Vec<f64>], n_features: usize) -> (Vec<f64>, Vec<f64>)
 
 /// Returns None if all labels are the same class (can't estimate one class's distribution).
 pub fn fit(train: &[Vec<f64>], labels: &[bool]) -> Option<GaussianNB> {
-    assert_eq!(train.len(), labels.len(), "train and labels must have equal length");
+    assert_eq!(
+        train.len(),
+        labels.len(),
+        "train and labels must have equal length"
+    );
 
     let n_total = train.len();
     if n_total == 0 {
@@ -185,7 +193,10 @@ mod tests {
         let test = vec![vec![1.0, 1.0], vec![5.0, 5.0]];
         let proba = predict_proba(&model, &test);
         assert!(proba[0] < 0.5, "neg sample should have low pos probability");
-        assert!(proba[1] > 0.5, "pos sample should have high pos probability");
+        assert!(
+            proba[1] > 0.5,
+            "pos sample should have high pos probability"
+        );
     }
 
     #[test]

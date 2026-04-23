@@ -64,6 +64,10 @@ path = "src/bin/ostar_bridge.rs"
 name = "ralph"
 path = "src/bin/ralph.rs"
 
+[[bin]]
+name = "ml_bench"
+path = "src/bin/ml_bench.rs"
+
 [[bench]]
 name = "reinforcement_bench"
 harness = false

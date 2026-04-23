@@ -117,7 +117,12 @@ mod tests {
     fn fit_computes_correct_centroids() {
         // pos: [1,0] and [3,0] → mean [2,0]
         // neg: [0,1] and [0,3] → mean [0,2]
-        let train = vec![v(&[1.0, 0.0]), v(&[3.0, 0.0]), v(&[0.0, 1.0]), v(&[0.0, 3.0])];
+        let train = vec![
+            v(&[1.0, 0.0]),
+            v(&[3.0, 0.0]),
+            v(&[0.0, 1.0]),
+            v(&[0.0, 3.0]),
+        ];
         let labels = vec![true, true, false, false];
         let c = fit(&train, &labels).unwrap();
         assert!((c.pos[0] - 2.0).abs() < 1e-12);

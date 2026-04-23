@@ -62,11 +62,7 @@ pub fn classify(
 }
 
 /// Convenience wrapper: 100 training epochs.
-pub fn classify_default(
-    train: &[Vec<f64>],
-    labels: &[bool],
-    test: &[Vec<f64>],
-) -> Vec<bool> {
+pub fn classify_default(train: &[Vec<f64>], labels: &[bool], test: &[Vec<f64>]) -> Vec<bool> {
     classify(train, labels, test, 100)
 }
 

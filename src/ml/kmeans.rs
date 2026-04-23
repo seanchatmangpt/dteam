@@ -10,9 +10,7 @@ pub fn cluster(features: &[Vec<f64>], k: usize, max_iter: usize) -> Vec<usize> {
     let dim = features[0].len();
 
     // Initialize centroids at evenly spaced indices.
-    let mut centroids: Vec<Vec<f64>> = (0..k)
-        .map(|c| features[c * n / k].clone())
-        .collect();
+    let mut centroids: Vec<Vec<f64>> = (0..k).map(|c| features[c * n / k].clone()).collect();
 
     let mut assignments = vec![0usize; n];
     let mut prev_assignments = vec![usize::MAX; n];
@@ -104,10 +102,7 @@ pub fn classify_unsupervised(features: &[Vec<f64>], seed_labels: &[Option<bool>]
         }
     };
 
-    assignments
-        .iter()
-        .map(|&c| c == positive_cluster)
-        .collect()
+    assignments.iter().map(|&c| c == positive_cluster).collect()
 }
 
 #[inline]
@@ -116,7 +111,11 @@ fn squared_euclidean(a: &[f64], b: &[f64]) -> f64 {
         .zip(b.iter())
         .map(|(&x, &y)| {
             let d = x - y;
-            if d.is_nan() { 0.0 } else { d * d }
+            if d.is_nan() {
+                0.0
+            } else {
+                d * d
+            }
         })
         .sum()
 }
@@ -170,12 +169,7 @@ mod tests {
 
     #[test]
     fn test_classify_unsupervised_labels_positive_cluster() {
-        let features = vec![
-            vec![0.0],
-            vec![0.1],
-            vec![10.0],
-            vec![10.1],
-        ];
+        let features = vec![vec![0.0], vec![0.1], vec![10.0], vec![10.1]];
         // Mark last two as known positive.
         let seeds = vec![None, None, Some(true), Some(true)];
         let result = classify_unsupervised(&features, &seeds);

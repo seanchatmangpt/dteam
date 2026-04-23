@@ -148,9 +148,7 @@ fn erf(x: f64) -> f64 {
     let x = x.abs();
     let t = 1.0 / (1.0 + 0.3275911 * x);
     let y = 1.0
-        - (((((1.061_405_429 * t - 1.453_152_027) * t) + 1.421_413_741) * t
-            - 0.284_496_736)
-            * t
+        - (((((1.061_405_429 * t - 1.453_152_027) * t) + 1.421_413_741) * t - 0.284_496_736) * t
             + 0.254_829_592)
             * t
             * (-x * x).exp();
@@ -314,7 +312,10 @@ mod tests {
         let xs = [2.0, 4.0, 4.0, 4.0, 5.0, 5.0, 7.0, 9.0];
         // Population mean = 5, sample variance slightly higher than population variance (4).
         let v = variance(&xs);
-        assert!(v > 4.0, "sample variance {v} should exceed population variance 4.0");
+        assert!(
+            v > 4.0,
+            "sample variance {v} should exceed population variance 4.0"
+        );
         assert!(approx_eq(std_dev(&xs), v.sqrt(), EPS));
     }
 

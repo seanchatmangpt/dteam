@@ -5,8 +5,8 @@
 //! meta-learners (logistic regression, decision tree depth-3, linear regression)
 //! are exposed individually and as a majority-vote ensemble.
 
-use crate::ml::{decision_tree, logistic_regression};
 use crate::ml::linear_regression;
+use crate::ml::{decision_tree, logistic_regression};
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -25,7 +25,12 @@ fn to_meta_features(all_preds: &[Vec<bool>]) -> Vec<Vec<f64>> {
 
     let n = all_preds.iter().map(|v| v.len()).min().unwrap_or(0);
     (0..n)
-        .map(|i| all_preds.iter().map(|preds| if preds[i] { 1.0 } else { 0.0 }).collect())
+        .map(|i| {
+            all_preds
+                .iter()
+                .map(|preds| if preds[i] { 1.0 } else { 0.0 })
+                .collect()
+        })
         .collect()
 }
 
@@ -43,7 +48,12 @@ fn top_n(scores: &[f64], n_target: usize) -> Vec<bool> {
     }
 
     // Collect (score, index), sort descending by score (stable by index on ties).
-    let mut ranked: Vec<(f64, usize)> = scores.iter().copied().enumerate().map(|(i, s)| (s, i)).collect();
+    let mut ranked: Vec<(f64, usize)> = scores
+        .iter()
+        .copied()
+        .enumerate()
+        .map(|(i, s)| (s, i))
+        .collect();
     ranked.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
 
     let mut result = vec![false; n];
@@ -123,7 +133,11 @@ pub fn stack_linear(all_preds: &[Vec<bool>], anchor: &[bool], n_target: usize) -
         return vec![false; n];
     }
 
-    let targets: Vec<f64> = anchor.iter().take(n).map(|&b| if b { 1.0 } else { 0.0 }).collect();
+    let targets: Vec<f64> = anchor
+        .iter()
+        .take(n)
+        .map(|&b| if b { 1.0 } else { 0.0 })
+        .collect();
     let model = linear_regression::fit_multiple_default(&meta, &targets);
     let scores = linear_regression::predict_multiple(&model, &meta);
     top_n(&scores, n_target)
@@ -179,7 +193,11 @@ mod tests {
         ];
         let meta = to_meta_features(&all_preds);
         assert_eq!(meta.len(), 4, "should have 4 rows (one per trace)");
-        assert_eq!(meta[0].len(), 3, "each row should have 3 features (one per classifier)");
+        assert_eq!(
+            meta[0].len(),
+            3,
+            "each row should have 3 features (one per classifier)"
+        );
         // Row 0: [1.0, 0.0, 1.0]
         assert_eq!(meta[0], vec![1.0, 0.0, 1.0]);
         // Row 1: [0.0, 0.0, 1.0]
@@ -216,9 +234,16 @@ mod tests {
         let n_target = 2;
 
         let result = stack_logistic(&all_preds, &anchor, n_target);
-        assert_eq!(result.len(), 5, "result length should equal number of traces");
+        assert_eq!(
+            result.len(),
+            5,
+            "result length should equal number of traces"
+        );
         let selected = result.iter().filter(|&&b| b).count();
-        assert_eq!(selected, n_target, "exactly n_target traces should be selected");
+        assert_eq!(
+            selected, n_target,
+            "exactly n_target traces should be selected"
+        );
     }
 
     #[test]
@@ -226,7 +251,10 @@ mod tests {
         let all_preds = vec![vec![true, false, true]];
         let anchor = vec![true, false, true];
         let result = stack_logistic(&all_preds, &anchor, 0);
-        assert!(result.iter().all(|&b| !b), "n_target=0 should select nothing");
+        assert!(
+            result.iter().all(|&b| !b),
+            "n_target=0 should select nothing"
+        );
     }
 
     #[test]

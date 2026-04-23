@@ -7,8 +7,8 @@
 
 use crate::conformance::bitmask_replay::{classify_exact, replay_log, NetBitmask64};
 use crate::ml::pdc_ensemble::{
-    best_bool_score_pair, calibrate_to_target, combinatorial_ensemble, full_combinatorial,
-    score, vote_fractions,
+    best_bool_score_pair, calibrate_to_target, combinatorial_ensemble, full_combinatorial, score,
+    vote_fractions,
 };
 use crate::ml::pdc_features::{extract_log_features, pseudo_labels};
 use crate::ml::pdc_supervised::{run_supervised, to_named_list as sup_named};
@@ -23,7 +23,7 @@ use crate::models::{AttributeValue, EventLog};
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Pdc2025Config {
     pub dependent_tasks: bool,
-    pub loops: u8,            // 0 = none, 1 = simple, 2 = complex
+    pub loops: u8, // 0 = none, 1 = simple, 2 = complex
     pub or_constructs: bool,
     pub routing: bool,
     pub optional_tasks: bool,
@@ -56,16 +56,32 @@ impl Pdc2025Config {
     /// Composite complexity score in `[0.0, 1.0]`.
     pub fn complexity_score(&self) -> f64 {
         let mut s = 0.0_f64;
-        if self.dependent_tasks { s += 0.20; }
-        s += match self.loops { 0 => 0.0, 1 => 0.15, _ => 0.25 };
-        if self.or_constructs  { s += 0.20; }
-        if self.routing        { s += 0.10; }
-        if self.optional_tasks { s += 0.15; }
-        if self.duplicate_tasks{ s += 0.10; }
+        if self.dependent_tasks {
+            s += 0.20;
+        }
+        s += match self.loops {
+            0 => 0.0,
+            1 => 0.15,
+            _ => 0.25,
+        };
+        if self.or_constructs {
+            s += 0.20;
+        }
+        if self.routing {
+            s += 0.10;
+        }
+        if self.optional_tasks {
+            s += 0.15;
+        }
+        if self.duplicate_tasks {
+            s += 0.10;
+        }
         s
     }
 
-    pub fn has_complex_loops(&self) -> bool { self.loops == 2 }
+    pub fn has_complex_loops(&self) -> bool {
+        self.loops == 2
+    }
 }
 
 // ── Output type ───────────────────────────────────────────────────────────────
@@ -107,20 +123,30 @@ pub fn run_combinator(
     let (features, in_lang, fitness) = extract_log_features(log, net);
 
     let replay = replay_log(net, log);
-    let is_perfect_scores: Vec<f64> =
-        replay.iter().map(|r| if r.is_perfect() { 1.0 } else { 0.0 }).collect();
+    let is_perfect_scores: Vec<f64> = replay
+        .iter()
+        .map(|r| if r.is_perfect() { 1.0 } else { 0.0 })
+        .collect();
     let missing_norm: Vec<f64> = replay
         .iter()
         .map(|r| {
             let d = (r.consumed + r.missing) as f64;
-            if d == 0.0 { 0.0 } else { r.missing as f64 / d }
+            if d == 0.0 {
+                0.0
+            } else {
+                r.missing as f64 / d
+            }
         })
         .collect();
     let remaining_norm: Vec<f64> = replay
         .iter()
         .map(|r| {
             let d = (r.produced + r.remaining) as f64;
-            if d == 0.0 { 0.0 } else { r.remaining as f64 / d }
+            if d == 0.0 {
+                0.0
+            } else {
+                r.remaining as f64 / d
+            }
         })
         .collect();
 
@@ -129,7 +155,13 @@ pub fn run_combinator(
     // ── 2. Parameter-aware config ─────────────────────────────────────────────
     let config = log_name.and_then(Pdc2025Config::from_log_name);
     let complexity = config.map(|c| c.complexity_score()).unwrap_or(0.5);
-    let n_synthetic = if complexity < 0.3 { 500 } else if complexity < 0.6 { 1_000 } else { 2_000 };
+    let n_synthetic = if complexity < 0.3 {
+        500
+    } else if complexity < 0.6 {
+        1_000
+    } else {
+        2_000
+    };
 
     // ── 3. Build classifier pool ──────────────────────────────────────────────
     // Pseudo-labels for supervised (bool) and unsupervised (Option<bool>)
@@ -146,13 +178,16 @@ pub fn run_combinator(
             t.events
                 .iter()
                 .filter_map(|e| {
-                    e.attributes.iter().find(|a| a.key == "concept:name").and_then(|a| {
-                        if let AttributeValue::String(s) = &a.value {
-                            Some(s.clone())
-                        } else {
-                            None
-                        }
-                    })
+                    e.attributes
+                        .iter()
+                        .find(|a| a.key == "concept:name")
+                        .and_then(|a| {
+                            if let AttributeValue::String(s) = &a.value {
+                                Some(s.clone())
+                            } else {
+                                None
+                            }
+                        })
                 })
                 .collect()
         })
@@ -161,10 +196,14 @@ pub fn run_combinator(
 
     // ── 4. Collect all bool predictions ──────────────────────────────────────
     let mut bool_preds: Vec<Vec<bool>> = Vec::new();
-    bool_preds.push(classify_exact(net, log, n_target));       // baseline
-    for (_, v) in sup_named(&sup)   { bool_preds.push(v); }   // +11
-    for (_, v) in unsup_named(&unsup) { bool_preds.push(v); } // +6
-    bool_preds.push(synth.ensemble.clone());                   // +1  → total ≤19
+    bool_preds.push(classify_exact(net, log, n_target)); // baseline
+    for (_, v) in sup_named(&sup) {
+        bool_preds.push(v);
+    } // +11
+    for (_, v) in unsup_named(&unsup) {
+        bool_preds.push(v);
+    } // +6
+    bool_preds.push(synth.ensemble.clone()); // +1  → total ≤19
 
     // ── 5. Score signals (higher = more positive, bounded [0,1]) ─────────────
     let score_signals: Vec<Vec<f64>> = vec![
@@ -223,19 +262,31 @@ pub fn run_combinator(
             calibrate_to_target(&synth.ensemble, &fracs, n_target)
         } else {
             // Simple / no-loop nets: fitness + is_perfect are reliable
-            best_bool_score_pair(&bool_preds[..3.min(bool_preds.len())], &score_signals[..2], anchor, n_target)
+            best_bool_score_pair(
+                &bool_preds[..3.min(bool_preds.len())],
+                &score_signals[..2],
+                anchor,
+                n_target,
+            )
         };
         let s = score(&preds, anchor, n_target);
         results.push(CombinatorResult {
             predictions: preds,
             score: s,
-            strategy_name: format!("param_aware(loops={},complexity={:.2})", cfg.loops, complexity),
+            strategy_name: format!(
+                "param_aware(loops={},complexity={:.2})",
+                cfg.loops, complexity
+            ),
             n_classifiers: 3,
         });
     }
 
     // Sort best first
-    results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+    results.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     results
 }
 
@@ -247,18 +298,24 @@ mod tests {
 
     #[test]
     fn test_config_parsing() {
+        // "010101" → d = [0,1,0,1,0,1]
         let c = Pdc2025Config::from_log_name("pdc2025_010101.xes").unwrap();
-        assert!(!c.dependent_tasks);
-        assert_eq!(c.loops, 1);
-        assert!(c.or_constructs);
-        assert!(!c.routing);
-        assert!(c.optional_tasks);
-        assert!(!c.duplicate_tasks);
+        assert!(!c.dependent_tasks); // d[0]=0
+        assert_eq!(c.loops, 1); // d[1]=1
+        assert!(!c.or_constructs); // d[2]=0
+        assert!(c.routing); // d[3]=1
+        assert!(!c.optional_tasks); // d[4]=0
+        assert!(c.duplicate_tasks); // d[5]=1
 
+        // "121111" → d = [1,2,1,1,1,1]
         let c2 = Pdc2025Config::from_log_name("pdc2025_121111.xes").unwrap();
         assert!(c2.dependent_tasks);
         assert_eq!(c2.loops, 2);
         assert!(c2.has_complex_loops());
+        assert!(c2.or_constructs);
+        assert!(c2.routing);
+        assert!(c2.optional_tasks);
+        assert!(c2.duplicate_tasks);
     }
 
     #[test]

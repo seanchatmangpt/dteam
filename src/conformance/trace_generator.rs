@@ -63,7 +63,10 @@ pub fn generate_positive_trace(
 
     for step in 0..max_steps {
         // Check if any current marking satisfies the final marking condition
-        if markings.iter().any(|&m| (m & net.final_mask) == net.final_mask) {
+        if markings
+            .iter()
+            .any(|&m| (m & net.final_mask) == net.final_mask)
+        {
             return Some(activities);
         }
 
@@ -94,7 +97,10 @@ pub fn generate_positive_trace(
     }
 
     // One last check after the loop exhausts steps
-    if markings.iter().any(|&m| (m & net.final_mask) == net.final_mask) {
+    if markings
+        .iter()
+        .any(|&m| (m & net.final_mask) == net.final_mask)
+    {
         return Some(activities);
     }
 
@@ -140,18 +146,16 @@ pub fn generate_negative_traces(
     let mut negatives: Vec<Vec<String>> = Vec::with_capacity(positives.len());
 
     for (i, trace) in positives.iter().enumerate() {
-        let step_seed = seed
-            .wrapping_add(i as u64)
-            .wrapping_mul(0x9e3779b97f4a7c15);
+        let step_seed = seed.wrapping_add(i as u64).wrapping_mul(0x9e3779b97f4a7c15);
 
         // 50% split: even → delete, odd → insert
-        let mutated = if step_seed % 2 == 0 {
+        let mutated = if step_seed.is_multiple_of(2) {
             // Delete a random activity
             if trace.is_empty() {
                 trace.clone()
             } else {
-                let del_idx = (step_seed.wrapping_mul(6364136223846793005) % trace.len() as u64)
-                    as usize;
+                let del_idx =
+                    (step_seed.wrapping_mul(6364136223846793005) % trace.len() as u64) as usize;
                 let mut v = trace.clone();
                 v.remove(del_idx);
                 v
@@ -161,12 +165,10 @@ pub fn generate_negative_traces(
             if vocabulary.is_empty() {
                 trace.clone()
             } else {
-                let vocab_idx =
-                    (step_seed.wrapping_mul(6364136223846793005) % vocabulary.len() as u64)
-                        as usize;
-                let insert_pos =
-                    (step_seed.wrapping_mul(1442695040888963407) % (trace.len() as u64 + 1))
-                        as usize;
+                let vocab_idx = (step_seed.wrapping_mul(6364136223846793005)
+                    % vocabulary.len() as u64) as usize;
+                let insert_pos = (step_seed.wrapping_mul(1442695040888963407)
+                    % (trace.len() as u64 + 1)) as usize;
                 let mut v = trace.clone();
                 v.insert(insert_pos, vocabulary[vocab_idx].clone());
                 v
@@ -218,7 +220,9 @@ pub fn enumerate_language_bounded(
     while let Some((markings, activities, visit_counts)) = stack.pop() {
         // Check completion: final marking reached and at least one visible event fired
         if !activities.is_empty()
-            && markings.iter().any(|&m| (m & net.final_mask) == net.final_mask)
+            && markings
+                .iter()
+                .any(|&m| (m & net.final_mask) == net.final_mask)
         {
             if seen.insert(activities.clone()) {
                 results.push(activities);
@@ -245,7 +249,7 @@ pub fn enumerate_language_bounded(
                     .find(|(vm, _)| *vm == m)
                     .map(|(_, c)| *c)
                     .unwrap_or(0);
-                count >= max_loop_iters + 1
+                count > max_loop_iters
             });
             if loop_exceeded {
                 continue;
@@ -304,14 +308,38 @@ mod tests {
                 Place { id: "p2".into() },
             ],
             transitions: vec![
-                Transition { id: "t_a".into(), label: "a".into(), is_invisible: Some(false) },
-                Transition { id: "t_b".into(), label: "b".into(), is_invisible: Some(false) },
+                Transition {
+                    id: "t_a".into(),
+                    label: "a".into(),
+                    is_invisible: Some(false),
+                },
+                Transition {
+                    id: "t_b".into(),
+                    label: "b".into(),
+                    is_invisible: Some(false),
+                },
             ],
             arcs: vec![
-                Arc { from: "p0".into(), to: "t_a".into(), weight: None },
-                Arc { from: "t_a".into(), to: "p1".into(), weight: None },
-                Arc { from: "p1".into(), to: "t_b".into(), weight: None },
-                Arc { from: "t_b".into(), to: "p2".into(), weight: None },
+                Arc {
+                    from: "p0".into(),
+                    to: "t_a".into(),
+                    weight: None,
+                },
+                Arc {
+                    from: "t_a".into(),
+                    to: "p1".into(),
+                    weight: None,
+                },
+                Arc {
+                    from: "p1".into(),
+                    to: "t_b".into(),
+                    weight: None,
+                },
+                Arc {
+                    from: "t_b".into(),
+                    to: "p2".into(),
+                    weight: None,
+                },
             ],
             initial_marking: im,
             final_markings: vec![fm],
@@ -333,17 +361,53 @@ mod tests {
                 Place { id: "p2".into() },
             ],
             transitions: vec![
-                Transition { id: "t_a".into(), label: "a".into(), is_invisible: Some(false) },
-                Transition { id: "t_b".into(), label: "b".into(), is_invisible: Some(false) },
-                Transition { id: "t_c".into(), label: "c".into(), is_invisible: Some(false) },
+                Transition {
+                    id: "t_a".into(),
+                    label: "a".into(),
+                    is_invisible: Some(false),
+                },
+                Transition {
+                    id: "t_b".into(),
+                    label: "b".into(),
+                    is_invisible: Some(false),
+                },
+                Transition {
+                    id: "t_c".into(),
+                    label: "c".into(),
+                    is_invisible: Some(false),
+                },
             ],
             arcs: vec![
-                Arc { from: "p0".into(), to: "t_a".into(), weight: None },
-                Arc { from: "t_a".into(), to: "p1".into(), weight: None },
-                Arc { from: "p0".into(), to: "t_b".into(), weight: None },
-                Arc { from: "t_b".into(), to: "p1".into(), weight: None },
-                Arc { from: "p1".into(), to: "t_c".into(), weight: None },
-                Arc { from: "t_c".into(), to: "p2".into(), weight: None },
+                Arc {
+                    from: "p0".into(),
+                    to: "t_a".into(),
+                    weight: None,
+                },
+                Arc {
+                    from: "t_a".into(),
+                    to: "p1".into(),
+                    weight: None,
+                },
+                Arc {
+                    from: "p0".into(),
+                    to: "t_b".into(),
+                    weight: None,
+                },
+                Arc {
+                    from: "t_b".into(),
+                    to: "p1".into(),
+                    weight: None,
+                },
+                Arc {
+                    from: "p1".into(),
+                    to: "t_c".into(),
+                    weight: None,
+                },
+                Arc {
+                    from: "t_c".into(),
+                    to: "p2".into(),
+                    weight: None,
+                },
             ],
             initial_marking: im,
             final_markings: vec![fm],
@@ -365,7 +429,10 @@ mod tests {
         let net = choice_net();
         let vocab = net_vocabulary(&net);
         // Sorted: ["a", "b", "c"]
-        assert_eq!(vocab, vec!["a".to_string(), "b".to_string(), "c".to_string()]);
+        assert_eq!(
+            vocab,
+            vec!["a".to_string(), "b".to_string(), "c".to_string()]
+        );
     }
 
     #[test]
@@ -373,7 +440,10 @@ mod tests {
         let net = simple_net();
         // The only valid trace is ["a", "b"]
         let trace = generate_positive_trace(&net, 10, 0);
-        assert!(trace.is_some(), "Should find a trace on the simple linear net");
+        assert!(
+            trace.is_some(),
+            "Should find a trace on the simple linear net"
+        );
         let trace = trace.unwrap();
         assert_eq!(trace, vec!["a".to_string(), "b".to_string()]);
     }
@@ -395,7 +465,10 @@ mod tests {
         }
         // At least one seed should succeed
         let found = (0u64..20).any(|s| generate_positive_trace(&net, 10, s).is_some());
-        assert!(found, "Should generate at least one trace from the choice net");
+        assert!(
+            found,
+            "Should generate at least one trace from the choice net"
+        );
     }
 
     #[test]
@@ -412,7 +485,10 @@ mod tests {
         let net = choice_net();
         // Choice net has two valid traces: ["a","c"] and ["b","c"]
         let traces = generate_positive_traces(&net, 5, 20);
-        assert!(traces.len() <= 2, "Choice net has at most 2 distinct traces");
+        assert!(
+            traces.len() <= 2,
+            "Choice net has at most 2 distinct traces"
+        );
         assert!(!traces.is_empty(), "Should find at least one trace");
         for t in &traces {
             assert_eq!(t.len(), 2);
@@ -432,11 +508,11 @@ mod tests {
         assert_eq!(negatives.len(), positives.len());
 
         // At least one negative must differ from its corresponding positive
-        let any_different = positives
-            .iter()
-            .zip(negatives.iter())
-            .any(|(p, n)| p != n);
-        assert!(any_different, "At least one negative trace must differ from its positive");
+        let any_different = positives.iter().zip(negatives.iter()).any(|(p, n)| p != n);
+        assert!(
+            any_different,
+            "At least one negative trace must differ from its positive"
+        );
     }
 
     #[test]
@@ -484,20 +560,56 @@ mod tests {
                 Place { id: "p2".into() },
             ],
             transitions: vec![
-                Transition { id: "t_a".into(), label: "a".into(), is_invisible: Some(false) },
-                Transition { id: "t_b".into(), label: "b".into(), is_invisible: Some(false) },
-                Transition { id: "t_c".into(), label: "c".into(), is_invisible: Some(false) },
+                Transition {
+                    id: "t_a".into(),
+                    label: "a".into(),
+                    is_invisible: Some(false),
+                },
+                Transition {
+                    id: "t_b".into(),
+                    label: "b".into(),
+                    is_invisible: Some(false),
+                },
+                Transition {
+                    id: "t_c".into(),
+                    label: "c".into(),
+                    is_invisible: Some(false),
+                },
             ],
             arcs: vec![
                 // a: p0 -> p1
-                Arc { from: "p0".into(), to: "t_a".into(), weight: None },
-                Arc { from: "t_a".into(), to: "p1".into(), weight: None },
+                Arc {
+                    from: "p0".into(),
+                    to: "t_a".into(),
+                    weight: None,
+                },
+                Arc {
+                    from: "t_a".into(),
+                    to: "p1".into(),
+                    weight: None,
+                },
                 // b: p1 -> p0  (the loop back)
-                Arc { from: "p1".into(), to: "t_b".into(), weight: None },
-                Arc { from: "t_b".into(), to: "p0".into(), weight: None },
+                Arc {
+                    from: "p1".into(),
+                    to: "t_b".into(),
+                    weight: None,
+                },
+                Arc {
+                    from: "t_b".into(),
+                    to: "p0".into(),
+                    weight: None,
+                },
                 // c: p1 -> p2  (exit to final)
-                Arc { from: "p1".into(), to: "t_c".into(), weight: None },
-                Arc { from: "t_c".into(), to: "p2".into(), weight: None },
+                Arc {
+                    from: "p1".into(),
+                    to: "t_c".into(),
+                    weight: None,
+                },
+                Arc {
+                    from: "t_c".into(),
+                    to: "p2".into(),
+                    weight: None,
+                },
             ],
             initial_marking: im,
             final_markings: vec![fm],
@@ -531,7 +643,11 @@ mod tests {
         // max_loop_iters=0: only the direct exit trace should be found
         let net = loop_net();
         let traces = enumerate_language_bounded(&net, 10, 0, 100);
-        assert_eq!(traces.len(), 1, "With max_loop_iters=0 only one trace is allowed");
+        assert_eq!(
+            traces.len(),
+            1,
+            "With max_loop_iters=0 only one trace is allowed"
+        );
         assert_eq!(traces[0], vec!["a".to_string(), "c".to_string()]);
     }
 
@@ -541,11 +657,20 @@ mod tests {
         let net = loop_net();
         let mut traces = enumerate_language_bounded(&net, 10, 1, 100);
         traces.sort();
-        assert_eq!(traces.len(), 2, "With max_loop_iters=1 exactly 2 traces are expected");
+        assert_eq!(
+            traces.len(),
+            2,
+            "With max_loop_iters=1 exactly 2 traces are expected"
+        );
         // After lex sort: ["a","b","a","c"] < ["a","c"]  (because "b" < "c" at index 1)
         assert_eq!(
             traces[0],
-            vec!["a".to_string(), "b".to_string(), "a".to_string(), "c".to_string()]
+            vec![
+                "a".to_string(),
+                "b".to_string(),
+                "a".to_string(),
+                "c".to_string()
+            ]
         );
         assert_eq!(traces[1], vec!["a".to_string(), "c".to_string()]);
     }
@@ -556,7 +681,11 @@ mod tests {
         // yield exactly 1 deduplicated result.
         let net = simple_net();
         let traces = enumerate_language_bounded(&net, 20, 2, 1_000);
-        assert_eq!(traces.len(), 1, "Deduplication must prevent identical traces");
+        assert_eq!(
+            traces.len(),
+            1,
+            "Deduplication must prevent identical traces"
+        );
     }
 
     #[test]

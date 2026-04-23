@@ -28,7 +28,11 @@ pub fn cosine_similarity(a: &[(usize, f64)], b: &[(usize, f64)]) -> f64 {
     }
 
     let denom = norm_a.sqrt() * norm_b.sqrt();
-    if denom == 0.0 { 0.0 } else { dot / denom }
+    if denom == 0.0 {
+        0.0
+    } else {
+        dot / denom
+    }
 }
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
@@ -45,7 +49,11 @@ fn to_sparse(row: &[Option<f64>]) -> Vec<(usize, f64)> {
 /// Ties are broken by id to keep results deterministic.
 fn top_k(scores: impl Iterator<Item = (usize, f64)>, k: usize) -> Vec<(usize, f64)> {
     let mut v: Vec<(usize, f64)> = scores.collect();
-    v.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal).then(a.0.cmp(&b.0)));
+    v.sort_by(|a, b| {
+        b.1.partial_cmp(&a.1)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then(a.0.cmp(&b.0))
+    });
     v.truncate(k);
     v
 }
@@ -61,28 +69,26 @@ pub struct UserCF {
 
 impl UserCF {
     /// Build from sparse triples `(user_id, item_id, rating)`.
-    pub fn from_ratings(
-        triples: &[(usize, usize, f64)],
-        n_users: usize,
-        n_items: usize,
-    ) -> Self {
+    pub fn from_ratings(triples: &[(usize, usize, f64)], n_users: usize, n_items: usize) -> Self {
         let mut ratings = vec![vec![None::<f64>; n_items]; n_users];
         for &(u, i, r) in triples {
             ratings[u][i] = Some(r);
         }
-        Self { ratings, n_users, n_items }
+        Self {
+            ratings,
+            n_users,
+            n_items,
+        }
     }
 
     /// `k` most similar users to `user_id` (cosine similarity on shared items),
     /// excluding `user_id` itself.  Returns `Vec<(other_user_id, similarity)>`.
     pub fn similar_users(&self, user_id: usize, k: usize) -> Vec<(usize, f64)> {
         let target = to_sparse(&self.ratings[user_id]);
-        let scores = (0..self.n_users)
-            .filter(|&u| u != user_id)
-            .map(|u| {
-                let other = to_sparse(&self.ratings[u]);
-                (u, cosine_similarity(&target, &other))
-            });
+        let scores = (0..self.n_users).filter(|&u| u != user_id).map(|u| {
+            let other = to_sparse(&self.ratings[u]);
+            (u, cosine_similarity(&target, &other))
+        });
         top_k(scores, k)
     }
 
@@ -99,7 +105,11 @@ impl UserCF {
                 weight_sum += sim.abs();
             }
         }
-        if weight_sum == 0.0 { None } else { Some(weighted_sum / weight_sum) }
+        if weight_sum == 0.0 {
+            None
+        } else {
+            Some(weighted_sum / weight_sum)
+        }
     }
 
     /// Top-`n` items for `user_id` that they have **not** already rated,
@@ -123,16 +133,16 @@ pub struct ItemCF {
 
 impl ItemCF {
     /// Build from sparse triples `(user_id, item_id, rating)`.
-    pub fn from_ratings(
-        triples: &[(usize, usize, f64)],
-        n_users: usize,
-        n_items: usize,
-    ) -> Self {
+    pub fn from_ratings(triples: &[(usize, usize, f64)], n_users: usize, n_items: usize) -> Self {
         let mut ratings = vec![vec![None::<f64>; n_items]; n_users];
         for &(u, i, r) in triples {
             ratings[u][i] = Some(r);
         }
-        Self { ratings, n_users, n_items }
+        Self {
+            ratings,
+            n_users,
+            n_items,
+        }
     }
 
     /// Column view: ratings for `item_id` across all users as a sparse vec.
@@ -164,7 +174,11 @@ impl ItemCF {
                 weight_sum += sim.abs();
             }
         }
-        if weight_sum == 0.0 { None } else { Some(weighted_sum / weight_sum) }
+        if weight_sum == 0.0 {
+            None
+        } else {
+            Some(weighted_sum / weight_sum)
+        }
     }
 
     /// Top-`n` unrated items for `user_id`, ranked by predicted rating.
@@ -240,15 +254,16 @@ impl MatrixFactorization {
                 let user_snap: Vec<f64> = user_factors[u].clone();
 
                 for f in 0..n_factors {
-                    user_factors[u][f] +=
-                        lr * (error * item_snap[f] - lambda * user_snap[f]);
-                    item_factors[i][f] +=
-                        lr * (error * user_snap[f] - lambda * item_snap[f]);
+                    user_factors[u][f] += lr * (error * item_snap[f] - lambda * user_snap[f]);
+                    item_factors[i][f] += lr * (error * user_snap[f] - lambda * item_snap[f]);
                 }
             }
         }
 
-        Self { user_factors, item_factors }
+        Self {
+            user_factors,
+            item_factors,
+        }
     }
 
     /// Predicted rating for `(user_id, item_id)` = dot product of latent vectors.
@@ -261,12 +276,7 @@ impl MatrixFactorization {
     }
 
     /// Top-`n` item recommendations for `user_id`, excluding `rated_items`.
-    pub fn recommend(
-        &self,
-        user_id: usize,
-        rated_items: &[usize],
-        n: usize,
-    ) -> Vec<(usize, f64)> {
+    pub fn recommend(&self, user_id: usize, rated_items: &[usize], n: usize) -> Vec<(usize, f64)> {
         let scores = (0..self.item_factors.len())
             .filter(|i| !rated_items.contains(i))
             .map(|i| (i, self.predict(user_id, i)));
@@ -286,9 +296,14 @@ mod tests {
     //   User 2: rated items 2,3
     fn small_triples() -> Vec<(usize, usize, f64)> {
         vec![
-            (0, 0, 5.0), (0, 1, 4.0), (0, 2, 1.0),
-            (1, 0, 5.0), (1, 1, 3.0), (1, 3, 2.0),
-            (2, 2, 4.0), (2, 3, 5.0),
+            (0, 0, 5.0),
+            (0, 1, 4.0),
+            (0, 2, 1.0),
+            (1, 0, 5.0),
+            (1, 1, 3.0),
+            (1, 3, 2.0),
+            (2, 2, 4.0),
+            (2, 3, 5.0),
         ]
     }
 
@@ -298,7 +313,10 @@ mod tests {
     fn test_cosine_identical_vectors() {
         let v = vec![(0, 1.0), (1, 2.0), (2, 3.0)];
         let sim = cosine_similarity(&v, &v);
-        assert!((sim - 1.0).abs() < 1e-9, "identical vecs should have sim=1, got {sim}");
+        assert!(
+            (sim - 1.0).abs() < 1e-9,
+            "identical vecs should have sim=1, got {sim}"
+        );
     }
 
     #[test]
@@ -351,7 +369,10 @@ mod tests {
         let cf = UserCF::from_ratings(&small_triples(), 3, 4);
         // User 0 hasn't rated item 3; users 1 (sim>0) has.
         let pred = cf.predict(0, 3, 2);
-        assert!(pred.is_some(), "should predict from neighbour who rated item 3");
+        assert!(
+            pred.is_some(),
+            "should predict from neighbour who rated item 3"
+        );
     }
 
     #[test]
@@ -373,7 +394,10 @@ mod tests {
         let recs = cf.recommend(0, 4, 2);
         // User 0 has rated items 0,1,2 — recommendations must not contain those.
         for &(item, _) in &recs {
-            assert!(item == 3, "user 0 should only be recommended item 3 (the unrated one), got {item}");
+            assert!(
+                item == 3,
+                "user 0 should only be recommended item 3 (the unrated one), got {item}"
+            );
         }
     }
 
@@ -393,7 +417,10 @@ mod tests {
         let pred = cf.predict(0, 3, 3);
         assert!(pred.is_some(), "ItemCF should predict item 3 for user 0");
         let p = pred.unwrap();
-        assert!(p > 0.0 && p <= 5.0, "predicted rating should be in (0,5], got {p}");
+        assert!(
+            p > 0.0 && p <= 5.0,
+            "predicted rating should be in (0,5], got {p}"
+        );
     }
 
     #[test]
@@ -429,7 +456,8 @@ mod tests {
         let mf_warm = MatrixFactorization::fit(&triples, 3, 4, 5, 0.01, 500, 0.01);
 
         let rmse = |mf: &MatrixFactorization| -> f64 {
-            let sum: f64 = triples.iter()
+            let sum: f64 = triples
+                .iter()
                 .map(|&(u, i, r)| (r - mf.predict(u, i)).powi(2))
                 .sum();
             (sum / triples.len() as f64).sqrt()
@@ -437,7 +465,10 @@ mod tests {
 
         let cold = rmse(&mf_cold);
         let warm = rmse(&mf_warm);
-        assert!(warm < cold, "trained model RMSE ({warm:.4}) should beat untrained ({cold:.4})");
+        assert!(
+            warm < cold,
+            "trained model RMSE ({warm:.4}) should beat untrained ({cold:.4})"
+        );
     }
 
     #[test]
@@ -447,7 +478,10 @@ mod tests {
         let mf = MatrixFactorization::fit(&triples, 3, 4, 5, 0.01, 200, 0.01);
         let recs = mf.recommend(0, &rated_by_u0, 4);
         for &(item, _) in &recs {
-            assert!(!rated_by_u0.contains(&item), "recommend must exclude rated items, got {item}");
+            assert!(
+                !rated_by_u0.contains(&item),
+                "recommend must exclude rated items, got {item}"
+            );
         }
     }
 
@@ -459,7 +493,8 @@ mod tests {
         for u in 0..3 {
             for i in 0..4 {
                 assert_eq!(
-                    mf1.predict(u, i), mf2.predict(u, i),
+                    mf1.predict(u, i),
+                    mf2.predict(u, i),
                     "MF must be deterministic"
                 );
             }

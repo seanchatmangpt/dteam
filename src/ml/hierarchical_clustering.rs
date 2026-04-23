@@ -57,19 +57,35 @@ fn inter_cluster_distance(
     match linkage {
         Linkage::Single => pts_a
             .iter()
-            .flat_map(|&i| pts_b.iter().map(move |&j| euclidean(&features[i], &features[j])))
+            .flat_map(|&i| {
+                pts_b
+                    .iter()
+                    .map(move |&j| euclidean(&features[i], &features[j]))
+            })
             .fold(f64::INFINITY, f64::min),
         Linkage::Complete => pts_a
             .iter()
-            .flat_map(|&i| pts_b.iter().map(move |&j| euclidean(&features[i], &features[j])))
+            .flat_map(|&i| {
+                pts_b
+                    .iter()
+                    .map(move |&j| euclidean(&features[i], &features[j]))
+            })
             .fold(f64::NEG_INFINITY, f64::max),
         Linkage::Average => {
             let sum: f64 = pts_a
                 .iter()
-                .flat_map(|&i| pts_b.iter().map(move |&j| euclidean(&features[i], &features[j])))
+                .flat_map(|&i| {
+                    pts_b
+                        .iter()
+                        .map(move |&j| euclidean(&features[i], &features[j]))
+                })
                 .sum();
             let count = (pts_a.len() * pts_b.len()) as f64;
-            if count == 0.0 { f64::INFINITY } else { sum / count }
+            if count == 0.0 {
+                f64::INFINITY
+            } else {
+                sum / count
+            }
         }
     }
 }
@@ -93,9 +109,6 @@ pub fn fit(features: &[Vec<f64>], linkage: Linkage) -> Vec<Merge> {
     // `members[i]` holds the original point indices contained in cluster i.
     // We use Option so we can "remove" merged clusters without shifting indices.
     let mut members: Vec<Option<Vec<usize>>> = (0..n).map(|i| Some(vec![i])).collect();
-    // Next cluster id to assign when we create a merged cluster.
-    let mut next_id = n;
-
     let mut merges = Vec::with_capacity(n - 1);
 
     // We need to track which cluster ids are still "alive".
@@ -106,7 +119,7 @@ pub fn fit(features: &[Vec<f64>], linkage: Linkage) -> Vec<Merge> {
     // Reserve enough capacity to avoid repeated reallocation.
     members.reserve(n - 1);
 
-    for _ in 0..n - 1 {
+    for next_id in (n..).take(n - 1) {
         // Find the pair (i, j) in `live` with minimum inter-cluster distance.
         let mut best_dist = f64::INFINITY;
         let mut best_i = 0usize;
@@ -126,7 +139,11 @@ pub fn fit(features: &[Vec<f64>], linkage: Linkage) -> Vec<Merge> {
         }
 
         // Record the merge.
-        merges.push(Merge { cluster_a: best_i, cluster_b: best_j, distance: best_dist });
+        merges.push(Merge {
+            cluster_a: best_i,
+            cluster_b: best_j,
+            distance: best_dist,
+        });
 
         // Build the new merged cluster.
         let mut new_pts = members[best_i].take().unwrap();
@@ -136,7 +153,6 @@ pub fn fit(features: &[Vec<f64>], linkage: Linkage) -> Vec<Merge> {
         // Update `live`: remove best_i and best_j, add next_id.
         live.retain(|&c| c != best_i && c != best_j);
         live.push(next_id);
-        next_id += 1;
     }
 
     merges
@@ -184,7 +200,7 @@ pub fn cut(merges: &[Merge], n_points: usize, k: usize) -> Vec<usize> {
     };
 
     // Map each original point (0..n_points) to its root.
-    let roots: Vec<usize> = (0..n_points).map(|i| find(i)).collect();
+    let roots: Vec<usize> = (0..n_points).map(find).collect();
 
     // Assign compact labels 0..k to distinct roots.
     let mut root_to_label: std::collections::HashMap<usize, usize> =
@@ -249,7 +265,10 @@ pub fn classify_unsupervised(
         true_count[1] > false_count[1],
     ];
 
-    assignments.iter().map(|&c| cluster_is_true[c.min(1)]).collect()
+    assignments
+        .iter()
+        .map(|&c| cluster_is_true[c.min(1)])
+        .collect()
 }
 
 // ---------------------------------------------------------------------------
@@ -380,14 +399,7 @@ mod tests {
             (102.0, 0.0),
         ]);
         // Seed: first group is false, second group is true.
-        let seeds: Vec<Option<bool>> = vec![
-            Some(false),
-            None,
-            None,
-            Some(true),
-            None,
-            None,
-        ];
+        let seeds: Vec<Option<bool>> = vec![Some(false), None, None, Some(true), None, None];
         let preds = classify_unsupervised(&features, &seeds, Linkage::Single);
         assert_eq!(preds.len(), 6);
         assert!(preds[0..3].iter().all(|&p| !p));

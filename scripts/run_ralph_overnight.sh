@@ -2,26 +2,29 @@
 set -e
 
 echo "=========================================================="
-echo "Starting DDS Ralph Overnight Orchestration Loop"
-echo "Target Models: gemini-3.1-flash-lite-preview"
+echo "Starting DDS Ralph Overnight Orchestration Loop (DTEAM Arena Focus)"
+echo "Target Models: gemini-2.0-pro-exp-02-05"
+echo "Workspace: /Users/sac/unibit"
 echo "Concurrency: 5"
 echo "=========================================================="
 
-echo "Running pre-flight structural checks..."
+# Ensure we are in the unibit directory
+cd /Users/sac/unibit
+
+echo "Running pre-flight structural checks in unibit..."
 cargo check
 cargo test --lib
 
-echo "Verifying T1 admissibility across all substrate patterns..."
-cargo run --bin bench_scanner
+echo "Pre-flight checks passed. Unleashing Ralph on the DTEAM Arena backlog..."
 
-echo "Pre-flight checks passed. Unleashing Ralph on the backlog..."
-
-# Execute Ralph with the fallback model for all ideas
-RUST_LOG=info cargo run --release --bin ralph -- \
-    --model "gemini-3.1-flash-lite-preview" \
+# Execute Ralph from dteam but in the unibit workspace
+# We use the ralph binary built in dteam
+RUST_LOG=info cargo run --release --manifest-path /Users/sac/dteam/Cargo.toml --bin ralph -- \
+    --model "gemini-2.0-pro-exp-02-05" \
     --concurrency 5 \
-    --offset 0
+    --offset 0 \
+    --limit 1
 
 echo "=========================================================="
-echo "Ralph execution complete. Please check the dev branch for merged artifacts."
+echo "Ralph execution complete. Please check the unibit dev branch for merged artifacts."
 echo "=========================================================="

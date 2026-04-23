@@ -229,7 +229,12 @@ pub fn replay_trace(net: &NetBitmask64, trace: &Trace) -> ReplayResult {
     marking &= !net.final_mask;
     let remaining = marking.count_ones();
 
-    ReplayResult { missing, remaining, produced, consumed }
+    ReplayResult {
+        missing,
+        remaining,
+        produced,
+        consumed,
+    }
 }
 
 pub fn replay_log(net: &NetBitmask64, log: &EventLog) -> Vec<ReplayResult> {
@@ -304,7 +309,9 @@ pub fn in_language(net: &NetBitmask64, trace: &Trace) -> bool {
         markings = next;
     }
 
-    markings.iter().any(|&m| (m & net.final_mask) == net.final_mask)
+    markings
+        .iter()
+        .any(|&m| (m & net.final_mask) == net.final_mask)
 }
 
 /// Count how many traces in `log` are genuinely in the language of `net` (no clamping).
@@ -418,14 +425,38 @@ mod tests {
                 Place { id: "p2".into() },
             ],
             transitions: vec![
-                Transition { id: "t_a".into(), label: "a".into(), is_invisible: Some(false) },
-                Transition { id: "t_b".into(), label: "b".into(), is_invisible: Some(false) },
+                Transition {
+                    id: "t_a".into(),
+                    label: "a".into(),
+                    is_invisible: Some(false),
+                },
+                Transition {
+                    id: "t_b".into(),
+                    label: "b".into(),
+                    is_invisible: Some(false),
+                },
             ],
             arcs: vec![
-                Arc { from: "p0".into(), to: "t_a".into(), weight: None },
-                Arc { from: "t_a".into(), to: "p1".into(), weight: None },
-                Arc { from: "p1".into(), to: "t_b".into(), weight: None },
-                Arc { from: "t_b".into(), to: "p2".into(), weight: None },
+                Arc {
+                    from: "p0".into(),
+                    to: "t_a".into(),
+                    weight: None,
+                },
+                Arc {
+                    from: "t_a".into(),
+                    to: "p1".into(),
+                    weight: None,
+                },
+                Arc {
+                    from: "p1".into(),
+                    to: "t_b".into(),
+                    weight: None,
+                },
+                Arc {
+                    from: "t_b".into(),
+                    to: "p2".into(),
+                    weight: None,
+                },
             ],
             initial_marking: im,
             final_markings: vec![fm],
@@ -456,7 +487,11 @@ mod tests {
         let bm = NetBitmask64::from_petri_net(&net);
         let trace = make_trace(&["a", "b"]);
         let r = replay_trace(&bm, &trace);
-        assert!(r.is_perfect(), "a,b should be perfect on linear net: {:?}", r);
+        assert!(
+            r.is_perfect(),
+            "a,b should be perfect on linear net: {:?}",
+            r
+        );
     }
 
     #[test]
@@ -481,9 +516,24 @@ mod tests {
     #[test]
     fn test_classify_exact() {
         let results = vec![
-            ReplayResult { missing: 0, remaining: 0, produced: 2, consumed: 2 }, // perfect
-            ReplayResult { missing: 1, remaining: 0, produced: 2, consumed: 2 }, // imperfect
-            ReplayResult { missing: 0, remaining: 0, produced: 2, consumed: 2 }, // perfect
+            ReplayResult {
+                missing: 0,
+                remaining: 0,
+                produced: 2,
+                consumed: 2,
+            }, // perfect
+            ReplayResult {
+                missing: 1,
+                remaining: 0,
+                produced: 2,
+                consumed: 2,
+            }, // imperfect
+            ReplayResult {
+                missing: 0,
+                remaining: 0,
+                produced: 2,
+                consumed: 2,
+            }, // perfect
         ];
         let cls = classify(&results, 2);
         assert_eq!(cls.iter().filter(|&&b| b).count(), 2);

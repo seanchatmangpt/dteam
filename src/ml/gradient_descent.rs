@@ -20,16 +20,15 @@ pub fn difference_quotient<F: Fn(f64) -> f64>(f: F, x: f64, h: f64) -> f64 {
 /// evaluated at point `v`, using step size `h`.
 ///
 /// Panics if `i >= v.len()`.
-pub fn partial_difference_quotient<F: Fn(&[f64]) -> f64>(
-    f: F,
-    v: &[f64],
-    i: usize,
-    h: f64,
-) -> f64 {
+pub fn partial_difference_quotient<F: Fn(&[f64]) -> f64>(f: F, v: &[f64], i: usize, h: f64) -> f64 {
     if v.is_empty() || h == 0.0 {
         return 0.0;
     }
-    assert!(i < v.len(), "index {i} out of bounds for v.len()={}", v.len());
+    assert!(
+        i < v.len(),
+        "index {i} out of bounds for v.len()={}",
+        v.len()
+    );
 
     let mut w = v.to_vec();
     w[i] = v[i] + h;
@@ -230,10 +229,7 @@ mod tests {
     #[test]
     fn test_difference_quotient_square() {
         let deriv = difference_quotient(|x| x * x, 3.0, 1e-5);
-        assert!(
-            approx_eq(deriv, 6.0, 1e-8),
-            "expected ≈6.0, got {deriv}"
-        );
+        assert!(approx_eq(deriv, 6.0, 1e-8), "expected ≈6.0, got {deriv}");
     }
 
     // 2. difference_quotient: derivative of sin(x) at 0 should be ≈1.
@@ -279,13 +275,7 @@ mod tests {
     //    Analytical gradient: 2(x-5).  Minimiser should be near 5.
     #[test]
     fn test_minimize_quadratic() {
-        let result = minimize(
-            &[0.0],
-            |v| vec![2.0 * (v[0] - 5.0)],
-            0.1,
-            10_000,
-            1e-9,
-        );
+        let result = minimize(&[0.0], |v| vec![2.0 * (v[0] - 5.0)], 0.1, 10_000, 1e-9);
         assert!(
             approx_eq(result[0], 5.0, 1e-4),
             "expected ≈5.0, got {}",
@@ -311,10 +301,12 @@ mod tests {
     //    Use small x range (0..5) so gradients stay bounded.
     #[test]
     fn test_linear_regression_perfect_data() {
-        let data: Vec<(f64, f64)> = (0..5).map(|i| {
-            let x = i as f64;
-            (x, 2.0 * x + 1.0)
-        }).collect();
+        let data: Vec<(f64, f64)> = (0..5)
+            .map(|i| {
+                let x = i as f64;
+                (x, 2.0 * x + 1.0)
+            })
+            .collect();
 
         // lr=0.01 is safe for x in [0,4]; sum of x² ≈ 30 so step sizes stay <1.
         let [slope, intercept] = linear_regression_gd(&data, 0.01, 10_000);
@@ -346,7 +338,9 @@ mod tests {
     #[test]
     fn test_minibatch_minimize() {
         // Represent as per-example gradients averaged over the batch
-        let data: Vec<(f64, f64)> = (0..10).map(|i| (i as f64, (i as f64 - 5.0).powi(2))).collect();
+        let data: Vec<(f64, f64)> = (0..10)
+            .map(|i| (i as f64, (i as f64 - 5.0).powi(2)))
+            .collect();
 
         // gradient_fn averages 2*(p - 5) over the batch (target always 5)
         let result = minibatch_minimize(

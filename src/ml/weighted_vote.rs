@@ -169,11 +169,7 @@ pub fn signal_correlations(preds: &[Vec<bool>], anchor: &[bool]) -> Vec<f64> {
 ///
 /// Calibrates to exactly `n_target` positives by weighted score (same as
 /// [`weighted_vote`]).
-pub fn precision_weighted_vote(
-    preds: &[Vec<bool>],
-    anchor: &[bool],
-    n_target: usize,
-) -> Vec<bool> {
+pub fn precision_weighted_vote(preds: &[Vec<bool>], anchor: &[bool], n_target: usize) -> Vec<bool> {
     if preds.is_empty() {
         return vec![false; anchor.len()];
     }
@@ -240,9 +236,9 @@ mod tests {
         // sig2 agrees on none → accuracy 0.0 → clamped to 0.01
         let anchor = vec![true, true, false, false];
         let preds = vec![
-            vec![true, true, false, false],  // sig0: perfect
-            vec![false, true, true, false],  // sig1: 2/4 = 0.5
-            vec![false, false, true, true],  // sig2: 0/4 = 0.0 → 0.01
+            vec![true, true, false, false], // sig0: perfect
+            vec![false, true, true, false], // sig1: 2/4 = 0.5
+            vec![false, false, true, true], // sig2: 0/4 = 0.0 → 0.01
         ];
         let w = signal_weights(&preds, &anchor);
         assert_eq!(w.len(), 3);
@@ -292,8 +288,8 @@ mod tests {
         // scores: i0 = 1.0+0.5=1.5, i1 = 0.5, i2 = 1.0, i3 = 0.0
         // top-2 by score: indices 0 (1.5) and 2 (1.0)
         let preds = vec![
-            vec![true, false, true, false],  // sig0
-            vec![true, true, false, false],  // sig1
+            vec![true, false, true, false], // sig0
+            vec![true, true, false, false], // sig1
         ];
         let weights = vec![1.0, 0.5];
         let result = weighted_vote(&preds, &weights, 2);
@@ -350,13 +346,17 @@ mod tests {
         // auto_weighted_vote should favor sig0 and produce n_target positives.
         let anchor = vec![true, true, false, false];
         let preds = vec![
-            vec![true, true, false, false],  // perfect
-            vec![false, false, true, true],  // inverted
+            vec![true, true, false, false], // perfect
+            vec![false, false, true, true], // inverted
         ];
         let result = auto_weighted_vote(&preds, &anchor, 2);
         assert_eq!(result.iter().filter(|&&b| b).count(), 2);
         // The top-2 should align with the anchor.
-        let tp = result.iter().zip(anchor.iter()).filter(|(&p, &a)| p && a).count();
+        let tp = result
+            .iter()
+            .zip(anchor.iter())
+            .filter(|(&p, &a)| p && a)
+            .count();
         assert_eq!(tp, 2, "expected both positives to match anchor, got {tp}");
     }
 
@@ -375,8 +375,8 @@ mod tests {
     fn test_signal_correlations_perfect_and_anti() {
         let anchor = vec![true, true, false, false];
         let preds = vec![
-            vec![true, true, false, false],  // r = +1
-            vec![false, false, true, true],  // r = -1
+            vec![true, true, false, false], // r = +1
+            vec![false, false, true, true], // r = -1
         ];
         let corrs = signal_correlations(&preds, &anchor);
         assert_eq!(corrs.len(), 2);
@@ -390,7 +390,10 @@ mod tests {
         let anchor = vec![true, false, true, false];
         let preds = vec![vec![true, true, true, true]];
         let corrs = signal_correlations(&preds, &anchor);
-        assert!((corrs[0] - 0.0).abs() < 1e-10, "expected 0 for constant signal");
+        assert!(
+            (corrs[0] - 0.0).abs() < 1e-10,
+            "expected 0 for constant signal"
+        );
     }
 
     #[test]
@@ -422,8 +425,8 @@ mod tests {
         // Expected: index 0 selected as positive.
         let anchor = vec![true, false, false, false];
         let preds = vec![
-            vec![true, false, false, false],   // sig0: 1 pred, 1 tp → prec=1.0
-            vec![true, true, true, false],     // sig1: 3 preds, 1 tp → prec=1/3
+            vec![true, false, false, false], // sig0: 1 pred, 1 tp → prec=1.0
+            vec![true, true, true, false],   // sig1: 3 preds, 1 tp → prec=1/3
         ];
         let result = precision_weighted_vote(&preds, &anchor, 1);
         assert_eq!(result.iter().filter(|&&b| b).count(), 1);
@@ -436,8 +439,8 @@ mod tests {
         // sig1 has perfect precision on the one positive.
         let anchor = vec![true, false, false];
         let preds = vec![
-            vec![false, false, false],   // sig0: no predicted positives → 0.01
-            vec![true, false, false],    // sig1: prec=1.0
+            vec![false, false, false], // sig0: no predicted positives → 0.01
+            vec![true, false, false],  // sig1: prec=1.0
         ];
         let result = precision_weighted_vote(&preds, &anchor, 1);
         assert_eq!(result.iter().filter(|&&b| b).count(), 1);

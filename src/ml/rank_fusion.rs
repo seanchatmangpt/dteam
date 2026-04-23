@@ -4,7 +4,6 @@
 ///   `scores[k][i]` = signal k's score for trace i.
 /// `higher_is_better[k]` indicates the polarity of signal k.
 /// `n_target` is the number of top traces to select (returned as `true`).
-
 /// Rank a score vector: returns `rank[i]` = the zero-based rank of trace `i`
 /// when all traces are sorted best-first.
 ///
@@ -209,10 +208,7 @@ mod tests {
         // n=4, Borda: i0 = (4-0)+(4-3)=5, i1=(4-1)+(4-0)=7, i2=(4-2)+(4-1)=5, i3=(4-3)+(4-2)=3
         // Sort desc by Borda (ties lower index first): i1(7), i0(5), i2(5), i3(3)
         // Top 2 → {1, 0} → result [true, true, false, false]
-        let scores = vec![
-            vec![4.0, 3.0, 2.0, 1.0],
-            vec![1.0, 4.0, 3.0, 2.0],
-        ];
+        let scores = vec![vec![4.0, 3.0, 2.0, 1.0], vec![1.0, 4.0, 3.0, 2.0]];
         let hib = vec![true, true];
         let result = borda_count(&scores, &hib, 2);
         assert_eq!(result, vec![true, true, false, false]);
@@ -260,10 +256,7 @@ mod tests {
         // RRF(i3) = 1/(64)+1/(63) ≈ 0.01563+0.01587 = 0.03150
         // Sorted: i1 > i0 > i2 > i3
         // Top 2 → {1, 0}
-        let scores = vec![
-            vec![4.0, 3.0, 2.0, 1.0],
-            vec![1.0, 4.0, 3.0, 2.0],
-        ];
+        let scores = vec![vec![4.0, 3.0, 2.0, 1.0], vec![1.0, 4.0, 3.0, 2.0]];
         let hib = vec![true, true];
         let result = reciprocal_rank_fusion(&scores, &hib, 2);
         assert_eq!(result, vec![true, true, false, false]);
@@ -292,10 +285,7 @@ mod tests {
         // RRF(i1) = 1/62 + 1/63 ≈ 0.03198
         // RRF(i2) = 1/63 + 1/62 ≈ 0.03198  (tie; i1 wins by lower index)
         // Top 1 → {0}
-        let scores = vec![
-            vec![10.0, 5.0, 1.0],
-            vec![1.0, 3.0, 2.0],
-        ];
+        let scores = vec![vec![10.0, 5.0, 1.0], vec![1.0, 3.0, 2.0]];
         let hib = vec![true, false];
         let result = reciprocal_rank_fusion(&scores, &hib, 1);
         assert_eq!(result, vec![true, false, false]);
@@ -307,10 +297,7 @@ mod tests {
         // Signal 1: [1.0, 3.0, 2.0]  lower_is_better  → ranks [0,2,1]
         // n=3. Borda(i0)=(3-0)+(3-0)=6, Borda(i1)=(3-1)+(3-2)=3, Borda(i2)=(3-2)+(3-1)=3
         // Top 1 → {0}
-        let scores = vec![
-            vec![10.0, 5.0, 1.0],
-            vec![1.0, 3.0, 2.0],
-        ];
+        let scores = vec![vec![10.0, 5.0, 1.0], vec![1.0, 3.0, 2.0]];
         let hib = vec![true, false];
         let result = borda_count(&scores, &hib, 1);
         assert_eq!(result, vec![true, false, false]);

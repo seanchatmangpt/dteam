@@ -53,13 +53,16 @@ pub fn trace_to_features(
         .events
         .iter()
         .filter_map(|e| {
-            e.attributes.iter().find(|a| a.key == "concept:name").and_then(|a| {
-                if let AttributeValue::String(s) = &a.value {
-                    Some(s.as_str())
-                } else {
-                    None
-                }
-            })
+            e.attributes
+                .iter()
+                .find(|a| a.key == "concept:name")
+                .and_then(|a| {
+                    if let AttributeValue::String(s) = &a.value {
+                        Some(s.as_str())
+                    } else {
+                        None
+                    }
+                })
         })
         .collect();
 
@@ -69,18 +72,34 @@ pub fn trace_to_features(
     use crate::conformance::bitmask_replay::replay_trace;
     let replay_result = replay_trace(net, trace);
     let fitness = replay_result.fitness();
-    let is_perfect = if replay_result.is_perfect() { 1.0_f64 } else { 0.0_f64 };
+    let is_perfect = if replay_result.is_perfect() {
+        1.0_f64
+    } else {
+        0.0_f64
+    };
     let missing_norm = {
         let d = (replay_result.consumed + replay_result.missing) as f64;
-        if d == 0.0 { 0.0_f64 } else { replay_result.missing as f64 / d }
+        if d == 0.0 {
+            0.0_f64
+        } else {
+            replay_result.missing as f64 / d
+        }
     };
     let remaining_norm = {
         let d = (replay_result.produced + replay_result.remaining) as f64;
-        if d == 0.0 { 0.0_f64 } else { replay_result.remaining as f64 / d }
+        if d == 0.0 {
+            0.0_f64
+        } else {
+            replay_result.remaining as f64 / d
+        }
     };
 
     // Exact language membership
-    let lang_flag = if in_language(net, trace) { 1.0_f64 } else { 0.0_f64 };
+    let lang_flag = if in_language(net, trace) {
+        1.0_f64
+    } else {
+        0.0_f64
+    };
 
     // Trace length normalised
     let norm_len = if log_max_len == 0 {
@@ -146,12 +165,7 @@ pub fn extract_log_features(
     let in_lang_flags: Vec<bool> = log.traces.iter().map(|t| in_language(net, t)).collect();
 
     // Compute log_max_len.
-    let log_max_len = log
-        .traces
-        .iter()
-        .map(|t| t.events.len())
-        .max()
-        .unwrap_or(0);
+    let log_max_len = log.traces.iter().map(|t| t.events.len()).max().unwrap_or(0);
 
     // Build feature vectors — reuse precomputed fitness & in_language to avoid
     // redundant replay/BFS inside trace_to_features by assembling manually.
@@ -164,13 +178,16 @@ pub fn extract_log_features(
                 .events
                 .iter()
                 .filter_map(|e| {
-                    e.attributes.iter().find(|a| a.key == "concept:name").and_then(|a| {
-                        if let AttributeValue::String(s) = &a.value {
-                            Some(s.as_str())
-                        } else {
-                            None
-                        }
-                    })
+                    e.attributes
+                        .iter()
+                        .find(|a| a.key == "concept:name")
+                        .and_then(|a| {
+                            if let AttributeValue::String(s) = &a.value {
+                                Some(s.as_str())
+                            } else {
+                                None
+                            }
+                        })
                 })
                 .collect();
 
@@ -211,11 +228,19 @@ pub fn extract_log_features(
             let is_perfect = if rr.is_perfect() { 1.0_f64 } else { 0.0_f64 };
             let missing_norm = {
                 let d = (rr.consumed + rr.missing) as f64;
-                if d == 0.0 { 0.0_f64 } else { rr.missing as f64 / d }
+                if d == 0.0 {
+                    0.0_f64
+                } else {
+                    rr.missing as f64 / d
+                }
             };
             let remaining_norm = {
                 let d = (rr.produced + rr.remaining) as f64;
-                if d == 0.0 { 0.0_f64 } else { rr.remaining as f64 / d }
+                if d == 0.0 {
+                    0.0_f64
+                } else {
+                    rr.remaining as f64 / d
+                }
             };
 
             let mut fv = Vec::with_capacity(7 + vocabulary.len());
@@ -295,10 +320,26 @@ mod tests {
                 },
             ],
             arcs: vec![
-                Arc { from: "p0".into(), to: "t_a".into(), weight: None },
-                Arc { from: "t_a".into(), to: "p1".into(), weight: None },
-                Arc { from: "p1".into(), to: "t_b".into(), weight: None },
-                Arc { from: "t_b".into(), to: "p2".into(), weight: None },
+                Arc {
+                    from: "p0".into(),
+                    to: "t_a".into(),
+                    weight: None,
+                },
+                Arc {
+                    from: "t_a".into(),
+                    to: "p1".into(),
+                    weight: None,
+                },
+                Arc {
+                    from: "p1".into(),
+                    to: "t_b".into(),
+                    weight: None,
+                },
+                Arc {
+                    from: "t_b".into(),
+                    to: "p2".into(),
+                    weight: None,
+                },
             ],
             initial_marking: im,
             final_markings: vec![fm],
@@ -324,7 +365,10 @@ mod tests {
     }
 
     fn make_log(traces: Vec<Trace>) -> EventLog {
-        EventLog { traces, attributes: vec![] }
+        EventLog {
+            traces,
+            attributes: vec![],
+        }
     }
 
     // ── Test 1: vocabulary is sorted and deduplicated ──────────────────────────
@@ -355,9 +399,9 @@ mod tests {
         let fv_perfect = trace_to_features(&log.traces[0], &net, &vocab, log_max_len);
         let fv_partial = trace_to_features(&log.traces[1], &net, &vocab, log_max_len);
 
-        // Feature length = 4 + |vocab|
-        assert_eq!(fv_perfect.len(), 4 + vocab.len());
-        assert_eq!(fv_partial.len(), 4 + vocab.len());
+        // Feature length = 7 + |vocab|
+        assert_eq!(fv_perfect.len(), 7 + vocab.len());
+        assert_eq!(fv_partial.len(), 7 + vocab.len());
 
         // Fitness in [0, 1]
         assert!((0.0..=1.0).contains(&fv_perfect[0]));
@@ -369,8 +413,13 @@ mod tests {
         // Normalised length for perfect trace (len=2, max=2) = 1.0
         assert!((fv_perfect[2] - 1.0).abs() < 1e-9);
 
+        // is_perfect, missing_norm, remaining_norm all in [0, 1]
+        assert!((0.0..=1.0).contains(&fv_perfect[4]));
+        assert!((0.0..=1.0).contains(&fv_perfect[5]));
+        assert!((0.0..=1.0).contains(&fv_perfect[6]));
+
         // All frequency values in [0, 1]
-        for &v in &fv_perfect[4..] {
+        for &v in &fv_perfect[7..] {
             assert!((0.0..=1.0).contains(&v));
         }
     }
@@ -381,8 +430,8 @@ mod tests {
     fn test_extract_log_features_consistency() {
         let net = linear_net();
         let log = make_log(vec![
-            make_trace("t1", &["a", "b"]),   // in language
-            make_trace("t2", &["b"]),          // not in language, low fitness
+            make_trace("t1", &["a", "b"]),      // in language
+            make_trace("t2", &["b"]),           // not in language, low fitness
             make_trace("t3", &["a", "b", "a"]), // out-of-language variant
         ]);
 
@@ -393,16 +442,22 @@ mod tests {
         assert_eq!(fitness.len(), 3);
 
         // Trace 0 ["a","b"] should be in language
-        assert!(in_lang[0], "trace [a,b] must be in the linear net's language");
+        assert!(
+            in_lang[0],
+            "trace [a,b] must be in the linear net's language"
+        );
 
         // Each feature vector must have the correct length
         let vocab_len = build_vocabulary(&log).len();
         for fv in &features {
-            assert_eq!(fv.len(), 4 + vocab_len);
+            assert_eq!(fv.len(), 7 + vocab_len);
         }
 
         // Fitness scores are consistent: in-language trace has fitness 1.0
-        assert!((fitness[0] - 1.0).abs() < 1e-9, "perfect trace fitness must be 1.0");
+        assert!(
+            (fitness[0] - 1.0).abs() < 1e-9,
+            "perfect trace fitness must be 1.0"
+        );
     }
 
     // ── Test 4: pseudo_labels boundary conditions ──────────────────────────────
@@ -413,9 +468,9 @@ mod tests {
         let fitness = [1.0_f64, 0.1, 0.5, 0.29];
         let labels = pseudo_labels(&in_lang, &fitness);
 
-        assert_eq!(labels[0], Some(true));  // in language → positive
+        assert_eq!(labels[0], Some(true)); // in language → positive
         assert_eq!(labels[1], Some(false)); // fitness < 0.3 → negative
-        assert_eq!(labels[2], None);        // 0.3 ≤ fitness < 1.0, not in lang → ambiguous
+        assert_eq!(labels[2], None); // 0.3 ≤ fitness < 1.0, not in lang → ambiguous
         assert_eq!(labels[3], Some(false)); // 0.29 < 0.3 → negative
     }
 

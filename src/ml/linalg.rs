@@ -53,9 +53,7 @@ pub fn vec_mean(vecs: &[Vec<f64>]) -> Vec<f64> {
 /// Dot product; the shorter vector is zero-padded.
 pub fn dot(a: &[f64], b: &[f64]) -> f64 {
     let len = a.len().min(b.len()); // beyond min, one side is 0 ⇒ no contribution
-    (0..len)
-        .map(|i| a[i] * b[i])
-        .sum()
+    (0..len).map(|i| a[i] * b[i]).sum()
 }
 
 /// Sum of squares: `dot(v, v)`.
@@ -177,9 +175,8 @@ pub fn mat_vec_mul(m: &[Vec<f64>], v: &[f64]) -> Vec<f64> {
 /// Vectors of different lengths are compared with zero-padding.
 pub fn vec_approx_eq(a: &[f64], b: &[f64], tol: f64) -> bool {
     let len = a.len().max(b.len());
-    (0..len).all(|i| {
-        (a.get(i).copied().unwrap_or(0.0) - b.get(i).copied().unwrap_or(0.0)).abs() <= tol
-    })
+    (0..len)
+        .all(|i| (a.get(i).copied().unwrap_or(0.0) - b.get(i).copied().unwrap_or(0.0)).abs() <= tol)
 }
 
 /// Pearson correlation between two equal-length slices.
@@ -198,8 +195,16 @@ fn pearson(x: &[f64], y: &[f64]) -> f64 {
         .map(|(&xi, &yi)| (xi - mean_x) * (yi - mean_y))
         .sum();
 
-    let std_x: f64 = x.iter().map(|&xi| (xi - mean_x).powi(2)).sum::<f64>().sqrt();
-    let std_y: f64 = y.iter().map(|&yi| (yi - mean_y).powi(2)).sum::<f64>().sqrt();
+    let std_x: f64 = x
+        .iter()
+        .map(|&xi| (xi - mean_x).powi(2))
+        .sum::<f64>()
+        .sqrt();
+    let std_y: f64 = y
+        .iter()
+        .map(|&yi| (yi - mean_y).powi(2))
+        .sum::<f64>()
+        .sqrt();
 
     if std_x == 0.0 || std_y == 0.0 {
         0.0
@@ -248,7 +253,10 @@ mod tests {
     // ── vec_add ───────────────────────────────────────────────────────────────
     #[test]
     fn test_vec_add_same_length() {
-        assert_eq!(vec_add(&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0]), vec![5.0, 7.0, 9.0]);
+        assert_eq!(
+            vec_add(&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0]),
+            vec![5.0, 7.0, 9.0]
+        );
     }
 
     #[test]
@@ -265,7 +273,10 @@ mod tests {
     // ── vec_sub ───────────────────────────────────────────────────────────────
     #[test]
     fn test_vec_sub() {
-        assert_eq!(vec_sub(&[5.0, 7.0, 9.0], &[4.0, 5.0, 6.0]), vec![1.0, 2.0, 3.0]);
+        assert_eq!(
+            vec_sub(&[5.0, 7.0, 9.0], &[4.0, 5.0, 6.0]),
+            vec![1.0, 2.0, 3.0]
+        );
     }
 
     #[test]
@@ -449,11 +460,7 @@ mod tests {
     // ── correlation_matrix ────────────────────────────────────────────────────
     #[test]
     fn test_correlation_matrix_diagonal() {
-        let data = vec![
-            vec![1.0, 2.0],
-            vec![2.0, 4.0],
-            vec![3.0, 6.0],
-        ];
+        let data = vec![vec![1.0, 2.0], vec![2.0, 4.0], vec![3.0, 6.0]];
         let c = correlation_matrix(&data);
         // diagonal must be 1.0
         assert!(approx(c[0][0], 1.0));
@@ -463,11 +470,7 @@ mod tests {
     #[test]
     fn test_correlation_matrix_perfect_positive() {
         // col 0 = [1,2,3], col 1 = [2,4,6] — perfect positive correlation
-        let data = vec![
-            vec![1.0, 2.0],
-            vec![2.0, 4.0],
-            vec![3.0, 6.0],
-        ];
+        let data = vec![vec![1.0, 2.0], vec![2.0, 4.0], vec![3.0, 6.0]];
         let c = correlation_matrix(&data);
         assert!(approx(c[0][1], 1.0));
         assert!(approx(c[1][0], 1.0));
@@ -476,11 +479,7 @@ mod tests {
     #[test]
     fn test_correlation_matrix_perfect_negative() {
         // col 0 = [1,2,3], col 1 = [3,2,1] — perfect negative correlation
-        let data = vec![
-            vec![1.0, 3.0],
-            vec![2.0, 2.0],
-            vec![3.0, 1.0],
-        ];
+        let data = vec![vec![1.0, 3.0], vec![2.0, 2.0], vec![3.0, 1.0]];
         let c = correlation_matrix(&data);
         assert!(approx(c[0][1], -1.0));
     }

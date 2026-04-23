@@ -93,11 +93,8 @@ pub fn train_with_provenance_projected(
     let mut model = PetriNet::default();
     let mut agent: QLearning<RlState<1>, RlAction> = match seed {
         Some(s) => {
-            let mut a = QLearning::new_with_seed(
-                config.rl.learning_rate,
-                config.rl.discount_factor,
-                s,
-            );
+            let mut a =
+                QLearning::new_with_seed(config.rl.learning_rate, config.rl.discount_factor, s);
             a.set_exploration_rate(config.rl.exploration_rate);
             a
         }
@@ -141,10 +138,8 @@ pub fn train_with_provenance_projected(
 
         // Reward = fitness + β·soundness − λ·complexity [+ γ·ensemble_vote]
         let ensemble_bonus = ensemble_vote.unwrap_or(0.0) * 0.3;
-        let reward = avg_f as f32
-            + beta * (1.0 - unsoundness_u)
-            - lambda * complexity_c
-            + ensemble_bonus;
+        let reward =
+            avg_f as f32 + beta * (1.0 - unsoundness_u) - lambda * complexity_c + ensemble_bonus;
 
         if let Some(pa) = prev_action {
             let done = avg_f >= config.discovery.fitness_stopping_threshold

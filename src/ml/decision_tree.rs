@@ -43,12 +43,7 @@ fn majority(labels: &[bool]) -> bool {
 ///
 /// `indices` contains the subset of training rows to consider at this node.
 /// We avoid cloning the full training matrix by working with index slices.
-fn build(
-    train: &[Vec<f64>],
-    labels: &[bool],
-    indices: &[usize],
-    depth: usize,
-) -> Node {
+fn build(train: &[Vec<f64>], labels: &[bool], indices: &[usize], depth: usize) -> Node {
     // --- base cases ---
     if depth == 0 || indices.len() < 2 {
         let subset: Vec<bool> = indices.iter().map(|&i| labels[i]).collect();
@@ -78,6 +73,7 @@ fn build(
     let mut best_threshold: f64 = 0.0;
     let mut found = false;
 
+    #[allow(clippy::needless_range_loop)]
     for j in 0..n_features {
         // Collect feature values for current indices, compute median.
         let mut vals: Vec<f64> = indices.iter().map(|&i| train[i][j]).collect();
@@ -131,8 +127,9 @@ fn build(
     }
 
     // Partition indices.
-    let (left_idx, right_idx): (Vec<usize>, Vec<usize>) =
-        indices.iter().partition(|&&i| train[i][best_feature] <= best_threshold);
+    let (left_idx, right_idx): (Vec<usize>, Vec<usize>) = indices
+        .iter()
+        .partition(|&&i| train[i][best_feature] <= best_threshold);
 
     // Guard: both sides must be non-empty (already checked above, but be safe).
     if left_idx.is_empty() || right_idx.is_empty() {
@@ -255,9 +252,7 @@ mod tests {
     #[test]
     fn test_trivial_linearly_separable() {
         // All positives in x[0] > 0.5
-        let train = vec![
-            vec![0.0], vec![0.0], vec![1.0], vec![1.0],
-        ];
+        let train = vec![vec![0.0], vec![0.0], vec![1.0], vec![1.0]];
         let labels = vec![false, false, true, true];
         let test = vec![vec![0.0], vec![1.0]];
         let preds = classify(&train, &labels, &test, 3);
@@ -314,7 +309,7 @@ mod tests {
         let labels: Vec<bool> = (0..20).map(|i| i % 2 == 1).collect();
         let test = vec![vec![0.0, 0.0], vec![0.0, 1.0]];
         let preds = classify(&train, &labels, &test, 4);
-        assert_eq!(preds[0], false);
-        assert_eq!(preds[1], true);
+        assert!(!preds[0]);
+        assert!(preds[1]);
     }
 }

@@ -5,8 +5,8 @@
 //! labelled training data. `seed_labels` from in_language BFS results act as weak
 //! supervision hints for cluster polarity assignment.
 
-use crate::ml::{hierarchical_clustering, kmeans};
 use crate::ml::hierarchical_clustering::Linkage;
+use crate::ml::{hierarchical_clustering, kmeans};
 
 /// All unsupervised binary predictions for a set of traces.
 #[derive(Debug, Default, Clone)]
@@ -31,7 +31,7 @@ pub struct UnsupervisedPredictions {
 /// # Arguments
 /// * `features`     – Feature vectors for each trace (one `Vec<f64>` per trace).
 /// * `seed_labels`  – in_language BFS results: `Some(true)` = confirmed positive,
-///                    `Some(false)` = confirmed negative, `None` = unknown.
+///   `Some(false)` = confirmed negative, `None` = unknown.
 /// * `fitness`      – Token-replay fitness score per trace.
 /// * `n_target`     – Number of positives to select (500 for PDC 2025).
 ///

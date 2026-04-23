@@ -7,8 +7,8 @@ use std::collections::HashMap;
 use std::path::Path;
 
 pub fn read_pnml(path: &Path) -> Result<PetriNet> {
-    let content = std::fs::read(path)
-        .map_err(|e| anyhow!("failed to read {}: {}", path.display(), e))?;
+    let content =
+        std::fs::read(path).map_err(|e| anyhow!("failed to read {}: {}", path.display(), e))?;
     parse_pnml(&content)
 }
 
@@ -84,8 +84,12 @@ pub fn parse_pnml(content: &[u8]) -> Result<PetriNet> {
                         let mut idref_attr = String::new();
                         for attr in e.attributes().flatten() {
                             match attr.key.as_ref() {
-                                b"id" => id_attr = String::from_utf8_lossy(&attr.value).into_owned(),
-                                b"idref" => idref_attr = String::from_utf8_lossy(&attr.value).into_owned(),
+                                b"id" => {
+                                    id_attr = String::from_utf8_lossy(&attr.value).into_owned()
+                                }
+                                b"idref" => {
+                                    idref_attr = String::from_utf8_lossy(&attr.value).into_owned()
+                                }
                                 _ => {}
                             }
                         }
@@ -117,8 +121,12 @@ pub fn parse_pnml(content: &[u8]) -> Result<PetriNet> {
                         cur_arc_tgt.clear();
                         for attr in e.attributes().flatten() {
                             match attr.key.as_ref() {
-                                b"source" => cur_arc_src = String::from_utf8_lossy(&attr.value).into_owned(),
-                                b"target" => cur_arc_tgt = String::from_utf8_lossy(&attr.value).into_owned(),
+                                b"source" => {
+                                    cur_arc_src = String::from_utf8_lossy(&attr.value).into_owned()
+                                }
+                                b"target" => {
+                                    cur_arc_tgt = String::from_utf8_lossy(&attr.value).into_owned()
+                                }
                                 _ => {}
                             }
                         }
@@ -127,7 +135,9 @@ pub fn parse_pnml(content: &[u8]) -> Result<PetriNet> {
                     b"name" if ctx == Context::InPlace || ctx == Context::InTransition => {
                         in_name = true;
                     }
-                    b"text" if in_name && (ctx == Context::InPlace || ctx == Context::InTransition) => {
+                    b"text"
+                        if in_name && (ctx == Context::InPlace || ctx == Context::InTransition) =>
+                    {
                         text_target = TextTarget::Label;
                     }
                     b"text" if in_initial_marking && ctx == Context::InPlace => {
@@ -152,8 +162,12 @@ pub fn parse_pnml(content: &[u8]) -> Result<PetriNet> {
                     b"toolspecific" if ctx == Context::InTransition => {
                         for attr in e.attributes().flatten() {
                             match attr.key.as_ref() {
-                                b"localNodeID" => cur_local_id = String::from_utf8_lossy(&attr.value).into_owned(),
-                                b"activity" => cur_activity = String::from_utf8_lossy(&attr.value).into_owned(),
+                                b"localNodeID" => {
+                                    cur_local_id = String::from_utf8_lossy(&attr.value).into_owned()
+                                }
+                                b"activity" => {
+                                    cur_activity = String::from_utf8_lossy(&attr.value).into_owned()
+                                }
                                 _ => {}
                             }
                         }
@@ -189,25 +203,23 @@ pub fn parse_pnml(content: &[u8]) -> Result<PetriNet> {
             Ok(XmlEvent::End(e)) => {
                 let tag = e.name().as_ref().to_vec();
                 match tag.as_slice() {
-                    b"place" => {
-                        match ctx {
-                            Context::InPlace => {
-                                places.push(PlaceInfo {
-                                    xml_id: cur_xml_id.clone(),
-                                    label: cur_label.clone(),
-                                    initial_count: cur_initial,
-                                });
-                                ctx = Context::Root;
-                                in_name = false;
-                                in_initial_marking = false;
-                            }
-                            Context::InFMPlace => {
-                                final_place_counts.push((cur_fm_idref.clone(), cur_fm_count));
-                                ctx = Context::InFinalMarkings;
-                            }
-                            _ => {}
+                    b"place" => match ctx {
+                        Context::InPlace => {
+                            places.push(PlaceInfo {
+                                xml_id: cur_xml_id.clone(),
+                                label: cur_label.clone(),
+                                initial_count: cur_initial,
+                            });
+                            ctx = Context::Root;
+                            in_name = false;
+                            in_initial_marking = false;
                         }
-                    }
+                        Context::InFMPlace => {
+                            final_place_counts.push((cur_fm_idref.clone(), cur_fm_count));
+                            ctx = Context::InFinalMarkings;
+                        }
+                        _ => {}
+                    },
                     b"transition" => {
                         let effective_label = if !cur_activity.is_empty() {
                             cur_activity.clone()
@@ -269,10 +281,13 @@ pub fn parse_pnml(content: &[u8]) -> Result<PetriNet> {
     let mut net = PetriNet::default();
 
     for p in &places {
-        net.places.push(Place { id: p.label.clone() });
+        net.places.push(Place {
+            id: p.label.clone(),
+        });
         if p.initial_count > 0 {
             let h = fnv1a_64(p.label.as_bytes());
-            net.initial_marking.insert(h, p.label.clone(), p.initial_count);
+            net.initial_marking
+                .insert(h, p.label.clone(), p.initial_count);
         }
     }
 
@@ -293,7 +308,11 @@ pub fn parse_pnml(content: &[u8]) -> Result<PetriNet> {
             .get(&a.target)
             .ok_or_else(|| anyhow!("arc target {} not found", a.target))?
             .clone();
-        net.arcs.push(Arc { from, to, weight: Some(1) });
+        net.arcs.push(Arc {
+            from,
+            to,
+            weight: Some(1),
+        });
     }
 
     // Build final marking from the finalmarkings section

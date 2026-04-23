@@ -37,13 +37,21 @@ pub fn tanh_grad(t: f64) -> f64 {
 /// Rectified linear unit: max(0, x).
 #[inline]
 pub fn relu(x: f64) -> f64 {
-    if x > 0.0 { x } else { 0.0 }
+    if x > 0.0 {
+        x
+    } else {
+        0.0
+    }
 }
 
 /// Sub-gradient of ReLU: 1 if x > 0, 0 otherwise.
 #[inline]
 pub fn relu_grad(x: f64) -> f64 {
-    if x > 0.0 { 1.0 } else { 0.0 }
+    if x > 0.0 {
+        1.0
+    } else {
+        0.0
+    }
 }
 
 // ── Layer trait ───────────────────────────────────────────────────────────────
@@ -96,9 +104,7 @@ impl Linear {
             })
             .collect();
 
-        let weight_grads: Vec<Vec<f64>> = (0..output_size)
-            .map(|_| vec![0.0; input_size])
-            .collect();
+        let weight_grads: Vec<Vec<f64>> = (0..output_size).map(|_| vec![0.0; input_size]).collect();
 
         Linear {
             bias: vec![0.0; output_size],
@@ -122,7 +128,11 @@ impl Layer for Linear {
             .iter()
             .zip(self.bias.iter())
             .map(|(row, &b)| {
-                let dot: f64 = row.iter().zip(self.last_input.iter()).map(|(&w, &x)| w * x).sum();
+                let dot: f64 = row
+                    .iter()
+                    .zip(self.last_input.iter())
+                    .map(|(&w, &x)| w * x)
+                    .sum();
                 dot + b
             })
             .collect()
@@ -146,13 +156,13 @@ impl Layer for Linear {
         let mut grad_input = vec![0.0f64; input_size];
         let grad_len = grad.len().min(output_size);
 
-        for i in 0..grad_len {
+        for (i, &g) in grad.iter().enumerate().take(grad_len) {
             // weight_grads[i][j] = grad[i] * last_input[j]
-            for j in 0..input_size {
-                self.weight_grads[i][j] = grad[i] * self.last_input[j];
-                grad_input[j] += self.weights[i][j] * grad[i];
+            for (j, gi) in grad_input.iter_mut().enumerate().take(input_size) {
+                self.weight_grads[i][j] = g * self.last_input[j];
+                *gi += self.weights[i][j] * g;
             }
-            self.bias_grads[i] = grad[i];
+            self.bias_grads[i] = g;
         }
 
         grad_input
@@ -197,7 +207,9 @@ pub struct Sigmoid {
 
 impl Sigmoid {
     pub fn new() -> Self {
-        Sigmoid { last_output: Vec::new() }
+        Sigmoid {
+            last_output: Vec::new(),
+        }
     }
 }
 
@@ -221,8 +233,12 @@ impl Layer for Sigmoid {
             .collect()
     }
 
-    fn params(&self) -> Vec<f64> { Vec::new() }
-    fn grads(&self) -> Vec<f64> { Vec::new() }
+    fn params(&self) -> Vec<f64> {
+        Vec::new()
+    }
+    fn grads(&self) -> Vec<f64> {
+        Vec::new()
+    }
     fn update(&mut self, _lr: f64) {}
 }
 
@@ -235,7 +251,9 @@ pub struct Tanh {
 
 impl Tanh {
     pub fn new() -> Self {
-        Tanh { last_output: Vec::new() }
+        Tanh {
+            last_output: Vec::new(),
+        }
     }
 }
 
@@ -259,8 +277,12 @@ impl Layer for Tanh {
             .collect()
     }
 
-    fn params(&self) -> Vec<f64> { Vec::new() }
-    fn grads(&self) -> Vec<f64> { Vec::new() }
+    fn params(&self) -> Vec<f64> {
+        Vec::new()
+    }
+    fn grads(&self) -> Vec<f64> {
+        Vec::new()
+    }
     fn update(&mut self, _lr: f64) {}
 }
 
@@ -273,7 +295,9 @@ pub struct Relu {
 
 impl Relu {
     pub fn new() -> Self {
-        Relu { last_input: Vec::new() }
+        Relu {
+            last_input: Vec::new(),
+        }
     }
 }
 
@@ -297,8 +321,12 @@ impl Layer for Relu {
             .collect()
     }
 
-    fn params(&self) -> Vec<f64> { Vec::new() }
-    fn grads(&self) -> Vec<f64> { Vec::new() }
+    fn params(&self) -> Vec<f64> {
+        Vec::new()
+    }
+    fn grads(&self) -> Vec<f64> {
+        Vec::new()
+    }
     fn update(&mut self, _lr: f64) {}
 }
 
@@ -317,7 +345,9 @@ pub struct Softmax {
 
 impl Softmax {
     pub fn new() -> Self {
-        Softmax { last_output: Vec::new() }
+        Softmax {
+            last_output: Vec::new(),
+        }
     }
 }
 
@@ -342,8 +372,12 @@ impl Layer for Softmax {
         grad.to_vec()
     }
 
-    fn params(&self) -> Vec<f64> { Vec::new() }
-    fn grads(&self) -> Vec<f64> { Vec::new() }
+    fn params(&self) -> Vec<f64> {
+        Vec::new()
+    }
+    fn grads(&self) -> Vec<f64> {
+        Vec::new()
+    }
     fn update(&mut self, _lr: f64) {}
 }
 
@@ -365,7 +399,11 @@ pub struct Dropout {
 
 impl Dropout {
     pub fn new(rate: f64) -> Self {
-        Dropout { rate, mask: Vec::new(), training: true }
+        Dropout {
+            rate,
+            mask: Vec::new(),
+            training: true,
+        }
     }
 
     /// Switch between training and inference mode.
@@ -388,18 +426,29 @@ impl Layer for Dropout {
             .map(|i| if i % rate_inv == 0 { 0.0 } else { scale })
             .collect();
 
-        inputs.iter().zip(self.mask.iter()).map(|(&x, &m)| x * m).collect()
+        inputs
+            .iter()
+            .zip(self.mask.iter())
+            .map(|(&x, &m)| x * m)
+            .collect()
     }
 
     fn backward(&mut self, grad: &[f64]) -> Vec<f64> {
         if !self.training || self.mask.is_empty() {
             return grad.to_vec();
         }
-        grad.iter().zip(self.mask.iter()).map(|(&g, &m)| g * m).collect()
+        grad.iter()
+            .zip(self.mask.iter())
+            .map(|(&g, &m)| g * m)
+            .collect()
     }
 
-    fn params(&self) -> Vec<f64> { Vec::new() }
-    fn grads(&self) -> Vec<f64> { Vec::new() }
+    fn params(&self) -> Vec<f64> {
+        Vec::new()
+    }
+    fn grads(&self) -> Vec<f64> {
+        Vec::new()
+    }
     fn update(&mut self, _lr: f64) {}
 }
 
@@ -408,28 +457,46 @@ impl Layer for Dropout {
 /// Mean-squared error: (1/n) Σ (predicted[i] − target[i])².
 pub fn mse_loss(predicted: &[f64], targets: &[f64]) -> f64 {
     let n = predicted.len().min(targets.len());
-    if n == 0 { return 0.0; }
-    let sum: f64 = predicted.iter().zip(targets.iter()).map(|(&p, &t)| (p - t).powi(2)).sum();
+    if n == 0 {
+        return 0.0;
+    }
+    let sum: f64 = predicted
+        .iter()
+        .zip(targets.iter())
+        .map(|(&p, &t)| (p - t).powi(2))
+        .sum();
     sum / n as f64
 }
 
 /// Gradient of MSE loss w.r.t. `predicted`: 2(predicted[i] − target[i]) / n.
 pub fn mse_grad(predicted: &[f64], targets: &[f64]) -> Vec<f64> {
     let n = predicted.len().min(targets.len());
-    if n == 0 { return Vec::new(); }
+    if n == 0 {
+        return Vec::new();
+    }
     let scale = 2.0 / n as f64;
-    predicted.iter().zip(targets.iter()).map(|(&p, &t)| scale * (p - t)).collect()
+    predicted
+        .iter()
+        .zip(targets.iter())
+        .map(|(&p, &t)| scale * (p - t))
+        .collect()
 }
 
 /// Binary cross-entropy: −(1/n) Σ [t·log(p) + (1−t)·log(1−p)], clamped to avoid log(0).
 pub fn binary_cross_entropy(predicted: &[f64], targets: &[f64]) -> f64 {
     let n = predicted.len().min(targets.len());
-    if n == 0 { return 0.0; }
+    if n == 0 {
+        return 0.0;
+    }
     let eps = 1e-15_f64;
-    let sum: f64 = predicted.iter().zip(targets.iter()).map(|(&p, &t)| {
-        let p = p.clamp(eps, 1.0 - eps);
-        -(t * p.ln() + (1.0 - t) * (1.0 - p).ln())
-    }).sum();
+    let sum: f64 = predicted
+        .iter()
+        .zip(targets.iter())
+        .map(|(&p, &t)| {
+            let p = p.clamp(eps, 1.0 - eps);
+            -(t * p.ln() + (1.0 - t) * (1.0 - p).ln())
+        })
+        .sum();
     sum / n as f64
 }
 
@@ -437,13 +504,19 @@ pub fn binary_cross_entropy(predicted: &[f64], targets: &[f64]) -> f64 {
 /// (1/n) · (−t/p + (1−t)/(1−p)), clamped.
 pub fn binary_cross_entropy_grad(predicted: &[f64], targets: &[f64]) -> Vec<f64> {
     let n = predicted.len().min(targets.len());
-    if n == 0 { return Vec::new(); }
+    if n == 0 {
+        return Vec::new();
+    }
     let eps = 1e-15_f64;
     let scale = 1.0 / n as f64;
-    predicted.iter().zip(targets.iter()).map(|(&p, &t)| {
-        let p = p.clamp(eps, 1.0 - eps);
-        scale * (-(t / p) + (1.0 - t) / (1.0 - p))
-    }).collect()
+    predicted
+        .iter()
+        .zip(targets.iter())
+        .map(|(&p, &t)| {
+            let p = p.clamp(eps, 1.0 - eps);
+            scale * (-(t / p) + (1.0 - t) / (1.0 - p))
+        })
+        .collect()
 }
 
 // ── Sequential Network ────────────────────────────────────────────────────────
@@ -492,13 +565,7 @@ impl Sequential {
     ///
     /// Each sample is forward-passed, loss gradient is computed w.r.t. the
     /// scalar sigmoid output, and backpropagation updates all layer parameters.
-    pub fn train_binary(
-        &mut self,
-        train: &[Vec<f64>],
-        labels: &[bool],
-        lr: f64,
-        epochs: usize,
-    ) {
+    pub fn train_binary(&mut self, train: &[Vec<f64>], labels: &[bool], lr: f64, epochs: usize) {
         let n = train.len().min(labels.len());
         for _ in 0..epochs {
             for idx in 0..n {
@@ -586,13 +653,21 @@ mod tests {
         // grad_input[j] = Σ_i weights[i][j] * upstream[i]
         let expected: Vec<f64> = (0..2)
             .map(|j| {
-                layer.weights.iter().zip(upstream.iter()).map(|(row, &g)| row[j] * g).sum::<f64>()
+                layer
+                    .weights
+                    .iter()
+                    .zip(upstream.iter())
+                    .map(|(row, &g)| row[j] * g)
+                    .sum::<f64>()
             })
             .collect();
 
         assert_eq!(grad_input.len(), 2);
         for (got, exp) in grad_input.iter().zip(expected.iter()) {
-            assert!((got - exp).abs() < 1e-10, "grad_input mismatch: {got} vs {exp}");
+            assert!(
+                (got - exp).abs() < 1e-10,
+                "grad_input mismatch: {got} vs {exp}"
+            );
         }
 
         // weight_grads[i][j] should equal upstream[i] * input[j]
@@ -663,18 +738,28 @@ mod tests {
 
         // MSE
         let mse = mse_loss(&predicted, &targets);
-        let expected_mse = ((0.8 - 1.0f64).powi(2) + (0.2 - 0.0f64).powi(2) + (0.6 - 1.0f64).powi(2)) / 3.0;
-        assert!((mse - expected_mse).abs() < 1e-10, "mse_loss mismatch: {mse}");
+        let expected_mse =
+            ((0.8 - 1.0f64).powi(2) + (0.2 - 0.0f64).powi(2) + (0.6 - 1.0f64).powi(2)) / 3.0;
+        assert!(
+            (mse - expected_mse).abs() < 1e-10,
+            "mse_loss mismatch: {mse}"
+        );
 
         // MSE gradient
         let grad = mse_grad(&predicted, &targets);
         assert_eq!(grad.len(), 3);
         let expected_g0 = 2.0 / 3.0 * (0.8 - 1.0);
-        assert!((grad[0] - expected_g0).abs() < 1e-10, "mse_grad[0] mismatch");
+        assert!(
+            (grad[0] - expected_g0).abs() < 1e-10,
+            "mse_grad[0] mismatch"
+        );
 
         // BCE is non-negative and finite
         let bce = binary_cross_entropy(&predicted, &targets);
-        assert!(bce >= 0.0 && bce.is_finite(), "BCE must be non-negative and finite, got {bce}");
+        assert!(
+            bce >= 0.0 && bce.is_finite(),
+            "BCE must be non-negative and finite, got {bce}"
+        );
 
         // BCE gradient has correct length
         let bce_grad = binary_cross_entropy_grad(&predicted, &targets);
@@ -700,7 +785,10 @@ mod tests {
         drop.set_training(false);
         let out_infer = drop.forward(&inputs);
         for (&x, &o) in inputs.iter().zip(out_infer.iter()) {
-            assert!((x - o).abs() < 1e-10, "dropout inference should be identity");
+            assert!(
+                (x - o).abs() < 1e-10,
+                "dropout inference should be identity"
+            );
         }
     }
 
@@ -712,9 +800,12 @@ mod tests {
         let inputs = [1.0, 2.0, 3.0, 4.0];
         let out = sm.forward(&inputs);
         let sum: f64 = out.iter().sum();
-        assert!((sum - 1.0).abs() < 1e-10, "softmax should sum to 1, got {sum}");
+        assert!(
+            (sum - 1.0).abs() < 1e-10,
+            "softmax should sum to 1, got {sum}"
+        );
         for &p in &out {
-            assert!(p >= 0.0 && p <= 1.0, "softmax output must be in [0,1]");
+            assert!((0.0..=1.0).contains(&p), "softmax output must be in [0,1]");
         }
     }
 
@@ -743,6 +834,9 @@ mod tests {
         let grad = [1.0; 3];
         let grad_in = layer.backward(&grad);
         // At tanh(0) = 0, gradient is 1 - 0^2 = 1.
-        assert!((grad_in[0] - 1.0).abs() < 1e-10, "tanh backward at 0 should be 1");
+        assert!(
+            (grad_in[0] - 1.0).abs() < 1e-10,
+            "tanh backward at 0 should be 1"
+        );
     }
 }

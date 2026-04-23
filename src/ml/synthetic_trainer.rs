@@ -20,7 +20,7 @@ use crate::conformance::trace_generator::{
 /// - `[0]` normalized trace length: `len / max_len`  (1.0 when `max_len == 0`)
 /// - `[1]` unique activity ratio: `|distinct| / vocab_size` (0.0 when vocab empty)
 /// - `[2..]` bag-of-words frequency: `count(activity_j) / max(len, 1)` for each
-///           vocabulary position `j`
+///   vocabulary position `j`
 fn seq_to_features(activities: &[String], vocabulary: &[String], max_len: usize) -> Vec<f64> {
     let len = activities.len();
 
@@ -246,14 +246,7 @@ pub fn classify_with_synthetic(
 
     // Step 9: ensemble — majority vote, calibrated to n_target
     let all_preds = [
-        &knn_preds,
-        &nb_preds,
-        &dt_preds,
-        &lr_preds,
-        &gnb_preds,
-        &nc_preds,
-        &nn_preds,
-        &gb_preds,
+        &knn_preds, &nb_preds, &dt_preds, &lr_preds, &gnb_preds, &nc_preds, &nn_preds, &gb_preds,
     ];
 
     // Count votes per trace
@@ -264,7 +257,7 @@ pub fn classify_with_synthetic(
     // Calibrate to n_target: take the n_target traces with most votes.
     // Ties are broken by trace index (lower index preferred — stable sort).
     let mut ranked: Vec<(usize, usize)> = vote_counts.iter().copied().enumerate().collect();
-    ranked.sort_by(|a, b| b.1.cmp(&a.1)); // descending by vote count
+    ranked.sort_by_key(|b| std::cmp::Reverse(b.1)); // descending by vote count
 
     let n_select = n_target.min(n_real);
     let mut ensemble = vec![false; n_real];
@@ -506,16 +499,16 @@ mod tests {
         let n_real = 5;
         let n_target = 2;
         let mut ranked: Vec<(usize, usize)> = vote_counts.iter().copied().enumerate().collect();
-        ranked.sort_by(|a, b| b.1.cmp(&a.1));
+        ranked.sort_by_key(|b| std::cmp::Reverse(b.1));
         let mut ensemble = vec![false; n_real];
         for &(idx, _) in ranked.iter().take(n_target) {
             ensemble[idx] = true;
         }
-        assert_eq!(ensemble[1], true, "index 1 should be selected (7 votes)");
-        assert_eq!(ensemble[4], true, "index 4 should be selected (7 votes)");
-        assert_eq!(ensemble[0], false);
-        assert_eq!(ensemble[2], false);
-        assert_eq!(ensemble[3], false);
+        assert!(ensemble[1], "index 1 should be selected (7 votes)");
+        assert!(ensemble[4], "index 4 should be selected (7 votes)");
+        assert!(!ensemble[0]);
+        assert!(!ensemble[2]);
+        assert!(!ensemble[3]);
         assert_eq!(
             ensemble.iter().filter(|&&v| v).count(),
             2,

@@ -131,8 +131,8 @@ mod tests {
             vec![0.0, 5.0], // clearly negative
         ];
         let result = classify(&train, &labels, &test);
-        assert_eq!(result[0], true, "high feature-0 trace should be positive");
-        assert_eq!(result[1], false, "high feature-1 trace should be negative");
+        assert!(result[0], "high feature-0 trace should be positive");
+        assert!(!result[1], "high feature-1 trace should be negative");
     }
 
     #[test]

@@ -15,7 +15,11 @@ pub fn standardize(data: &[Vec<f64>]) -> Vec<Vec<f64>> {
 
     let stds: Vec<f64> = (0..dim)
         .map(|j| {
-            let variance = data.iter().map(|row| (row[j] - means[j]).powi(2)).sum::<f64>() / n;
+            let variance = data
+                .iter()
+                .map(|row| (row[j] - means[j]).powi(2))
+                .sum::<f64>()
+                / n;
             variance.sqrt()
         })
         .collect();
@@ -48,7 +52,11 @@ pub fn min_max_scale(data: &[Vec<f64>]) -> Vec<Vec<f64>> {
         .map(|j| data.iter().map(|row| row[j]).fold(f64::INFINITY, f64::min))
         .collect();
     let maxs: Vec<f64> = (0..dim)
-        .map(|j| data.iter().map(|row| row[j]).fold(f64::NEG_INFINITY, f64::max))
+        .map(|j| {
+            data.iter()
+                .map(|row| row[j])
+                .fold(f64::NEG_INFINITY, f64::max)
+        })
         .collect();
 
     data.iter()
@@ -57,7 +65,11 @@ pub fn min_max_scale(data: &[Vec<f64>]) -> Vec<Vec<f64>> {
                 .enumerate()
                 .map(|(j, &v)| {
                     let range = maxs[j] - mins[j];
-                    if range == 0.0 { 0.0 } else { (v - mins[j]) / range }
+                    if range == 0.0 {
+                        0.0
+                    } else {
+                        (v - mins[j]) / range
+                    }
                 })
                 .collect()
         })
@@ -136,7 +148,7 @@ fn norm(v: &[f64]) -> f64 {
 }
 
 /// Normalize a vector in-place; returns false if the norm is (near) zero.
-fn normalize_in_place(v: &mut Vec<f64>) -> bool {
+fn normalize_in_place(v: &mut [f64]) -> bool {
     let n = norm(v);
     if n < 1e-12 {
         return false;
@@ -414,7 +426,9 @@ mod tests {
 
     #[test]
     fn test_project_reduces_dimensionality() {
-        let data: Vec<Vec<f64>> = (0..8).map(|i| vec![i as f64, i as f64 * 0.5, 0.0]).collect();
+        let data: Vec<Vec<f64>> = (0..8)
+            .map(|i| vec![i as f64, i as f64 * 0.5, 0.0])
+            .collect();
         let (_, components) = pca(&data, 2);
         let proj = project(&data, &components);
         assert_eq!(proj.len(), 8);

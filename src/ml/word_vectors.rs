@@ -57,9 +57,7 @@ impl WordVectors {
 
         // ---- 2. Deterministic initialisation -----------------------------------
         // embedding[i][j] = (i * 0.1 + j * 0.01 - 0.5) * 0.1
-        let init = |i: usize, j: usize| -> f64 {
-            (i as f64 * 0.1 + j as f64 * 0.01 - 0.5) * 0.1
-        };
+        let init = |i: usize, j: usize| -> f64 { (i as f64 * 0.1 + j as f64 * 0.01 - 0.5) * 0.1 };
 
         let mut input_emb: Vec<Vec<f64>> = (0..vocab_size)
             .map(|i| (0..embedding_dim).map(|j| init(i, j)).collect())
@@ -83,12 +81,12 @@ impl WordVectors {
                     let lo = p.saturating_sub(window_size);
                     let hi = (p + window_size).min(doc_len - 1);
 
-                    for q in lo..=hi {
+                    for (q, doc_q) in doc.iter().enumerate().take(hi + 1).skip(lo) {
                         if q == p {
                             continue;
                         }
 
-                        let w = match word_index.get(&doc[q]) {
+                        let w = match word_index.get(doc_q) {
                             Some(&idx) => idx,
                             None => continue,
                         };
@@ -99,10 +97,8 @@ impl WordVectors {
 
                         // Accumulate gradient before applying so both see
                         // the same pre-update vectors.
-                        let delta_c: Vec<f64> =
-                            ctx_emb[w].iter().map(|v| pos_grad * v).collect();
-                        let delta_w: Vec<f64> =
-                            input_emb[c].iter().map(|v| pos_grad * v).collect();
+                        let delta_c: Vec<f64> = ctx_emb[w].iter().map(|v| pos_grad * v).collect();
+                        let delta_w: Vec<f64> = input_emb[c].iter().map(|v| pos_grad * v).collect();
 
                         axpy_inplace(&mut input_emb[c], &delta_c);
                         axpy_inplace(&mut ctx_emb[w], &delta_w);
@@ -265,9 +261,18 @@ mod tests {
 
     fn tiny_corpus() -> Vec<Vec<String>> {
         vec![
-            "the cat sat on the mat".split_whitespace().map(String::from).collect(),
-            "the dog lay on the rug".split_whitespace().map(String::from).collect(),
-            "a cat and a dog are friends".split_whitespace().map(String::from).collect(),
+            "the cat sat on the mat"
+                .split_whitespace()
+                .map(String::from)
+                .collect(),
+            "the dog lay on the rug"
+                .split_whitespace()
+                .map(String::from)
+                .collect(),
+            "a cat and a dog are friends"
+                .split_whitespace()
+                .map(String::from)
+                .collect(),
         ]
     }
 
@@ -331,7 +336,12 @@ mod tests {
         let wv = WordVectors::train(&docs, 8, 2, 2, 0.05, 5);
 
         let results = wv.most_similar("cat", 3);
-        assert_eq!(results.len(), 3, "expected 3 results, got {}", results.len());
+        assert_eq!(
+            results.len(),
+            3,
+            "expected 3 results, got {}",
+            results.len()
+        );
 
         // The query word itself must not appear in results.
         for (word, _) in &results {

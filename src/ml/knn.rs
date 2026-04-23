@@ -29,10 +29,7 @@ pub fn classify(train: &[Vec<f64>], labels: &[bool], test: &[Vec<f64>], k: usize
                 .collect();
 
             // Sort by distance ascending; NaN-safe via unwrap_or(Equal).
-            distances.sort_by(|a, b| {
-                a.0.partial_cmp(&b.0)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            });
+            distances.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
 
             // Majority vote among k_eff nearest neighbors.
             let true_votes = distances[..k_eff]

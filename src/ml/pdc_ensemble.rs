@@ -89,11 +89,7 @@ pub fn combinatorial_ensemble(
 /// yields improvement.
 ///
 /// After finding the best subset, calibrates to exactly `n_target` positives.
-pub fn greedy_ensemble(
-    all_preds: &[Vec<bool>],
-    anchor: &[bool],
-    n_target: usize,
-) -> Vec<bool> {
+pub fn greedy_ensemble(all_preds: &[Vec<bool>], anchor: &[bool], n_target: usize) -> Vec<bool> {
     let k = all_preds.len();
 
     if k == 0 {
@@ -530,9 +526,16 @@ mod tests {
         let result = combinatorial_ensemble(&preds, &anchor, 3);
 
         let pos_count = result.iter().filter(|&&b| b).count();
-        assert_eq!(pos_count, 3, "expected exactly 3 positives, got {pos_count}");
+        assert_eq!(
+            pos_count, 3,
+            "expected exactly 3 positives, got {pos_count}"
+        );
 
-        let tp = result.iter().zip(anchor.iter()).filter(|(&p, &a)| p && a).count();
+        let tp = result
+            .iter()
+            .zip(anchor.iter())
+            .filter(|(&p, &a)| p && a)
+            .count();
         assert_eq!(tp, 3, "expected all 3 anchor positives, got {tp}");
     }
 
@@ -559,7 +562,11 @@ mod tests {
         let pos_count = result.iter().filter(|&&b| b).count();
         assert_eq!(pos_count, 2, "expected 2 positives, got {pos_count}");
 
-        let tp = result.iter().zip(anchor.iter()).filter(|(&p, &a)| p && a).count();
+        let tp = result
+            .iter()
+            .zip(anchor.iter())
+            .filter(|(&p, &a)| p && a)
+            .count();
         assert_eq!(tp, 2, "expected both anchor positives recovered, got {tp}");
     }
 
@@ -604,10 +611,7 @@ mod tests {
 
     #[test]
     fn test_vote_fractions_basic() {
-        let preds = vec![
-            vec![true, false, true],
-            vec![true, true, false],
-        ];
+        let preds = vec![vec![true, false, true], vec![true, true, false]];
         let fracs = vote_fractions(&preds);
         assert_eq!(fracs.len(), 3);
         assert!((fracs[0] - 1.0).abs() < 1e-10, "fracs[0]={}", fracs[0]);
@@ -661,10 +665,20 @@ mod tests {
         let result = full_combinatorial(&bool_preds, &score_signals, &anchor, 3);
 
         let pos_count = result.iter().filter(|&&b| b).count();
-        assert_eq!(pos_count, 3, "expected exactly 3 positives, got {pos_count}");
+        assert_eq!(
+            pos_count, 3,
+            "expected exactly 3 positives, got {pos_count}"
+        );
 
-        let tp = result.iter().zip(anchor.iter()).filter(|(&p, &a)| p && a).count();
-        assert_eq!(tp, 3, "all 3 anchor positives should be recovered, got {tp}");
+        let tp = result
+            .iter()
+            .zip(anchor.iter())
+            .filter(|(&p, &a)| p && a)
+            .count();
+        assert_eq!(
+            tp, 3,
+            "all 3 anchor positives should be recovered, got {tp}"
+        );
     }
 
     #[test]
@@ -711,7 +725,11 @@ mod tests {
         let pos_count = result.iter().filter(|&&b| b).count();
         assert_eq!(pos_count, 2, "expected 2 positives, got {pos_count}");
 
-        let tp = result.iter().zip(anchor.iter()).filter(|(&p, &a)| p && a).count();
+        let tp = result
+            .iter()
+            .zip(anchor.iter())
+            .filter(|(&p, &a)| p && a)
+            .count();
         assert_eq!(tp, 2, "both anchor positives should be recovered, got {tp}");
     }
 
@@ -734,8 +752,14 @@ mod tests {
         // Indices 0,1 (from bool=true) and 2,3 (top negatives by signal) should be true.
         assert!(result[0], "index 0 should be positive");
         assert!(result[1], "index 1 should be positive");
-        assert!(result[2], "index 2 should be positive (top negative by signal)");
-        assert!(result[3], "index 3 should be positive (2nd negative by signal)");
+        assert!(
+            result[2],
+            "index 2 should be positive (top negative by signal)"
+        );
+        assert!(
+            result[3],
+            "index 3 should be positive (2nd negative by signal)"
+        );
         assert!(!result[4], "index 4 should be negative");
         assert!(!result[5], "index 5 should be negative");
     }

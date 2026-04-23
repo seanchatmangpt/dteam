@@ -204,8 +204,8 @@ mod tests {
         assert_eq!(stump.feature, 0);
         // Threshold should separate 3.0 from 6.0, e.g. 4.5
         assert!(stump.threshold > 3.0 && stump.threshold < 6.0);
-        assert_eq!(stump.left_label, false);
-        assert_eq!(stump.right_label, true);
+        assert!(!stump.left_label);
+        assert!(stump.right_label);
     }
 
     #[test]
@@ -228,8 +228,8 @@ mod tests {
         let stump = fit(&[], &[]);
         assert_eq!(stump.feature, 0);
         assert!((stump.threshold - 0.0).abs() < f64::EPSILON);
-        assert_eq!(stump.left_label, false);
-        assert_eq!(stump.right_label, false);
+        assert!(!stump.left_label);
+        assert!(!stump.right_label);
     }
 
     #[test]
@@ -237,8 +237,8 @@ mod tests {
         let train = vec![vec![3.0, 7.0]];
         let labels = vec![true];
         let stump = fit(&train, &labels);
-        assert_eq!(stump.left_label, true);
-        assert_eq!(stump.right_label, true);
+        assert!(stump.left_label);
+        assert!(stump.right_label);
     }
 
     #[test]
@@ -249,7 +249,7 @@ mod tests {
         // All values identical → threshold = INFINITY, everything goes left.
         assert_eq!(stump.threshold, f64::INFINITY);
         // Majority of [true, false, true] = true.
-        assert_eq!(stump.left_label, true);
+        assert!(stump.left_label);
     }
 
     #[test]
@@ -264,19 +264,19 @@ mod tests {
         let labels = vec![false, false, true, true];
         let stump = fit(&train, &labels);
         assert_eq!(stump.feature, 1);
-        assert_eq!(stump.left_label, false);
-        assert_eq!(stump.right_label, true);
+        assert!(!stump.left_label);
+        assert!(stump.right_label);
     }
 
     #[test]
     fn test_majority_tie_goes_to_true() {
         // Equal split: tie → true.
-        assert_eq!(majority(&[true, false]), true);
-        assert_eq!(majority(&[false, true]), true);
+        assert!(majority(&[true, false]));
+        assert!(majority(&[false, true]));
     }
 
     #[test]
     fn test_majority_empty() {
-        assert_eq!(majority(&[]), false);
+        assert!(!majority(&[]));
     }
 }
