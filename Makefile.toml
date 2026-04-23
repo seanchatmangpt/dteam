@@ -21,8 +21,8 @@ description = "Standard CI pipeline: formatting, linting, building, and testing.
 dependencies = ["fmt-check", "lint", "check", "test"]
 
 [tasks.pre-merge]
-description = "Comprehensive pre-merge verification pipeline (CI + Doc + DoD)."
-dependencies = ["ci", "doc", "dod"]
+description = "Comprehensive pre-merge verification pipeline (CI + Doc + DoD + Doctor)."
+dependencies = ["ci", "doc", "dod", "doctor"]
 
 # --- Code Quality ---
 
@@ -87,12 +87,46 @@ args = ["bench"]
 # --- Project Specific ---
 
 [tasks.doctor]
-description = "Run professional dteam doctor diagnostic checks."
-script_runner = "@shell"
-script = '''
-cargo run --example doctor 2>/dev/null || echo "Running internal diagnostics..."
-cargo check --all-targets
-'''
+description = "Epistemic diagnostic: is your AutoML pipeline slow, redundant, biased, or lying?"
+command = "cargo"
+args = ["run", "--bin", "doctor", "--release", "--quiet"]
+
+[tasks.doctor-dev]
+description = "Epistemic diagnostic (debug build, faster compile)."
+command = "cargo"
+args = ["run", "--bin", "doctor", "--quiet"]
+
+[tasks.doctor-target]
+description = "Check all plans meet a target deployment tier. Set TARGET=T1 (or T0/T2/Warm)."
+command = "cargo"
+args = ["run", "--bin", "doctor", "--release", "--quiet", "--", "--target=${TARGET}"]
+
+[tasks.doctor-target.env]
+TARGET = "T1"
+
+[tasks.doctor-json]
+description = "Epistemic diagnostic output as JSON (for CI pipeline integration)."
+command = "cargo"
+args = ["run", "--bin", "doctor", "--release", "--quiet", "--", "--json"]
+
+[tasks.plan-diff]
+description = "Compare two AutoML plan runs for regressions. Set DIR_A and DIR_B."
+command = "cargo"
+args = ["run", "--bin", "plan_diff", "--release", "--quiet", "--", "--dir-a=${DIR_A}", "--dir-b=${DIR_B}"]
+
+[tasks.plan-diff.env]
+DIR_A = "artifacts/pdc2025/automl_plans"
+DIR_B = "artifacts/pdc2025/automl_plans"
+
+[tasks.plan-schema]
+description = "Print the JSON Schema 2020-12 for AutomlPlan artifacts."
+command = "cargo"
+args = ["run", "--bin", "plan_schema", "--release", "--quiet"]
+
+[tasks.plan-report]
+description = "Generate standalone HTML report from AutoML plan artifacts."
+command = "cargo"
+args = ["run", "--bin", "plan_report", "--release", "--quiet"]
 
 [tasks.run]
 description = "Start the autonomic live loop simulation."

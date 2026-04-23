@@ -194,7 +194,45 @@ Registered in **`Cargo.toml`**: `reinforcement_bench`, `real_data_bench`, `algor
 
 ---
 
-## 13. Security and determinism notes
+## 13. Anti-Lie Release Artifacts
+
+The anti-lie doctrine is operationalized through five release-ready tools. All require a prior `cargo make pdc` run that produced plan JSON files.
+
+### Commands
+
+| Command | Binary | Purpose |
+|---------|--------|---------|
+| `cargo make doctor` | `doctor` | Epistemic smoke test: LYING / SLOW / SATURATED / REDUNDANT / STALE |
+| `cargo make doctor-target TARGET=T1` | `doctor` | Enforce deployment tier contract; suggest cheapest Pareto downgrade |
+| `cargo make doctor-json` | `doctor` | JSON output for CI pipeline integration |
+| `cargo make plan-diff DIR_A=v1 DIR_B=v2` | `plan_diff` | Detect accuracy regressions between two artifact runs |
+| `cargo make plan-schema` | `plan_schema` | Print JSON Schema 2020-12 for AutomlPlan; `--validate=plan.json` for point checks |
+| `cargo make plan-report` | `plan_report` | Standalone HTML report: tier matrix, per-plan table, anti-lie audit, signal frequency |
+
+### Pathology Reference
+
+| Pathology | Exit | Meaning |
+|-----------|------|---------|
+| **LYING** | 2 (fatal) | `accounting_balanced=false`, accounting identity broken, `oracle_gap` mismatch, or Pareto ≠1 chosen |
+| **SLOW** | 1 (warn) | `total_timing_us > 100,000µs` — not edge-deployable |
+| **SATURATED** | 1 (warn) | All selected signals from a single family — monoculture, not orthogonal |
+| **REDUNDANT** | 1 (info) | >40% of evaluated signals rejected for correlation |
+| **STALE** | 1 (info) | `run_metadata.json` missing or commit hash mismatch |
+
+### Doctor Vision (2026–2030)
+
+> "Your doctor command would answer something much stronger: can this system be trusted here?"
+
+The current `doctor` is Phase 1 (smoke test + anti-lie verifier). Future phases:
+- **2027**: operational diagnostician — drift, tier regressions, oracle gap trends, anchor bias metrics
+- **2028**: repair planner — cheapest lawful repair, counterfactual repair engine
+- **2030**: autonomic governor — unified diagnostic and repair substrate across the entire stack
+
+See `docs/explanation/deployment_tiers.md` and `docs/how-to/run-doctor.md` for usage details.
+
+---
+
+## 14. Security and determinism notes
 
 - XES parsing uses **`quick-xml`** without a full DTD resolver in the snippet path; keep expansion limits and entity policies in mind when extending **`parse_content`**.
 - Token replay and **`canonical_hash`** are written for **audit-style reproducibility**; preserve hashing and ordering semantics when changing event or net serialization.
@@ -202,7 +240,7 @@ Registered in **`Cargo.toml`**: `reinforcement_bench`, `real_data_bench`, `algor
 
 ---
 
-## 14. Conventions for agents
+## 15. Conventions for agents
 
 - **Scope**: Touch only files needed for the task; avoid drive-by refactors or unsolicited markdown except when updating this **`AGENTS.md`** alongside behavioral changes.
 - **Lockfile**: When changing `Cargo.toml` dependencies, update **`Cargo.lock`** and commit both so CI and `cargo bench` stay reproducible.
@@ -213,7 +251,7 @@ Registered in **`Cargo.toml`**: `reinforcement_bench`, `real_data_bench`, `algor
 
 ---
 
-## 15. Pre-merge verification checklist
+## 16. Pre-merge verification checklist
 
 1. `cargo check` (minimum).
 2. `cargo clippy --all-targets -- -D warnings` when editing Rust sources intended for merge.

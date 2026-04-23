@@ -74,6 +74,22 @@ path = "src/bin/ml_bench.rs"
 name = "dod"
 path = "src/bin/dod.rs"
 
+[[bin]]
+name = "doctor"
+path = "src/bin/doctor.rs"
+
+[[bin]]
+name = "plan_diff"
+path = "src/bin/plan_diff.rs"
+
+[[bin]]
+name = "plan_schema"
+path = "src/bin/plan_schema.rs"
+
+[[bin]]
+name = "plan_report"
+path = "src/bin/plan_report.rs"
+
 [[bench]]
 name = "reinforcement_bench"
 harness = false
