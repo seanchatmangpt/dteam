@@ -9,13 +9,14 @@ import { motionTick, MotionResponse } from '@/lib/unibit';
 import type { Run } from '@/lib/runs';
 
 export function EpisodeScene({ run }: { run: Run }) {
-  const [response, setResponse] = useState<MotionResponse | null>(null);
-  const [history, setHistory] = useState<MotionResponse[]>([]);
+  const initialResponse = useMemo(() => motionTick(run.request), [run]);
+  const [response, setResponse] = useState<MotionResponse | null>(
+    initialResponse
+  );
+  const [history, setHistory] = useState<MotionResponse[]>([initialResponse]);
   const [currentAnnotation, setCurrentAnnotation] = useState<string | null>(
     null
   );
-
-  const initialResponse = useMemo(() => motionTick(run.request), [run]);
 
   useEffect(() => {
     setResponse(initialResponse);
