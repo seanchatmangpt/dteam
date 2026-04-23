@@ -1,3 +1,4 @@
+pub mod pdc_combinator;
 pub mod rank_fusion;
 pub mod synthetic_trainer;
 pub mod deep_learning;

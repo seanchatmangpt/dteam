@@ -38,7 +38,10 @@ pub fn build_vocabulary(log: &EventLog) -> Vec<String> {
 /// | `[1]` | `in_language` (BFS exact) as `1.0` or `0.0` |
 /// | `[2]` | Trace length normalised to `[0, 1]` by `log_max_len` |
 /// | `[3]` | Unique activity count normalised by `vocabulary.len()` |
-/// | `[4..]` | Activity frequency: `count(activity_j) / max(trace_len, 1)` for each `j` in vocabulary |
+/// | `[4]` | `is_perfect` (missing==0 && remaining==0) as `1.0` or `0.0` |
+/// | `[5]` | `missing_norm` = missing / (consumed + missing), bounded `[0, 1]` |
+/// | `[6]` | `remaining_norm` = remaining / (produced + remaining), bounded `[0, 1]` |
+/// | `[7..]` | Activity frequency: `count(activity_j) / max(trace_len, 1)` for each `j` in vocabulary |
 pub fn trace_to_features(
     trace: &Trace,
     net: &NetBitmask64,
@@ -62,10 +65,19 @@ pub fn trace_to_features(
 
     let trace_len = activities.len();
 
-    // Replay fitness
+    // Replay fitness + conformance deviation signals
     use crate::conformance::bitmask_replay::replay_trace;
     let replay_result = replay_trace(net, trace);
     let fitness = replay_result.fitness();
+    let is_perfect = if replay_result.is_perfect() { 1.0_f64 } else { 0.0_f64 };
+    let missing_norm = {
+        let d = (replay_result.consumed + replay_result.missing) as f64;
+        if d == 0.0 { 0.0_f64 } else { replay_result.missing as f64 / d }
+    };
+    let remaining_norm = {
+        let d = (replay_result.produced + replay_result.remaining) as f64;
+        if d == 0.0 { 0.0_f64 } else { replay_result.remaining as f64 / d }
+    };
 
     // Exact language membership
     let lang_flag = if in_language(net, trace) { 1.0_f64 } else { 0.0_f64 };
@@ -102,11 +114,14 @@ pub fn trace_to_features(
         .map(|v| *freq_map.get(v.as_str()).unwrap_or(&0) as f64 / max_len as f64)
         .collect();
 
-    let mut features = Vec::with_capacity(4 + vocabulary.len());
+    let mut features = Vec::with_capacity(7 + vocabulary.len());
     features.push(fitness);
     features.push(lang_flag);
     features.push(norm_len);
     features.push(norm_unique);
+    features.push(is_perfect);
+    features.push(missing_norm);
+    features.push(remaining_norm);
     features.extend_from_slice(&bag);
     features
 }
@@ -114,7 +129,7 @@ pub fn trace_to_features(
 /// Extract features for all traces in a log.
 ///
 /// Returns `(features, in_lang_flags, fitness_scores)`:
-/// - `features[i]` — feature vector for trace `i` (length `4 + |vocabulary|`)
+/// - `features[i]` — feature vector for trace `i` (length `7 + |vocabulary|`)
 /// - `in_lang_flags[i]` — whether trace `i` is in the Petri net's language (BFS exact check)
 /// - `fitness_scores[i]` — token-replay fitness for trace `i`
 pub fn extract_log_features(
@@ -192,11 +207,25 @@ pub fn extract_log_features(
                 .map(|v| *freq_map.get(v.as_str()).unwrap_or(&0) as f64 / max_len as f64)
                 .collect();
 
-            let mut fv = Vec::with_capacity(4 + vocabulary.len());
+            let rr = &replay_results[i];
+            let is_perfect = if rr.is_perfect() { 1.0_f64 } else { 0.0_f64 };
+            let missing_norm = {
+                let d = (rr.consumed + rr.missing) as f64;
+                if d == 0.0 { 0.0_f64 } else { rr.missing as f64 / d }
+            };
+            let remaining_norm = {
+                let d = (rr.produced + rr.remaining) as f64;
+                if d == 0.0 { 0.0_f64 } else { rr.remaining as f64 / d }
+            };
+
+            let mut fv = Vec::with_capacity(7 + vocabulary.len());
             fv.push(fitness);
             fv.push(lang_flag);
             fv.push(norm_len);
             fv.push(norm_unique);
+            fv.push(is_perfect);
+            fv.push(missing_norm);
+            fv.push(remaining_norm);
             fv.extend_from_slice(&bag);
             fv
         })

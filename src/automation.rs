@@ -47,6 +47,36 @@ pub fn train_with_provenance(
         lambda,
         ontology,
         seed,
+        None,
+    )
+}
+
+/// Like [`train_with_provenance`] but accepts an optional ensemble-vote bonus
+/// that is added to the per-epoch reward signal.
+///
+/// `ensemble_vote` — fraction in `[0.0, 1.0]` representing how strongly the
+/// external classifier pool agrees with the current model's positive labels.
+/// When `Some(v)`, the reward becomes:
+/// `fitness + β·soundness − λ·complexity + γ·ensemble_vote`  where γ = 0.3.
+///
+/// Pass `None` to replicate the baseline reward unchanged.
+pub fn train_with_provenance_and_vote(
+    train_log: &EventLog,
+    config: &AutonomicConfig,
+    beta: f32,
+    lambda: f32,
+    ontology: Option<&crate::models::Ontology>,
+    seed: Option<u64>,
+    ensemble_vote: Option<f32>,
+) -> (PetriNet, Vec<u8>) {
+    train_with_provenance_projected(
+        &ProjectedLog::generate_with_ontology(train_log, ontology),
+        config,
+        beta,
+        lambda,
+        ontology,
+        seed,
+        ensemble_vote,
     )
 }
 
@@ -57,6 +87,7 @@ pub fn train_with_provenance_projected(
     lambda: f32,
     ontology: Option<&crate::models::Ontology>,
     seed: Option<u64>,
+    ensemble_vote: Option<f32>,
 ) -> (PetriNet, Vec<u8>) {
     use crate::utils::dense_kernel::KBitSet;
     let mut model = PetriNet::default();
@@ -108,10 +139,12 @@ pub fn train_with_provenance_projected(
         let is_sound = model.is_structural_workflow_net();
         let verifies_calculus = model.verifies_state_equation_calculus();
 
-        // Reward = fitness + β·soundness_bonus − λ·MDL_complexity
+        // Reward = fitness + β·soundness − λ·complexity [+ γ·ensemble_vote]
+        let ensemble_bonus = ensemble_vote.unwrap_or(0.0) * 0.3;
         let reward = avg_f as f32
             + beta * (1.0 - unsoundness_u)
-            - lambda * complexity_c;
+            - lambda * complexity_c
+            + ensemble_bonus;
 
         if let Some(pa) = prev_action {
             let done = avg_f >= config.discovery.fitness_stopping_threshold
@@ -180,7 +213,8 @@ pub fn train_with_provenance_projected(
 }
 
 fn train_to_perfection_projected(train_log: &ProjectedLog, config: &AutonomicConfig) -> PetriNet {
-    let (model, _) = train_with_provenance_projected(train_log, config, 0.5, 0.01, None, None);
+    let (model, _) =
+        train_with_provenance_projected(train_log, config, 0.5, 0.01, None, None, None);
     model
 }
 
