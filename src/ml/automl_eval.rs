@@ -6,7 +6,6 @@ use crate::config::AutonomicConfig;
 use crate::conformance::bitmask_replay::NetBitmask64;
 use crate::ml::automl::{SearchStrategy, TrialConfig, TrialResult};
 use crate::ml::pdc_combinator::run_combinator;
-use crate::ml::pdc_features::extract_log_features;
 use crate::ml::pdc_supervised::{run_supervised, SupervisedPredictions};
 use crate::ml::{decision_tree, neural_network};
 use crate::models::{EventLog, Ontology};
@@ -119,14 +118,40 @@ impl<'a> AutoMLEvaluator<'a> {
         base_config: &AutonomicConfig,
         max_results: usize,
     ) -> Option<TrialResult> {
-        let mut results: Vec<TrialResult> = Vec::with_capacity(max_results);
+        // TPOT2 steady-state: drain all trials from the strategy, then evaluate them
+        // in parallel. Each trial = 2-pass RL training, fully independent. Since
+        // strategies are deterministic generators (fixed seed), drainage order is
+        // preserved; the parallelism is in evaluation, not scheduling.
+        //
+        // Determinism note: rayon's par_iter keeps the original iteration order for
+        // collected results, so `results[i]` corresponds to the i-th trial — same as
+        // serial. The max_by() tiebreak is stable.
+        use rayon::prelude::*;
+
+        let mut trials: Vec<TrialConfig> = Vec::new();
         while let Some(trial) = strategy.next_trial() {
-            let result = self.evaluate(&trial, base_config);
-            strategy.report(result);
-            if results.len() < max_results {
-                results.push(result);
-            }
+            trials.push(trial);
         }
+
+        if trials.is_empty() {
+            return None;
+        }
+
+        // Parallel evaluation — each evaluate() call is ~seconds of RL work
+        let results: Vec<TrialResult> = trials
+            .par_iter()
+            .map(|trial| self.evaluate(trial, base_config))
+            .collect();
+
+        // Report to strategy in original order (for strategies that track state)
+        for r in &results {
+            strategy.report(*r);
+        }
+
+        // Cap in-memory accumulator
+        let capped: Vec<TrialResult> = results.iter().take(max_results).copied().collect();
+        let _ = capped; // max_results is informational only here
+
         results.iter().copied().max_by(|a, b| {
             a.best_score()
                 .partial_cmp(&b.best_score())
@@ -134,67 +159,19 @@ impl<'a> AutoMLEvaluator<'a> {
         })
     }
 
-    /// Single-pass evaluation: reuse the provided net without RL retraining.
-    ///
-    /// Useful for quickly sweeping ensemble/classifier hyperparameters when
-    /// the RL model is already fixed.
-    /// Single-pass evaluation: skip RL retraining, but ACTUALLY use the trial's
-    /// supervised hyperparameters. Returns both a scored `TrialResult` and the
-    /// ensemble predictions so the caller can use the actual trial-dependent output
-    /// (not a stale constant from run_combinator).
-    ///
-    /// Anti-lie: the score returned here MUST change when the trial changes,
-    /// otherwise the sweep is performing no work.
-    pub fn evaluate_ensemble_only(
-        &self,
-        trial: &TrialConfig,
-        _base_config: &AutonomicConfig,
-    ) -> TrialResult {
-        let (predictions, score) = self.evaluate_ensemble_only_with_preds(trial);
-
-        // Anti-lie: if predictions are empty for a non-empty log, something lied.
-        debug_assert_eq!(
-            predictions.len(),
-            self.log.traces.len(),
-            "evaluate_ensemble_only lie: predictions.len({}) != log.traces.len({})",
-            predictions.len(),
-            self.log.traces.len(),
-        );
-
-        TrialResult {
-            trial: *trial,
-            pass1_score: score,
-            pass2_score: score,
-            ensemble_score: score.clamp(0.0, 1.0) as f32,
-            config_hash: trial.hash(),
-        }
-    }
-
-    /// Ensemble-only evaluation returning both predictions and score.
-    ///
-    /// Combines the trial-parameterized supervised classifiers (decision tree +
-    /// neural net) with the net's `in_lang` signal via combinatorial ensemble —
-    /// so score changes with trial hyperparameters.
-    pub fn evaluate_ensemble_only_with_preds(&self, trial: &TrialConfig) -> (Vec<bool>, f64) {
-        let (features, in_lang, _fitness) = extract_log_features(self.log, self.net);
-        let pseudo_bool: Vec<bool> = in_lang.clone();
-
-        // Parameterized supervised classifiers — score MUST change with trial
-        let sup = run_supervised_with_trial(&features, &pseudo_bool, trial);
-
-        // Ensemble the trial-dependent predictions with the net's baseline signal.
-        // This is what makes the score trial-sensitive.
-        let pool = vec![
-            sup.decision_tree.clone(),
-            sup.neural_net.clone(),
-            in_lang.clone(),
-        ];
-        let predictions =
-            crate::ml::pdc_ensemble::combinatorial_ensemble(&pool, &in_lang, self.n_target);
-        let score = crate::ml::pdc_ensemble::score(&predictions, &in_lang, self.n_target);
-
-        (predictions, score)
-    }
+    // REMOVED: evaluate_ensemble_only / evaluate_ensemble_only_with_preds
+    //
+    // These methods were deleted because `combinatorial_ensemble(pool, in_lang)` is a
+    // supremum operation: it picks the best subset of the pool with respect to `in_lang`.
+    // When `in_lang` is ALSO in the pool (as it was), the supremum always picks `[in_lang]`
+    // alone — absorbing all trial variation. Every trial returned the same score.
+    //
+    // This was a structural no-op disguised as a hyperparameter sweep. The runtime
+    // warning "ran N trials with zero score spread" fired on every log.
+    //
+    // Per the anti-lie doctrine (make lying impossible), the correct fix is deletion,
+    // not another warning. The "random" and "grid" strategies remain and do real work
+    // via the 2-pass RL evaluator in `evaluate()`.
 }
 
 // ── Supervised with trial params ──────────────────────────────────────────────

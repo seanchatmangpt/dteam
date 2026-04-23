@@ -20,7 +20,7 @@ use dteam::ml::automl::{
 };
 use dteam::ml::automl_eval::{apply_trial, run_supervised_with_trial, AutoMLEvaluator};
 use dteam::ml::hdc;
-use dteam::ml::hdit_automl::{run_hdit_automl, SignalProfile};
+use dteam::ml::hdit_automl::{run_hdit_automl, run_hdit_automl_sh, SignalProfile};
 use dteam::ml::pdc_combinator::run_combinator;
 use dteam::ml::pdc_ensemble::{
     best_bool_score_pair, combinatorial_ensemble, full_combinatorial, score, vote_fractions,
@@ -38,7 +38,7 @@ use dteam::ml::synthetic_trainer::{classify_with_synthetic, extract_sequences};
 use dteam::ml::weighted_vote::{auto_weighted_vote, precision_weighted_vote};
 use dteam::models::{AttributeValue, EventLog};
 use dteam::utils::dense_kernel::fnv1a_64;
-use log::info;
+use log::{info, warn};
 use rustc_hash::FxHashMap;
 use std::path::PathBuf;
 
@@ -139,9 +139,15 @@ fn main() {
     // ── Anti-lie: validate AutoML strategy config at startup, not silently fall back ──
     if cfg.automl.enabled {
         match cfg.automl.strategy.as_str() {
-            "random" | "grid" | "ensemble_only" => {}
+            "random" | "grid" => {}
+            "ensemble_only" => panic!(
+                "AutoML config lie: strategy=\"ensemble_only\" has been removed. \
+                 It was a structural no-op: combinatorial_ensemble + score_vs_in_lang \
+                 is a supremum operation that absorbs trial variation, so all trials \
+                 produced identical scores. Use \"random\" or \"grid\" instead."
+            ),
             other => panic!(
-                "AutoML config lie: strategy=\"{}\" is not valid. Must be one of: random, grid, ensemble_only",
+                "AutoML config lie: strategy=\"{}\" is not valid. Must be one of: random, grid",
                 other
             ),
         }
@@ -154,6 +160,12 @@ fn main() {
     let model_dir = PathBuf::from("data/pdc2025/models");
     let output_dir = PathBuf::from("artifacts/pdc2025");
     let gt_dir = PathBuf::from("data/pdc2025/ground_truth");
+
+    let stem_filter: Option<String> =
+        std::env::args().find_map(|a| a.strip_prefix("--stem=").map(|s| s.to_string()));
+    if let Some(ref f) = stem_filter {
+        info!("── Single-log mode: running only {}", f);
+    }
 
     std::fs::create_dir_all(&output_dir).unwrap();
 
@@ -168,21 +180,37 @@ fn main() {
 
     // Accumulators for each strategy and combination
     let mut acc = Acc::default();
+    let mut n_failed_xes: usize = 0;
+    let mut n_failed_gt: usize = 0;
 
     for (log_idx, entry) in entries.iter().enumerate() {
         let log_path = entry.path();
         let stem = log_path.file_stem().unwrap().to_string_lossy().into_owned();
+
+        if let Some(ref f) = stem_filter {
+            if stem != *f {
+                continue;
+            }
+        }
 
         let gt_path = gt_dir.join(format!("{}.xes", stem));
         let model_path = model_dir.join(format!("{}.pnml", stem));
 
         let log = match reader.read(&log_path) {
             Ok(l) => l,
-            Err(_) => continue,
+            Err(e) => {
+                warn!("skip {}: XES parse error — {}", stem, e);
+                n_failed_xes += 1;
+                continue;
+            }
         };
         let gt = match reader.read(&gt_path) {
             Ok(l) => l,
-            Err(_) => continue,
+            Err(e) => {
+                warn!("skip {}: ground-truth missing — {}", stem, e);
+                n_failed_gt += 1;
+                continue;
+            }
         };
 
         // ── Training data (loaded once, shared by HDC / supervised / combinator) ──
@@ -532,11 +560,14 @@ fn main() {
                     if lang_traces.is_empty() {
                         cls_f.clone() // fallback to classify_exact
                     } else {
-                        // For each test trace, compute min edit distance to any language trace
+                        // For each test trace, compute min edit distance to any language trace.
+                        // TPOT2 steady-state: parallelize across test traces since each query
+                        // is independent. ~1000 traces × ~5000 language = embarrassingly parallel.
+                        use rayon::prelude::*;
                         let test_seqs: Vec<Vec<String>> =
                             log.traces.iter().map(trace_to_seq).collect();
                         let distances: Vec<usize> = test_seqs
-                            .iter()
+                            .par_iter()
                             .map(|q| min_edit_distance(q, &lang_traces))
                             .collect();
                         edit_dists_global = distances.clone();
@@ -610,7 +641,7 @@ fn main() {
         };
 
         // ── Strategy RL-AutoML: search RL hyperparameters for better Petri net ────────
-        // Config-driven: cfg.automl.enabled / .strategy ("random"|"grid"|"ensemble_only") / .budget / .seed
+        // Config-driven: cfg.automl.enabled / .strategy ("random"|"grid") / .budget / .seed
         let cls_rl_automl: Vec<bool> = if cfg.automl.enabled && model_path.exists() {
             if let Ok(dnet) = read_pnml(&model_path) {
                 if dnet.places.len() <= 64 {
@@ -623,58 +654,13 @@ fn main() {
                     // Dispatch strategy based on config — validated at startup, so unreachable() is a bug
                     let strategy: Box<dyn SearchStrategy> = match cfg.automl.strategy.as_str() {
                         "grid" => Box::new(GridSearch::new(space, rl_seed)),
-                        "random" | "ensemble_only" => {
-                            Box::new(RandomSearch::new(space, budget, rl_seed))
-                        }
+                        "random" => Box::new(RandomSearch::new(space, budget, rl_seed)),
                         other => {
                             unreachable!("startup validation failed to catch strategy={}", other)
                         }
                     };
 
-                    // Ensemble-only mode skips RL retraining — faster for ensemble hyperparameter sweeps.
-                    // Anti-lie: each trial's ACTUAL predictions come from evaluate_ensemble_only_with_preds,
-                    // NOT from a stale run_combinator call that ignores the trial.
-                    if cfg.automl.strategy == "ensemble_only" {
-                        let mut best_score = f64::NEG_INFINITY;
-                        let mut best_preds = vec![false; log.traces.len()];
-                        let mut n_trials = 0usize;
-                        let mut score_spread = (f64::INFINITY, f64::NEG_INFINITY);
-                        let mut strat = strategy;
-                        while let Some(trial) = strat.next_trial() {
-                            let (preds, trial_score) =
-                                evaluator.evaluate_ensemble_only_with_preds(&trial);
-                            let trial_result = dteam::ml::automl::TrialResult {
-                                trial,
-                                pass1_score: trial_score,
-                                pass2_score: trial_score,
-                                ensemble_score: trial_score.clamp(0.0, 1.0) as f32,
-                                config_hash: trial.hash(),
-                            };
-                            strat.report(trial_result);
-                            n_trials += 1;
-                            score_spread.0 = score_spread.0.min(trial_score);
-                            score_spread.1 = score_spread.1.max(trial_score);
-                            if trial_score > best_score {
-                                best_score = trial_score;
-                                best_preds = preds;
-                            }
-                        }
-                        // Anti-lie: if more than 1 trial ran and the score never changed, the sweep is a no-op
-                        if n_trials > 1 {
-                            let spread = score_spread.1 - score_spread.0;
-                            debug_assert!(
-                                spread.is_finite(),
-                                "ensemble_only sweep produced non-finite scores",
-                            );
-                            if spread == 0.0 {
-                                info!(
-                                    "  [{}] WARNING: ensemble_only ran {} trials with zero score spread — hyperparameter sweep may be ineffective",
-                                    stem, n_trials,
-                                );
-                            }
-                        }
-                        best_preds
-                    } else if let Some(best) = evaluator.run_automl(strategy, &cfg, budget) {
+                    if let Some(best) = evaluator.run_automl(strategy, &cfg, budget) {
                         // Full RL AutoML: retrain with best trial config to get the optimized net
                         let best_cfg = apply_trial(&cfg, &best.trial);
                         let (net_opt, _) = train_with_provenance_and_vote(
@@ -861,7 +847,18 @@ fn main() {
                 SignalProfile::new(*name, (*preds).clone(), &hdit_anchor, *timing)
             })
             .collect();
-        let automl_plan = run_hdit_automl(candidates, &hdit_anchor, 500);
+        // TPOT2 successive halving dispatch: rung-0 subsample + rung-1 full
+        let automl_plan = if cfg.automl.successive_halving {
+            run_hdit_automl_sh(
+                candidates,
+                &hdit_anchor,
+                500,
+                cfg.automl.sh_subsample,
+                cfg.automl.sh_promotion_ratio,
+            )
+        } else {
+            run_hdit_automl(candidates, &hdit_anchor, 500)
+        };
         let cls_automl = automl_plan.predictions.clone();
 
         // ── Anti-lie metric: anchor quality vs GT ────────────────────────────────
@@ -964,6 +961,17 @@ fn main() {
                 + automl_plan.signals_rejected_correlation
                 + automl_plan.signals_rejected_no_gain
                 == automl_plan.signals_evaluated,
+            // TPOT2-style Pareto front: non-dominated (accuracy, complexity, timing) tradeoffs
+            "pareto_front": automl_plan.pareto_front.iter()
+                .map(|c| serde_json::json!({
+                    "signals": c.signals,
+                    "fusion": format!("{:?}", c.fusion),
+                    "accuracy_vs_anchor": c.accuracy_vs_anchor,
+                    "total_timing_us": c.total_timing_us,
+                    "complexity": c.complexity,
+                    "chosen": c.chosen,
+                }))
+                .collect::<Vec<_>>(),
         });
         // Anti-lie: persistence failures MUST surface, not be swallowed.
         // A silent write failure = a silent lie about what was produced.
@@ -1142,6 +1150,13 @@ fn main() {
             stem, best_name, best_sc
         );
         let _ = write_classified_log(&log, best_preds, &output_dir.join(format!("{}.xes", stem)));
+    }
+
+    if n_failed_xes + n_failed_gt > 0 {
+        warn!(
+            "── Skipped logs ─── XES errors: {}  GT missing: {}",
+            n_failed_xes, n_failed_gt
+        );
     }
 
     let t = acc.total as f64;
@@ -1498,9 +1513,67 @@ fn main() {
             n_accounting_violations,
         );
     }
+
+    // ── Strategy accuracy snapshot ────────────────────────────────────────────
+    let n_f = acc.total.max(1) as f64;
+    let acc_json = serde_json::json!({
+        "n_logs": acc.total,
+        "strategies": {
+            "f":             acc.f             as f64 / n_f,
+            "g":             acc.g             as f64 / n_f,
+            "h":             acc.h             as f64 / n_f,
+            "hdc":           acc.hdc           as f64 / n_f,
+            "automl":        acc.automl        as f64 / n_f,
+            "rl_automl":     acc.rl_automl     as f64 / n_f,
+            "combinator":    acc.combinator    as f64 / n_f,
+            "sup_trained":   acc.sup_trained   as f64 / n_f,
+            "automl_hyper":  acc.automl_hyper  as f64 / n_f,
+            "borda":         acc.borda         as f64 / n_f,
+            "rrf":           acc.rrf           as f64 / n_f,
+            "weighted":      acc.weighted      as f64 / n_f,
+            "prec_weighted": acc.prec_weighted as f64 / n_f,
+            "stacked":       acc.stacked       as f64 / n_f,
+            "full_combo":    acc.full_combo    as f64 / n_f,
+            "best_pair":     acc.best_pair     as f64 / n_f,
+            "combo":         acc.combo         as f64 / n_f,
+            "vote500":       acc.vote500       as f64 / n_f,
+            "s_ensemble":    acc.s_ensemble    as f64 / n_f,
+            "best_per_log":  acc.best_per_log  as f64 / n_f,
+        }
+    });
+    let acc_path = output_dir.join("strategy_accuracies.json");
+    if let Ok(s) = serde_json::to_string_pretty(&acc_json) {
+        let _ = std::fs::write(&acc_path, s);
+    }
+
+    // ── Run metadata ──────────────────────────────────────────────────────────
+    let git_hash = std::process::Command::new("git")
+        .args(["rev-parse", "--short", "HEAD"])
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .map(|s| s.trim().to_string())
+        .unwrap_or_else(|| "unknown".into());
+    let timestamp_secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let meta_json = serde_json::json!({
+        "git_commit":       git_hash,
+        "timestamp":        timestamp_secs,
+        "n_logs_total":     entries.len(),
+        "n_logs_processed": acc.total,
+        "n_failed_xes":     n_failed_xes,
+        "n_failed_gt":      n_failed_gt,
+        "stem_filter":      stem_filter,
+    });
+    let meta_path = output_dir.join("run_metadata.json");
+    if let Ok(s) = serde_json::to_string_pretty(&meta_json) {
+        let _ = std::fs::write(&meta_path, s);
+    }
 }
 
-#[derive(Default)]
+#[derive(Default, serde::Serialize)]
 struct Acc {
     total: usize,
     a: usize,

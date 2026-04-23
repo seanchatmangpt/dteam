@@ -112,6 +112,34 @@ args = ["run", "--bin", "pdc2025", "--release"]
 [tasks.pdc.env]
 RUST_LOG = "info"
 
+[tasks.pdc-debug]
+description = "Run PDC 2025 pipeline in debug mode (fast build, for iteration)."
+command = "cargo"
+args = ["run", "--bin", "pdc2025"]
+
+[tasks.pdc-debug.env]
+RUST_LOG = "info"
+
+[tasks.pdc-stem]
+description = "Run PDC 2025 on one log. Set STEM=pdc2025_000000 before calling."
+command = "cargo"
+args = ["run", "--bin", "pdc2025", "--release", "--", "--stem=${STEM}"]
+
+[tasks.pdc-stem.env]
+RUST_LOG = "info"
+STEM = "pdc2025_000000"
+
+[tasks.pdc-check-data]
+description = "Verify PDC 2025 dataset directories exist."
+script_runner = "@shell"
+script = [
+  "[ -d data/pdc2025/test_logs ]     && echo '✓ test_logs'     || { echo '✗ test_logs missing';     exit 1; }",
+  "[ -d data/pdc2025/models ]        && echo '✓ models'         || { echo '✗ models missing';         exit 1; }",
+  "[ -d data/pdc2025/ground_truth ]  && echo '✓ ground_truth'   || { echo '✗ ground_truth missing';   exit 1; }",
+  "[ -d data/pdc2025/training_logs ] && echo '✓ training_logs'  || { echo '✗ training_logs missing';  exit 1; }",
+  "echo 'PDC 2025 data structure OK'",
+]
+
 [tasks.doc]
 description = "Generate the whitepaper PDF using pdflatex."
 script_runner = "@shell"
