@@ -968,20 +968,14 @@ fn main() {
         let n_t = log.traces.len();
         let hdit_anchor: Vec<bool> = (0..n_t)
             .map(|i| {
-                [
-                    &cls_f,
-                    &cls_g,
-                    &cls_h,
-                    &cls_hdc,
-                    &cls_e,
-                    &cls_s_ensemble,
-                    &cls_combo,
-                    &cls_vote500,
-                ]
-                .iter()
-                .filter(|s| s[i])
-                .count()
-                    >= 4
+                // Anchor uses only signals absent from the HDIT candidate pool.
+                // Three structurally orthogonal families: BoW (TF-IDF), sequential
+                // (NGram), graph (PageRank). Majority-of-3 = at least 2 agree.
+                [&cls_tfidf, &cls_ngram, &cls_pagerank]
+                    .iter()
+                    .filter(|s| s[i])
+                    .count()
+                    >= 2
             })
             .collect();
         let hdit_candidate_names_preds: Vec<(&str, &Vec<bool>, u64)> = vec![
@@ -1496,6 +1490,31 @@ fn main() {
             .collect();
         plan_files.sort();
 
+        if plan_files.is_empty() {
+            let stub = serde_json::json!({
+                "n_plans_counted": 0usize,
+                "n_accounting_violations": 0usize,
+                "avg_plan_vs_gt": 0.0f64,
+                "avg_anchor_vs_gt": 0.0f64,
+                "avg_oracle_vs_gt": 0.0f64,
+                "avg_oracle_gap": 0.0f64,
+                "total_signals_evaluated": 0usize,
+                "total_selected": 0usize,
+                "total_rejected_correlation": 0usize,
+                "total_rejected_no_gain": 0usize,
+                "signal_selection_frequency": [],
+                "fusion_op_frequency": [],
+                "tier_frequency": [],
+                "accounting_balanced_global": true
+            });
+            let stub_str = serde_json::to_string_pretty(&stub)
+                .expect("stub summary serialization cannot fail");
+            let summary_path = output_dir.join("automl_summary.json");
+            std::fs::write(&summary_path, stub_str).unwrap_or_else(|e| {
+                panic!("Failed to write stub summary {:?}: {}", summary_path, e)
+            });
+        }
+
         let mut signal_selection_count: FxHashMap<String, usize> = FxHashMap::default();
         let mut fusion_op_count: FxHashMap<String, usize> = FxHashMap::default();
         let mut tier_count: FxHashMap<String, usize> = FxHashMap::default();
@@ -1719,9 +1738,10 @@ fn main() {
         }
     });
     let acc_path = output_dir.join("strategy_accuracies.json");
-    if let Ok(s) = serde_json::to_string_pretty(&acc_json) {
-        let _ = std::fs::write(&acc_path, s);
-    }
+    let acc_str = serde_json::to_string_pretty(&acc_json)
+        .expect("strategy_accuracies serialization cannot fail");
+    std::fs::write(&acc_path, acc_str)
+        .unwrap_or_else(|e| panic!("Failed to write {:?}: {}", acc_path, e));
 
     // ── Run metadata ──────────────────────────────────────────────────────────
     let git_hash = std::process::Command::new("git")
@@ -1745,9 +1765,10 @@ fn main() {
         "stem_filter":      stem_filter,
     });
     let meta_path = output_dir.join("run_metadata.json");
-    if let Ok(s) = serde_json::to_string_pretty(&meta_json) {
-        let _ = std::fs::write(&meta_path, s);
-    }
+    let meta_str =
+        serde_json::to_string_pretty(&meta_json).expect("run_metadata serialization cannot fail");
+    std::fs::write(&meta_path, meta_str)
+        .unwrap_or_else(|e| panic!("Failed to write {:?}: {}", meta_path, e));
 }
 
 #[derive(Default, serde::Serialize)]
