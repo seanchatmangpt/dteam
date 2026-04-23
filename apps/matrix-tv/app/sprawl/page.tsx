@@ -2,11 +2,12 @@
 
 import { Canvas } from '@react-three/fiber';
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Globe } from '@/components/GlobeRenderer';
 import { QuestHud } from '@/components/QuestHud';
 import { ReceiptRibbon } from '@/components/ReceiptRibbon';
 import { VerdictBadge } from '@/components/VerdictBadge';
+import { emitTurn, getPlayerId } from '@/lib/ocel';
 import { eventToMotionResponse, loadReplay, type SprawlEvent } from '@/lib/sprawl';
 
 /**
@@ -22,10 +23,23 @@ export default function SprawlPage() {
   const [error, setError] = useState<string | null>(null);
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(true);
+  const emittedRef = useRef<Set<number>>(new Set());
 
   useEffect(() => {
     loadReplay().then(setEvents).catch((e) => setError(String(e)));
   }, []);
+
+  // Emit an OCEL event + OTel span the first time each turn becomes
+  // current. Re-scrubbing the timeline doesn't re-emit: the OCEL log is
+  // a session-local event history, not a render-frame trace.
+  useEffect(() => {
+    if (!events || events.length === 0) return;
+    if (emittedRef.current.has(index)) return;
+    const ev = events[Math.min(index, events.length - 1)];
+    emittedRef.current.add(index);
+    const playerId = getPlayerId();
+    void emitTurn(ev, playerId);
+  }, [events, index]);
 
   useEffect(() => {
     if (!playing || !events || events.length === 0) return;
@@ -89,9 +103,14 @@ export default function SprawlPage() {
           maxWidth: 320,
         }}
       >
-        <Link href="/" style={{ color: '#9ab', textDecoration: 'none', fontSize: 12 }}>
-          ← back
-        </Link>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <Link href="/" style={{ color: '#9ab', textDecoration: 'none', fontSize: 12 }}>
+            ← back
+          </Link>
+          <Link href="/ocel" style={{ color: '#4db2ff', textDecoration: 'none', fontSize: 12 }}>
+            open OCEL observer →
+          </Link>
+        </div>
         <div style={{ fontSize: 10, opacity: 0.5, marginTop: 4, letterSpacing: 1 }}>
           SPRAWL · blockchain MUD
         </div>

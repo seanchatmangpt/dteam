@@ -9,3 +9,5 @@ test-results/
 playwright-report/
 playwright/.cache/
 tsconfig.tsbuildinfo
+# OCEL log — session-local; regenerated per play-through.
+ocel-log.jsonl
