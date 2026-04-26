@@ -363,6 +363,103 @@ fn build_sr_result(
     }
 }
 
+// ── SR Closure Receipt ────────────────────────────────────────────────────
+
+/// Ggen-compatible closure receipt written by SR after successful verification.
+///
+/// Schema follows `GgenReceipt` exactly so downstream consumers can parse
+/// the full dteam chain uniformly. When Ed25519 signing is unavailable the
+/// `signature` field is set to the literal string `"unsigned"` and the extra
+/// `signed` field is set to `false`.  Consumers MUST check `signed` before
+/// treating the signature as cryptographic proof.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SRClosureReceipt {
+    pub operation_id: String,
+    pub timestamp: String,
+    pub input_hashes: Vec<String>,
+    pub output_hashes: Vec<String>,
+    pub signature: String,
+    pub signed: bool,
+    pub previous_receipt_hash: Option<String>,
+}
+
+/// Find the most recent receipt file in a directory, returning its SHA-256 hash.
+/// Returns `None` when the directory is absent or contains no `.json` files.
+fn latest_receipt_hash(receipts_dir: &Path) -> Option<String> {
+    let entries = fs::read_dir(receipts_dir).ok()?;
+    let mut files: Vec<(std::time::SystemTime, PathBuf)> = entries
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().extension().and_then(|x| x.to_str()) == Some("json"))
+        .filter_map(|e| {
+            let mtime = e.metadata().ok()?.modified().ok()?;
+            Some((mtime, e.path()))
+        })
+        .collect();
+    files.sort_by_key(|(t, _)| *t);
+    let (_, path) = files.last()?;
+    let data = fs::read(path).ok()?;
+    // Plain 64-char hex, matching ggen receipt chain convention
+    use sha2::{Digest, Sha256};
+    let mut h = Sha256::new();
+    h.update(&data);
+    Some(format!("{:x}", h.finalize()))
+}
+
+/// Write an SR closure receipt to `out_path`.
+///
+/// `input_paths` — every file SR consumed (capability receipt, ralph receipt,
+///   spec kit artifacts).  Each is hashed with SHA-256; missing files are
+///   skipped (not an error — SR already validated them above).
+/// `sr_result_json` — the serialized `SRResult`; its hash becomes the sole
+///   entry in `output_hashes`.
+fn write_sr_receipt(
+    operation_id: &str,
+    input_paths: &[&Path],
+    sr_result_json: &str,
+    receipts_dir: &Path,
+    out_path: &Path,
+) -> Result<()> {
+    use sha2::{Digest, Sha256};
+
+    // Hash each input file (plain 64-char hex, no prefix — matches ggen chain)
+    let input_hashes: Vec<String> = input_paths
+        .iter()
+        .filter_map(|p| {
+            let data = fs::read(p).ok()?;
+            let mut h = Sha256::new();
+            h.update(&data);
+            Some(format!("{:x}", h.finalize()))
+        })
+        .collect();
+
+    // Hash the SRResult JSON as the sole output artifact
+    let mut h = Sha256::new();
+    h.update(sr_result_json.as_bytes());
+    let output_hash = format!("{:x}", h.finalize());
+
+    let previous_receipt_hash = latest_receipt_hash(receipts_dir);
+
+    let receipt = SRClosureReceipt {
+        operation_id: operation_id.to_string(),
+        timestamp: chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string(),
+        input_hashes,
+        output_hashes: vec![output_hash],
+        signature: "unsigned".to_string(),
+        signed: false,
+        previous_receipt_hash,
+    };
+
+    let json = serde_json::to_string_pretty(&receipt)
+        .context("Failed to serialize SR closure receipt")?;
+
+    if let Some(parent) = out_path.parent() {
+        fs::create_dir_all(parent).context("Failed to create receipts directory")?;
+    }
+
+    fs::write(out_path, &json).context(format!("Failed to write receipt: {}", out_path.display()))?;
+    Ok(())
+}
+
 // ── CLI parsing ───────────────────────────────────────────────────────────
 
 #[derive(Debug)]
@@ -376,6 +473,7 @@ struct Args {
     target: String,
     json_output: bool,
     dry_run: bool,
+    receipt_out: Option<PathBuf>,
 }
 
 fn parse_args() -> Result<Args> {
@@ -389,6 +487,7 @@ fn parse_args() -> Result<Args> {
         target: "mcpp".to_string(),
         json_output: false,
         dry_run: false,
+        receipt_out: None,
     };
 
     let argv: Vec<String> = std::env::args().collect();
@@ -440,6 +539,12 @@ fn parse_args() -> Result<Args> {
             }
             "--json" => args.json_output = true,
             "--dry-run" => args.dry_run = true,
+            "--receipt-out" => {
+                i += 1;
+                if i < argv.len() {
+                    args.receipt_out = Some(PathBuf::from(&argv[i]));
+                }
+            }
             "--help" | "-h" => {
                 println!("sr verify — Semantic Resolver for capability receipt consumption");
                 println!();
@@ -455,6 +560,8 @@ fn parse_args() -> Result<Args> {
                 println!("  --target <NAME>              Target name (default: mcpp)");
                 println!("  --json                       Output result as JSON");
                 println!("  --dry-run                    Parse inputs without validation");
+                println!("  --receipt-out <PATH>         Write SR closure receipt to this path");
+                println!("                               (default: .portfolio/receipts/sr-<target>-<ts>.json)");
                 println!("  --help                       Show this help message");
                 std::process::exit(0);
             }
@@ -529,9 +636,359 @@ fn print_result(result: &SRResult, json_output: bool) {
     }
 }
 
+// ── Replay-chain subcommand ───────────────────────────────────────────────
+//
+// `sr replay-chain --chain <path> --constitution <path> [--from <tick_id>] [--strict-wrap]`
+//
+// Walks chain.json from genesis, recomputes each `this_hash` (BLAKE3-256 over
+// JCS-canonicalized entry-minus-(this_hash,signature)), verifies Ed25519
+// signature against the pinned pubkey resolved from the constitution location
+// (sibling .portfolio/keys/portfolio-root-2026Q2.ed25519.pk by default), and
+// asserts `prev_hash == previous.this_hash`. Exits 0 on success, 2 on first
+// failure. Writes chain-replay-summary.json next to the chain file.
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChainReplaySummary {
+    pub schema: String,
+    pub is_valid: bool,
+    pub receipt_count: usize,
+    pub head: Option<String>,
+    pub verified_at: String,
+    pub errors: Vec<String>,
+    pub chain: String,
+    pub constitution: String,
+}
+
+fn b3_hex(data: &[u8]) -> String {
+    blake3::hash(data).to_hex().to_string()
+}
+
+fn blake2b_256_hex(data: &[u8]) -> String {
+    use blake2::digest::{Update, VariableOutput};
+    use blake2::Blake2bVar;
+    let mut hasher = Blake2bVar::new(32).expect("blake2b 32-byte output");
+    hasher.update(data);
+    let mut out = [0u8; 32];
+    hasher.finalize_variable(&mut out).expect("finalize");
+    hex::encode(out)
+}
+
+/// JSON Canonicalization Scheme (RFC 8785) — minimal implementation matching
+/// the reference Python in chain-verify.sh (UTF-16BE codepoint-sorted keys,
+/// no whitespace, integer-form floats when integral).
+fn jcs(v: &serde_json::Value) -> String {
+    use serde_json::Value;
+    match v {
+        Value::Null => "null".to_string(),
+        Value::Bool(b) => if *b { "true".into() } else { "false".into() },
+        Value::Number(n) => {
+            // Prefer integer rendering when integral
+            if let Some(i) = n.as_i64() { return i.to_string(); }
+            if let Some(u) = n.as_u64() { return u.to_string(); }
+            if let Some(f) = n.as_f64() {
+                if f.is_finite() && f.fract() == 0.0 {
+                    return format!("{}", f as i64);
+                }
+                return f.to_string();
+            }
+            n.to_string()
+        }
+        Value::String(s) => serde_json::to_string(s).unwrap_or_else(|_| "\"\"".into()),
+        Value::Array(arr) => {
+            let parts: Vec<String> = arr.iter().map(jcs).collect();
+            format!("[{}]", parts.join(","))
+        }
+        Value::Object(map) => {
+            let mut keys: Vec<&String> = map.keys().collect();
+            keys.sort_by(|a, b| {
+                let av: Vec<u16> = a.encode_utf16().collect();
+                let bv: Vec<u16> = b.encode_utf16().collect();
+                av.cmp(&bv)
+            });
+            let parts: Vec<String> = keys
+                .iter()
+                .map(|k| {
+                    let kj = serde_json::to_string(k).unwrap_or_else(|_| "\"\"".into());
+                    format!("{}:{}", kj, jcs(&map[*k]))
+                })
+                .collect();
+            format!("{{{}}}", parts.join(","))
+        }
+    }
+}
+
+fn resolve_pubkey_path(constitution_path: &Path) -> PathBuf {
+    // constitution at <repo>/.specify/memory/constitution.md
+    // pubkey at      <repo>/.portfolio/keys/portfolio-root-2026Q2.ed25519.pk
+    let mut p = constitution_path.to_path_buf();
+    // pop constitution.md, memory/, .specify/
+    for _ in 0..3 { p.pop(); }
+    p.push(".portfolio");
+    p.push("keys");
+    p.push("portfolio-root-2026Q2.ed25519.pk");
+    p
+}
+
+fn replay_chain(
+    chain_path: &Path,
+    constitution_path: &Path,
+    from_tick: Option<&str>,
+    strict_wrap: bool,
+) -> Result<ChainReplaySummary> {
+    use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+
+    let chain_text = fs::read_to_string(chain_path)
+        .context(format!("Failed to read chain: {}", chain_path.display()))?;
+    let chain: serde_json::Value = serde_json::from_str(&chain_text)
+        .context("Failed to parse chain JSON")?;
+
+    // Load pubkey
+    let pk_path = resolve_pubkey_path(constitution_path);
+    let pk_hex = fs::read_to_string(&pk_path)
+        .context(format!("Failed to read pubkey: {}", pk_path.display()))?
+        .trim()
+        .to_string();
+    let pk_bytes = hex::decode(&pk_hex).context("pubkey not valid hex")?;
+    if pk_bytes.len() != 32 {
+        bail!("pubkey must be 32 bytes, got {}", pk_bytes.len());
+    }
+    let mut pk_arr = [0u8; 32];
+    pk_arr.copy_from_slice(&pk_bytes);
+    let vk = VerifyingKey::from_bytes(&pk_arr).context("invalid Ed25519 pubkey")?;
+
+    let entries = chain
+        .get("entries")
+        .and_then(|e| e.as_array())
+        .ok_or_else(|| anyhow::anyhow!("chain.json missing 'entries' array"))?;
+
+    let mut errors: Vec<String> = Vec::new();
+    let mut prev: Option<String> = None;
+    let mut started = from_tick.is_none();
+
+    for (i, e) in entries.iter().enumerate() {
+        let tick_id = e.get("tick_id").and_then(|v| v.as_str()).unwrap_or("?");
+        if !started {
+            if Some(tick_id) == from_tick { started = true; }
+            // still must track prev for continuity
+            prev = e.get("this_hash").and_then(|v| v.as_str()).map(|s| s.to_string());
+            continue;
+        }
+
+        // 1. prev continuity
+        let entry_prev = e.get("prev_hash").and_then(|v| match v {
+            serde_json::Value::Null => None,
+            serde_json::Value::String(s) => Some(s.clone()),
+            _ => None,
+        });
+        if entry_prev != prev {
+            errors.push(format!(
+                "entry[{}] tick={}: prev_hash mismatch (expected {:?}, got {:?})",
+                i, tick_id, prev, entry_prev
+            ));
+            return Ok(finalize_summary(chain_path, constitution_path, &chain, entries.len(), errors));
+        }
+
+        // 2. recompute this_hash
+        let mut core = e.clone();
+        if let Some(obj) = core.as_object_mut() {
+            obj.remove("this_hash");
+            obj.remove("signature");
+        }
+        let canon = jcs(&core);
+        let alg = e.get("hash_alg").and_then(|v| v.as_str());
+        let this_hash = e.get("this_hash").and_then(|v| v.as_str()).unwrap_or("");
+        // Try blake3 first; if hash_alg explicitly says blake2b-256, or if
+        // blake3 doesn't match (transitional chains where the hash field is
+        // labeled "blake3:" but was actually computed with blake2b due to a
+        // missing blake3 module at sign time), fall back to blake2b-256.
+        let blake3_recomputed = format!("blake3:{}", b3_hex(canon.as_bytes()));
+        let blake2_recomputed = format!("blake3:{}", blake2b_256_hex(canon.as_bytes()));
+        let matched = match alg {
+            Some("blake2b-256") => this_hash == blake2_recomputed,
+            Some("blake3") | None => {
+                this_hash == blake3_recomputed || this_hash == blake2_recomputed
+            }
+            Some(other) => {
+                errors.push(format!("entry[{}] tick={}: unknown hash_alg '{}'", i, tick_id, other));
+                return Ok(finalize_summary(chain_path, constitution_path, &chain, entries.len(), errors));
+            }
+        };
+        if !matched {
+            errors.push(format!(
+                "entry[{}] tick={}: this_hash mismatch (expected {} or {}, got {})",
+                i, tick_id, blake3_recomputed, blake2_recomputed, this_hash
+            ));
+            return Ok(finalize_summary(chain_path, constitution_path, &chain, entries.len(), errors));
+        }
+
+        // 3. signature
+        let sig_field = e.get("signature").and_then(|v| v.as_str()).unwrap_or("");
+        if !sig_field.starts_with("ed25519:") || !this_hash.starts_with("blake3:") {
+            errors.push(format!("entry[{}] tick={}: malformed signature/this_hash field", i, tick_id));
+            return Ok(finalize_summary(chain_path, constitution_path, &chain, entries.len(), errors));
+        }
+        let sig_hex = &sig_field[8..];
+        let th_hex = &this_hash[7..];
+        let sig_bytes = match hex::decode(sig_hex) {
+            Ok(b) => b,
+            Err(_) => {
+                errors.push(format!("entry[{}] tick={}: signature hex decode failed", i, tick_id));
+                return Ok(finalize_summary(chain_path, constitution_path, &chain, entries.len(), errors));
+            }
+        };
+        let msg = match hex::decode(th_hex) {
+            Ok(b) => b,
+            Err(_) => {
+                errors.push(format!("entry[{}] tick={}: this_hash hex decode failed", i, tick_id));
+                return Ok(finalize_summary(chain_path, constitution_path, &chain, entries.len(), errors));
+            }
+        };
+        if sig_bytes.len() != 64 {
+            errors.push(format!("entry[{}] tick={}: signature must be 64 bytes", i, tick_id));
+            return Ok(finalize_summary(chain_path, constitution_path, &chain, entries.len(), errors));
+        }
+        let mut sig_arr = [0u8; 64];
+        sig_arr.copy_from_slice(&sig_bytes);
+        let sig = Signature::from_bytes(&sig_arr);
+        if vk.verify(&msg, &sig).is_err() {
+            errors.push(format!("entry[{}] tick={}: invalid signature", i, tick_id));
+            return Ok(finalize_summary(chain_path, constitution_path, &chain, entries.len(), errors));
+        }
+
+        // 4. strict-wrap legacy evidence rehash
+        if strict_wrap {
+            if let Some(ev) = e.get("evidence") {
+                if let Some(refobj) = ev.get("ref") {
+                    if let (Some(p), Some(legacy)) = (
+                        refobj.get("path").and_then(|v| v.as_str()),
+                        refobj.get("legacy_content_hash").and_then(|v| v.as_str()),
+                    ) {
+                        let pp = Path::new(p);
+                        match fs::read(pp) {
+                            Ok(bytes) => {
+                                let recomputed_legacy = format!("blake3:{}", b3_hex(&bytes));
+                                if recomputed_legacy != legacy {
+                                    errors.push(format!("entry[{}] tick={}: legacy_content_hash mismatch for {}", i, tick_id, p));
+                                    return Ok(finalize_summary(chain_path, constitution_path, &chain, entries.len(), errors));
+                                }
+                            }
+                            Err(e2) => {
+                                errors.push(format!("entry[{}] tick={}: cannot read legacy ref {}: {}", i, tick_id, p, e2));
+                                return Ok(finalize_summary(chain_path, constitution_path, &chain, entries.len(), errors));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        prev = Some(this_hash.to_string());
+    }
+
+    // Head check
+    let declared_head = chain.get("head").and_then(|v| v.as_str()).map(|s| s.to_string());
+    let last_hash = entries.last().and_then(|e| e.get("this_hash")).and_then(|v| v.as_str()).map(|s| s.to_string());
+    if declared_head != last_hash {
+        errors.push(format!("chain.head ({:?}) does not match last entry this_hash ({:?})", declared_head, last_hash));
+    }
+
+    Ok(finalize_summary(chain_path, constitution_path, &chain, entries.len(), errors))
+}
+
+fn finalize_summary(
+    chain_path: &Path,
+    constitution_path: &Path,
+    chain: &serde_json::Value,
+    count: usize,
+    errors: Vec<String>,
+) -> ChainReplaySummary {
+    let head = chain.get("head").and_then(|v| v.as_str()).map(|s| s.to_string());
+    ChainReplaySummary {
+        schema: "chatmangpt.sr.chain_replay.v1".to_string(),
+        is_valid: errors.is_empty(),
+        receipt_count: count,
+        head,
+        verified_at: chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string(),
+        errors,
+        chain: chain_path.display().to_string(),
+        constitution: constitution_path.display().to_string(),
+    }
+}
+
+fn run_replay_chain(argv: &[String]) -> ExitCode {
+    let mut chain_path: Option<PathBuf> = None;
+    let mut constitution_path: Option<PathBuf> = None;
+    let mut from_tick: Option<String> = None;
+    let mut strict_wrap = false;
+
+    let mut i = 0;
+    while i < argv.len() {
+        match argv[i].as_str() {
+            "--chain" => { i += 1; if i < argv.len() { chain_path = Some(PathBuf::from(&argv[i])); } }
+            "--constitution" => { i += 1; if i < argv.len() { constitution_path = Some(PathBuf::from(&argv[i])); } }
+            "--from" => { i += 1; if i < argv.len() { from_tick = Some(argv[i].clone()); } }
+            "--strict-wrap" => { strict_wrap = true; }
+            "--help" | "-h" => {
+                println!("sr replay-chain — verify portfolio chain end-to-end");
+                println!();
+                println!("Usage: sr replay-chain --chain <path> --constitution <path> [--from <tick_id>] [--strict-wrap]");
+                return ExitCode::from(0);
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+
+    let chain_path = match chain_path {
+        Some(p) => p,
+        None => { eprintln!("{}error: --chain required{}", RED, RESET); return ExitCode::from(2); }
+    };
+    let constitution_path = match constitution_path {
+        Some(p) => p,
+        None => { eprintln!("{}error: --constitution required{}", RED, RESET); return ExitCode::from(2); }
+    };
+
+    let summary = match replay_chain(&chain_path, &constitution_path, from_tick.as_deref(), strict_wrap) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("{}replay-chain error: {}{}", RED, e, RESET);
+            return ExitCode::from(2);
+        }
+    };
+
+    // Write summary file beside chain.json
+    let mut out_path = chain_path.clone();
+    out_path.pop();
+    out_path.push("chain-replay-summary.json");
+    if let Ok(json) = serde_json::to_string_pretty(&summary) {
+        let _ = fs::write(&out_path, json);
+    }
+
+    if summary.is_valid {
+        println!("{}{}chain replay PASS{} — {} entries, head={}",
+            BOLD, GREEN, RESET, summary.receipt_count,
+            summary.head.as_deref().unwrap_or("?"));
+        println!("summary: {}", out_path.display());
+        ExitCode::from(0)
+    } else {
+        println!("{}{}chain replay FAIL{}", BOLD, RED, RESET);
+        for err in &summary.errors {
+            println!("  {}• {}{}", RED, err, RESET);
+        }
+        println!("summary: {}", out_path.display());
+        ExitCode::from(2)
+    }
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────
 
 fn main() -> ExitCode {
+    // Subcommand dispatch
+    let raw: Vec<String> = std::env::args().collect();
+    if raw.len() >= 2 && raw[1] == "replay-chain" {
+        return run_replay_chain(&raw[2..]);
+    }
+
     let args = match parse_args() {
         Ok(a) => a,
         Err(e) => {
@@ -625,7 +1082,39 @@ fn main() -> ExitCode {
 
     print_result(&result, args.json_output);
 
+    // Emit SR closure receipt on success
     if errors.is_empty() {
+        let timestamp = chrono::Utc::now().format("%Y%m%dT%H%M%SZ").to_string();
+        let receipts_dir = PathBuf::from("/Users/sac/dteam/.portfolio/receipts");
+        let receipt_path = args.receipt_out.clone().unwrap_or_else(|| {
+            receipts_dir.join(format!("sr-{}-{}.json", args.target, timestamp))
+        });
+
+        let operation_id = format!("sr-verify-{}-{}", args.target, timestamp);
+
+        // Collect all input file paths consumed by SR
+        let mut input_paths: Vec<&Path> = Vec::new();
+        if let Some(p) = args.capability_receipt.as_deref() { input_paths.push(p); }
+        if let Some(p) = args.ralph_receipt.as_deref() { input_paths.push(p); }
+        if let Some(p) = args.constitution_path.as_deref() { input_paths.push(p); }
+        if let Some(p) = args.spec_path.as_deref() { input_paths.push(p); }
+        if let Some(p) = args.plan_path.as_deref() { input_paths.push(p); }
+        if let Some(p) = args.tasks_path.as_deref() { input_paths.push(p); }
+
+        let sr_result_json = serde_json::to_string_pretty(&result)
+            .unwrap_or_default();
+
+        match write_sr_receipt(
+            &operation_id,
+            &input_paths,
+            &sr_result_json,
+            &receipts_dir,
+            &receipt_path,
+        ) {
+            Ok(()) => println!("receipt: {}", receipt_path.display()),
+            Err(e) => eprintln!("{}Warning: failed to write SR closure receipt: {}{}", YELLOW, e, RESET),
+        }
+
         ExitCode::from(0)
     } else {
         ExitCode::from(2)
