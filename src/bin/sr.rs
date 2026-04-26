@@ -78,6 +78,73 @@ pub struct RalphGate {
     pub status: String,
 }
 
+// ── POWL8 program validation ──────────────────────────────────────────────
+
+/// Valid POWL8 ISA opcode range: 0x01–0x08 (8 opcodes, one-byte ISA).
+const POWL8_OPCODE_MIN: u64 = 0x01;
+const POWL8_OPCODE_MAX: u64 = 0x08;
+
+/// Result of validating a POWL8 opcode stream.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Powl8ProgramResult {
+    /// BLAKE3 hash of the raw opcode bytes (values only, in array order).
+    pub hash: String,
+    /// Number of opcodes in the stream.
+    pub opcode_count: usize,
+    /// True when every opcode is in 0x01–0x08.
+    pub valid: bool,
+    /// Present when `valid` is false; lists the first invalid opcode and its index.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+/// Read a JSON file containing `{"opcodes": [<u64>, ...]}`, validate each
+/// value is in 0x01–0x08, and compute a BLAKE3 hash of the raw opcode bytes.
+///
+/// The hash is computed over the little-endian byte representation of each
+/// opcode value (one byte per opcode, since the ISA is one-byte wide), making
+/// it a content-addressed identifier for the exact program stream.
+fn validate_powl8_program(path: &Path) -> Result<Powl8ProgramResult> {
+    let content = fs::read_to_string(path)
+        .context(format!("Failed to read POWL8 program file: {}", path.display()))?;
+
+    let json: serde_json::Value = serde_json::from_str(&content)
+        .context("Failed to parse POWL8 program JSON")?;
+
+    let opcodes_arr = json
+        .get("opcodes")
+        .and_then(|v| v.as_array())
+        .ok_or_else(|| anyhow::anyhow!("POWL8 program JSON must contain an 'opcodes' array"))?;
+
+    let mut raw_bytes: Vec<u8> = Vec::with_capacity(opcodes_arr.len());
+    for (idx, val) in opcodes_arr.iter().enumerate() {
+        let opcode = val
+            .as_u64()
+            .ok_or_else(|| anyhow::anyhow!("opcodes[{}] is not a non-negative integer", idx))?;
+        if opcode < POWL8_OPCODE_MIN || opcode > POWL8_OPCODE_MAX {
+            return Ok(Powl8ProgramResult {
+                hash: String::new(),
+                opcode_count: opcodes_arr.len(),
+                valid: false,
+                error: Some(format!(
+                    "opcodes[{}] = 0x{:02X} is out of range (valid: 0x{:02X}–0x{:02X})",
+                    idx, opcode, POWL8_OPCODE_MIN, POWL8_OPCODE_MAX
+                )),
+            });
+        }
+        raw_bytes.push(opcode as u8);
+    }
+
+    let hash = format!("blake3:{}", blake3::hash(&raw_bytes).to_hex());
+
+    Ok(Powl8ProgramResult {
+        hash,
+        opcode_count: raw_bytes.len(),
+        valid: true,
+        error: None,
+    })
+}
+
 // ── SR Gate result ────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -124,6 +191,8 @@ pub struct SRData {
     pub ralph_plan_receipt_hash: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub speckit_artifact_hashes: Option<std::collections::HashMap<String, String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub powl8_program: Option<Powl8ProgramResult>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -274,6 +343,7 @@ fn build_sr_result(
     capability_receipt: Option<(GgenReceipt, String)>,
     ralph_receipt: Option<(RalphPlanReceipt, String)>,
     speckit_hashes: Option<std::collections::HashMap<String, String>>,
+    powl8_result: Option<Powl8ProgramResult>,
     errors: Vec<String>,
     warnings: Vec<String>,
 ) -> SRResult {
@@ -356,6 +426,7 @@ fn build_sr_result(
             capability_receipt_hash: capability_receipt.as_ref().map(|(_, h)| h.clone()),
             ralph_plan_receipt_hash: ralph_receipt.as_ref().map(|(_, h)| h.clone()),
             speckit_artifact_hashes: speckit_hashes,
+            powl8_program: powl8_result,
         },
         errors,
         warnings,
@@ -470,6 +541,7 @@ struct Args {
     spec_path: Option<PathBuf>,
     plan_path: Option<PathBuf>,
     tasks_path: Option<PathBuf>,
+    powl8_program: Option<PathBuf>,
     target: String,
     json_output: bool,
     dry_run: bool,
@@ -484,6 +556,7 @@ fn parse_args() -> Result<Args> {
         spec_path: None,
         plan_path: None,
         tasks_path: None,
+        powl8_program: None,
         target: "mcpp".to_string(),
         json_output: false,
         dry_run: false,
@@ -531,6 +604,12 @@ fn parse_args() -> Result<Args> {
                     args.tasks_path = Some(PathBuf::from(&argv[i]));
                 }
             }
+            "--powl8-program" => {
+                i += 1;
+                if i < argv.len() {
+                    args.powl8_program = Some(PathBuf::from(&argv[i]));
+                }
+            }
             "--target" => {
                 i += 1;
                 if i < argv.len() {
@@ -557,6 +636,7 @@ fn parse_args() -> Result<Args> {
                 println!("  --spec <PATH>                Path to Spec Kit spec.md");
                 println!("  --plan <PATH>                Path to Spec Kit plan.md");
                 println!("  --tasks <PATH>               Path to Spec Kit tasks.md");
+                println!("  --powl8-program <PATH>       Path to POWL8 program JSON (opcodes array, 0x01-0x08)");
                 println!("  --target <NAME>              Target name (default: mcpp)");
                 println!("  --json                       Output result as JSON");
                 println!("  --dry-run                    Parse inputs without validation");
@@ -1009,6 +1089,7 @@ fn main() -> ExitCode {
                 capability_receipt_hash: None,
                 ralph_plan_receipt_hash: None,
                 speckit_artifact_hashes: None,
+                powl8_program: None,
             },
             errors: vec!["Dry-run mode: no validation performed".to_string()],
             warnings: vec![],
@@ -1057,6 +1138,18 @@ fn main() -> ExitCode {
         }
     };
 
+    // Validate POWL8 program (optional)
+    let powl8_result = match &args.powl8_program {
+        Some(path) => match validate_powl8_program(path) {
+            Ok(r) => Some(r),
+            Err(e) => {
+                eprintln!("{}POWL8 program error: {}{}", RED, e, RESET);
+                None
+            }
+        },
+        None => None,
+    };
+
     // Build errors/warnings
     let mut errors = Vec::new();
 
@@ -1069,6 +1162,19 @@ fn main() -> ExitCode {
     if speckit_hashes.is_none() {
         errors.push("SPECKIT_ARTIFACT_INVALID".to_string());
     }
+    // A POWL8 program that was provided but failed to parse counts as a fatal error.
+    if args.powl8_program.is_some() && powl8_result.is_none() {
+        errors.push("POWL8_PROGRAM_INVALID".to_string());
+    }
+    // A POWL8 program that parsed but contains out-of-range opcodes also fails.
+    if let Some(ref pr) = powl8_result {
+        if !pr.valid {
+            errors.push(format!(
+                "POWL8_PROGRAM_OPCODE_VIOLATION: {}",
+                pr.error.as_deref().unwrap_or("unknown")
+            ));
+        }
+    }
 
     // Build result
     let result = build_sr_result(
@@ -1076,6 +1182,7 @@ fn main() -> ExitCode {
         cap_receipt,
         ralph_receipt,
         speckit_hashes,
+        powl8_result,
         errors.clone(),
         Vec::new(),
     );

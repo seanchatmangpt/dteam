@@ -739,6 +739,100 @@ fn sr_unblocks_ostar_closure_on_valid_receipts_and_artifacts() {
     }
 }
 
+// ── Test: SR validates POWL8 program — valid opcodes ─────────────────────
+
+#[test]
+fn sr_powl8_program_valid_opcodes_accepted() {
+    let temp_dir = TempDir::new().unwrap();
+    let prog_path = temp_dir.path().join("powl8-program.json");
+
+    // All opcodes in 0x01–0x08 — a minimal but complete POWL8 program
+    let prog_json = serde_json::json!({
+        "opcodes": [1, 2, 3, 4, 5, 6, 7, 8, 1, 3]
+    });
+    fs::write(&prog_path, serde_json::to_string_pretty(&prog_json).unwrap()).unwrap();
+
+    let output = std::process::Command::new("cargo")
+        .args(&["run", "--bin", "sr", "--"])
+        .arg("--powl8-program")
+        .arg(&prog_path)
+        .arg("--json")
+        .current_dir("/Users/sac/dteam")
+        .output();
+
+    match output {
+        Ok(out) => {
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            // Result JSON must contain the powl8_program block
+            assert!(
+                stdout.contains("powl8_program"),
+                "SR output must contain powl8_program key; got: {}",
+                &stdout[..stdout.len().min(800)]
+            );
+            assert!(
+                stdout.contains("blake3:"),
+                "SR output must contain blake3: hash for POWL8 program; got: {}",
+                &stdout[..stdout.len().min(800)]
+            );
+            assert!(
+                stdout.contains("\"valid\": true"),
+                "SR output must mark valid POWL8 program as valid; got: {}",
+                &stdout[..stdout.len().min(800)]
+            );
+            assert!(
+                stdout.contains("\"opcode_count\": 10"),
+                "SR output must record correct opcode count (10); got: {}",
+                &stdout[..stdout.len().min(800)]
+            );
+        }
+        Err(e) => {
+            eprintln!("Warning: sr binary not available: {}", e);
+        }
+    }
+}
+
+// ── Test: SR rejects POWL8 program with out-of-range opcode ──────────────
+
+#[test]
+fn sr_powl8_program_invalid_opcode_rejected() {
+    let temp_dir = TempDir::new().unwrap();
+    let prog_path = temp_dir.path().join("powl8-program.json");
+
+    // Opcode 0x09 is out of range — must be rejected
+    let prog_json = serde_json::json!({
+        "opcodes": [1, 2, 9, 3]
+    });
+    fs::write(&prog_path, serde_json::to_string_pretty(&prog_json).unwrap()).unwrap();
+
+    let output = std::process::Command::new("cargo")
+        .args(&["run", "--bin", "sr", "--"])
+        .arg("--powl8-program")
+        .arg(&prog_path)
+        .arg("--json")
+        .current_dir("/Users/sac/dteam")
+        .output();
+
+    match output {
+        Ok(out) => {
+            let exit_code = out.status.code();
+            assert_ne!(
+                Some(0),
+                exit_code,
+                "SR must exit non-zero on invalid POWL8 opcode"
+            );
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            // The result JSON should still contain powl8_program with valid:false
+            assert!(
+                stdout.contains("\"valid\": false") || out.stderr.len() > 0,
+                "SR must report invalid=false or emit an error for out-of-range opcode"
+            );
+        }
+        Err(e) => {
+            eprintln!("Warning: sr binary not available: {}", e);
+        }
+    }
+}
+
 // ── Test: SR blocks ostar_closure on missing Spec Kit artifact ──────────
 
 #[test]
