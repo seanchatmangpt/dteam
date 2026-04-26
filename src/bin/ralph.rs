@@ -1,6 +1,7 @@
 use dteam::agentic::ralph::{
-    AutonomicController, ExecutionEngine, GeminiPhaseRunner, GitWorktreeManager, PhaseRunner,
-    WorkspaceManager,
+    AgentKind, AutonomicController, ExecutionEngine, GitWorktreeManager, MaturityScorer,
+    OntologyClosureEngine, PortfolioIndexer, RalphMode, ReceiptEmitter, SpecKitInvocation,
+    SpecKitPhase, SpecKitRunner, SpeckitController, WorkSelector, WorkspaceManager,
 };
 use dteam::models::{Attribute, AttributeValue, Event, EventLog, Trace};
 use serde_json::json;
@@ -120,6 +121,26 @@ async fn main() -> anyhow::Result<()> {
         info!("--- Ralph Wiggum Loop: Rust Parallel Orchestrator ---");
     }
 
+    let root_dir = Path::new(".");
+    let indexer = PortfolioIndexer::new();
+    let state = indexer.scan(root_dir)?;
+    info!(
+        "Portfolio state scanned: {} active projects.",
+        state.active_projects
+    );
+
+    let ontology = OntologyClosureEngine::new();
+    let ontology_ctx = ontology.load_context(&root_dir.join("PUBLIC-ONTOLOGIES.ttl"))?;
+    info!("Ontology loaded: {}", ontology_ctx);
+
+    let scorer = MaturityScorer::new();
+    let maturity = scorer.evaluate(&state)?;
+    info!("Current Portfolio Maturity Level: {}", maturity);
+
+    let selector = WorkSelector::new();
+    let next_admissible_unit = selector.select_next(&state)?;
+    info!("Next admissible unit: {}", next_admissible_unit);
+
     let args: Vec<String> = std::env::args().collect();
     let is_test = args.contains(&"--test".to_string());
 
@@ -130,15 +151,6 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
-    let mut model = Some("gemini-3.1-flash-lite-preview".to_string());
-    if let Some(pos) = args.iter().position(|a| a == "--model") {
-        if let Some(val) = args.get(pos + 1) {
-            // if val.to_lowercase().contains("pro") {
-            //     panic!("CRITICAL ERROR: Using a 'pro' model is strictly forbidden for Ralph. Use gemini-3.1-flash-lite-preview.");
-            // }
-            model = Some(val.clone());
-        }
-    }
     let mut offset = 0;
     if let Some(pos) = args.iter().position(|a| a == "--offset") {
         if let Some(val) = args.get(pos + 1) {
@@ -161,9 +173,7 @@ async fn main() -> anyhow::Result<()> {
     if !ideas_path.exists() {
         fs::write(
             ideas_path,
-            "1. Implement a basic health check endpoint
-2. Add logging to the autonomic cycle
-",
+            "1. Implement a basic health check endpoint\n2. Add logging to the autonomic cycle\n",
         )?;
     }
 
@@ -189,7 +199,6 @@ async fn main() -> anyhow::Result<()> {
     let merge_lock_clone = Arc::clone(&merge_lock);
 
     let process_fn = move |id: String, idea: String| {
-        let model = model.clone();
         let meta_log = Arc::clone(&meta_log_clone);
         let merge_lock = Arc::clone(&merge_lock_clone);
 
@@ -208,11 +217,7 @@ async fn main() -> anyhow::Result<()> {
                 fs::create_dir_all(&working_dir)?;
 
                 if cfg!(debug_assertions) {
-                    info!(
-                        "
-[Idea {}] Processing: {}",
-                        id, idea
-                    );
+                    info!("\n[Idea {}] Processing: {}", id, idea);
                 }
 
                 let mut trace = Trace {
@@ -229,37 +234,56 @@ async fn main() -> anyhow::Result<()> {
                     return Ok::<(), anyhow::Error>(());
                 }
 
-                let runner = GeminiPhaseRunner::new();
-                let phases = vec!["UserStory", "BacklogRefinement", "Implementation"];
-                for phase in phases {
-                    let start = Instant::now();
-                    let _phase_span =
-                        info_span!("run_phase", phase = %phase, idea = %idea).entered();
-                    if let Err(e) = runner.run_phase(
-                        &id,
-                        phase,
-                        &idea,
-                        &working_dir,
-                        is_test,
-                        model.clone(),
-                        Some(&worktree_path),
-                    ) {
-                        error!("Phase {} failed: {}", phase, e);
-                        let _ = workspace.cleanup_worktree(&worktree_path);
-                        return Ok(());
-                    }
+                let controller = SpeckitController::new();
+                let start = Instant::now();
 
-                    let mut event = Event::new(phase.to_string());
-                    event.attributes.push(Attribute {
-                        key: "idea".to_string(),
-                        value: AttributeValue::String(idea.clone()),
-                    });
-                    event.attributes.push(Attribute {
-                        key: "duration_ns".to_string(),
-                        value: AttributeValue::String(start.elapsed().as_nanos().to_string()),
-                    });
-                    trace.events.push(event);
+                let root_path = std::env::current_dir().unwrap_or(PathBuf::from("."));
+                let script_path = root_path.join("scripts").join("mcp_plus_dogfood_loop.sh");
+
+                let invocation = SpecKitInvocation {
+                    phase: SpecKitPhase::Implement,
+                    mode: RalphMode::Exploit,
+                    agent: AgentKind::ClaudeCode,
+                    command: format!("{} --target \"{}\"", script_path.display(), slug),
+                    working_dir: worktree_path.clone(),
+                    may_write: true,
+                };
+
+                let phase_name = format!("{:?}", invocation.phase);
+                let _phase_span =
+                    info_span!("run_phase", phase = %phase_name, idea = %idea).entered();
+
+                if is_test {
+                    let _ = std::fs::write(working_dir.join("research.md"), "MOCK");
+                    let _ = std::fs::write(working_dir.join("plan.md"), "MOCK");
+                    let _ = std::fs::write(working_dir.join("implement.md"), "MOCK");
+                } else {
+                    match controller.invoke(invocation) {
+                        Ok(receipt) => {
+                            if !receipt.success {
+                                error!("Phase {} failed: {}", phase_name, receipt.output);
+                                let _ = workspace.cleanup_worktree(&worktree_path);
+                                return Ok(());
+                            }
+                        }
+                        Err(e) => {
+                            error!("Phase {} execution error: {}", phase_name, e);
+                            let _ = workspace.cleanup_worktree(&worktree_path);
+                            return Ok(());
+                        }
+                    }
                 }
+
+                let mut event = Event::new(phase_name);
+                event.attributes.push(Attribute {
+                    key: "idea".to_string(),
+                    value: AttributeValue::String(idea.clone()),
+                });
+                event.attributes.push(Attribute {
+                    key: "duration_ns".to_string(),
+                    value: AttributeValue::String(start.elapsed().as_nanos().to_string()),
+                });
+                trace.events.push(event);
 
                 if let Err(e) = inject_supervisor(&worktree_path) {
                     error!("Failed to inject supervisor: {}", e);
@@ -277,6 +301,12 @@ async fn main() -> anyhow::Result<()> {
                 }
 
                 let _ = workspace.cleanup_worktree(&worktree_path);
+
+                let receipt_emitter = ReceiptEmitter::new();
+                if let Err(e) = receipt_emitter.emit(&working_dir, &idea, "HashVerified") {
+                    error!("Failed to emit receipt: {}", e);
+                }
+
                 meta_log.lock().unwrap().add_trace(trace);
 
                 Ok::<(), anyhow::Error>(())
@@ -294,10 +324,7 @@ async fn main() -> anyhow::Result<()> {
     }
 
     if cfg!(debug_assertions) {
-        info!(
-            "
---- All ideas processed! ---"
-        );
+        info!("\n--- All ideas processed! ---");
     }
 
     if let Some(p) = provider {
