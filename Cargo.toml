@@ -8,6 +8,9 @@ description = "Deterministic Process Intelligence Engine (dteam) - Digital Team"
 [workspace]
 
 [dependencies]
+unibit-ai-classic = { path = "../unibit/crates/unibit-ai-classic" }
+unibit-kernel = { path = "../unibit/crates/unibit-kernel" }
+
 log = "0.4"
 env_logger = "0.11"
 bcinr = "26.4.18"

@@ -8,6 +8,7 @@ pub mod gradient_boosting;
 pub mod gradient_descent;
 pub mod hdc;
 pub mod hdit_automl;
+pub mod classic_ai_signals;
 pub mod hierarchical_clustering;
 pub mod kmeans;
 pub mod knn;
