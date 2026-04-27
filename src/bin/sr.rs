@@ -762,15 +762,22 @@ fn jcs(v: &serde_json::Value) -> String {
         Value::Null => "null".to_string(),
         Value::Bool(b) => if *b { "true".into() } else { "false".into() },
         Value::Number(n) => {
-            // Prefer integer rendering when integral
+            // JCS integer normalization: canonical form strips decimal for integers.
+            // as_i64/as_u64 work for values stored without decimal (e.g. 305, 0).
             if let Some(i) = n.as_i64() { return i.to_string(); }
             if let Some(u) = n.as_u64() { return u.to_string(); }
+            // Float values: check for mathematical integrality (e.g. "1.0" → "1").
+            // With arbitrary_precision, as_f64() parses the decimal string; we use
+            // it only for the integral check, not for the final string representation.
             if let Some(f) = n.as_f64() {
                 if f.is_finite() && f.fract() == 0.0 {
                     return format!("{}", f as i64);
                 }
-                return f.to_string();
             }
+            // Non-integer floats: use the arbitrary-precision string (preserves
+            // original decimal exactly). This prevents ULP drift where Python's
+            // json.dumps and Rust's f64::to_string diverge on the last digit
+            // (e.g. 0.9901639344262295 → 0.9901639344262296 via f64 round-trip).
             n.to_string()
         }
         Value::String(s) => serde_json::to_string(s).unwrap_or_else(|_| "\"\"".into()),
