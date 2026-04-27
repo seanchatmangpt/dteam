@@ -8,6 +8,12 @@ description = "Deterministic Process Intelligence Engine (dteam) - Digital Team"
 [workspace]
 
 [dependencies]
+unibit-globe = { path = "../unibit/crates/unibit-globe" }
+unibit-lane = { path = "../unibit/crates/unibit-lane" }
+
+unibit-powl = { path = "../unibit/crates/unibit-powl" }
+unibit-graph = { path = "../unibit/crates/unibit-graph" }
+
 unibit-ai-classic = { path = "../unibit/crates/unibit-ai-classic" }
 unibit-kernel = { path = "../unibit/crates/unibit-kernel" }
 
@@ -50,6 +56,8 @@ token-based-replay = []
 trace-generator = []
 
 [dev-dependencies]
+oxigraph = "0.4"
+
 env_logger = "0.11"
 criterion = "0.5"
 tempfile = "3"
