@@ -226,6 +226,70 @@ else
   log "Stage 4: SKIP — set LOG_PATH=<path.xes> to enable"
 fi
 
+# ── Stage 5: ostar evidence → envelope ──────────────────────────────────────
+if [ "${SKIP_OSTAR_STAGE:-0}" = "1" ]; then
+  log "Stage 5: SKIP — SKIP_OSTAR_STAGE=1"
+else
+  log "Stage 5: emit ostar evidence → envelope sign → verify"
+  if ! command -v python3 >/dev/null 2>&1; then
+    fail "Stage 5: python3 not in PATH — required by emit-evidence.sh"
+  fi
+  log "Stage 5: NOTE — evidence is synthetic (no live ostar run); stage_id=mcpp-spine-synthetic"
+
+  OSTAR_OBL_ID="obl-mcpp-full-six-stage-run-001"  # NOT the same as OBL_ID above
+  OSTAR_TS=$(date -u +"%s")
+  OSTAR_ENVELOPE_ID="recenv-ostar-${KIND}-${OSTAR_TS}"
+  OSTAR_EVIDENCE_FILE="${RUN_DIR}/ostar-evidence.json"
+  OSTAR_ENVELOPE_FILE="${RECEIPT_DIR}/${OSTAR_OBL_ID}.ostar-evidence.envelope.json"
+
+  bash /Users/sac/chatmangpt/ostar/schemas/emit-evidence.sh \
+    "mcpp-spine-synthetic" "${OSTAR_OBL_ID}" "pass" \
+    "0.0" "0.0" "0.0" "0.0" \
+    > "${OSTAR_EVIDENCE_FILE}" || fail "Stage 5: emit-evidence.sh failed"
+
+  "${GGEN_BIN}" envelope sign \
+    --payload_path    "${OSTAR_EVIDENCE_FILE}" \
+    --payload_schema  chatmangpt.ostar.evidence.v1 \
+    --producer_system ostar \
+    --producer_kind   ostar-stage-evidence \
+    --operation_id    "${OSTAR_OBL_ID}" \
+    --envelope_id     "${OSTAR_ENVELOPE_ID}" \
+    --private_key     "${PRIV_KEY}" \
+    --public_key_ref  "${PUB_KEY}" \
+    --chain_file      "${ENVELOPE_CHAIN_FILE}" \
+    --output          "${OSTAR_ENVELOPE_FILE}" \
+    > "${RUN_DIR}/ostar-envelope-sign-summary.json" \
+    || fail "Stage 5: envelope sign failed"
+
+  "${GGEN_BIN}" envelope verify \
+    --envelope_file "${OSTAR_ENVELOPE_FILE}" \
+    --public_key    "${PUB_KEY}" \
+    > "${RUN_DIR}/ostar-envelope-verify-summary.json" \
+    || fail "Stage 5: envelope verify failed"
+
+  OSTAR_OK=$(grep -oE '"is_valid":[[:space:]]*(true|false)' \
+    "${RUN_DIR}/ostar-envelope-verify-summary.json" | head -1 | grep -oE 'true|false')
+  [ "${OSTAR_OK}" = "true" ] || fail "Stage 5: is_valid=${OSTAR_OK:-<missing>}"
+  log "  Stage 5: ok — ${OSTAR_ENVELOPE_FILE}"
+fi
+
+# ── Proof gate ───────────────────────────────────────────────────────────────
+if [ "${SKIP_OSTAR_STAGE:-0}" != "1" ]; then
+  log "Proof gate: chain_verify (expect envelope_count >= 4)"
+  "${GGEN_BIN}" envelope chain_verify \
+    --chain_file "${ENVELOPE_CHAIN_FILE}" \
+    --public_key "${PUB_KEY}" \
+    > "${RUN_DIR}/proof-gate-chain-verify.json" \
+    || fail "Proof gate: chain_verify failed"
+  GATE_COUNT=$(grep -oE '"envelope_count":[[:space:]]*[0-9]+' \
+    "${RUN_DIR}/proof-gate-chain-verify.json" | grep -oE '[0-9]+$')
+  GATE_VALID=$(grep -oE '"is_valid":[[:space:]]*(true|false)' \
+    "${RUN_DIR}/proof-gate-chain-verify.json" | head -1 | grep -oE 'true|false')
+  [ "${GATE_VALID}" = "true" ] || fail "Proof gate: chain invalid"
+  [ "${GATE_COUNT:-0}" -ge 4 ] || fail "Proof gate: envelope_count=${GATE_COUNT}, need >= 4"
+  log "  Proof gate: PASSED (envelope_count=${GATE_COUNT})"
+fi
+
 # ── Done ──────────────────────────────────────────────────────────────────
 echo
 log "SPINE COMPLETE"
