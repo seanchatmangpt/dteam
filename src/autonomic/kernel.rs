@@ -154,8 +154,7 @@ impl AutonomicKernel for DefaultKernel {
         let success = crate::utils::bitset::select_u64(is_admissible as u64, 1, 0) == 1;
 
         let execution_latency_ms = t_start.elapsed().as_millis() as u64;
-        let manifest_hash =
-            crate::utils::dense_kernel::fnv1a_64(action.parameters.as_bytes());
+        let manifest_hash = crate::utils::dense_kernel::fnv1a_64(action.parameters.as_bytes());
 
         AutonomicResult {
             success,
@@ -224,8 +223,16 @@ mod tests {
 
         // 6. Manifest
         let manifest = kernel.manifest(&result);
-        assert!(manifest.starts_with("MANIFEST: success="), "manifest format changed: {}", manifest);
-        assert!(manifest.contains("Integrity:"), "manifest missing integrity field: {}", manifest);
+        assert!(
+            manifest.starts_with("MANIFEST: success="),
+            "manifest format changed: {}",
+            manifest
+        );
+        assert!(
+            manifest.contains("Integrity:"),
+            "manifest missing integrity field: {}",
+            manifest
+        );
 
         // 7. Adapt
         kernel.adapt(AutonomicFeedback {

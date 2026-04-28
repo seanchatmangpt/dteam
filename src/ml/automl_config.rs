@@ -34,8 +34,8 @@
 //! ```
 
 use crate::ml::mycin;
-use crate::ml::strips;
 use crate::ml::shrdlu;
+use crate::ml::strips;
 
 // =============================================================================
 // COMPILE-TIME TRAINING DATASETS (Deterministic, Seedable)
@@ -46,7 +46,7 @@ pub struct ElizaModel {
     pub name: &'static str,
     pub training_size: usize,
     pub accuracy: f64,
-    pub samples: &'static [(u64, bool)],  // (keyword bitmask, intent label)
+    pub samples: &'static [(u64, bool)], // (keyword bitmask, intent label)
 }
 
 pub const ELIZA_MODEL: ElizaModel = ElizaModel {
@@ -55,10 +55,10 @@ pub const ELIZA_MODEL: ElizaModel = ElizaModel {
     accuracy: 0.92,
     samples: &[
         // Positive intent (understanding, emotional support)
-        (0b0000_0000_0000_0010, true),  // DREAM
-        (0b0000_0000_0000_0110, true),  // DREAM | MOTHER
-        (0b0000_0000_0100_0000, true),  // REMEMBER
-        (0b0000_0000_0001_0000, true),  // HAPPY
+        (0b0000_0000_0000_0010, true), // DREAM
+        (0b0000_0000_0000_0110, true), // DREAM | MOTHER
+        (0b0000_0000_0100_0000, true), // REMEMBER
+        (0b0000_0000_0001_0000, true), // HAPPY
         // Negative intent (avoidance, cold response)
         (0b0000_0000_0000_0001, false), // SORRY
         (0b0000_0000_0010_0000, false), // FAMILY (complex)
@@ -74,7 +74,7 @@ pub struct MycinModel {
     pub name: &'static str,
     pub training_size: usize,
     pub accuracy: f64,
-    pub samples: &'static [(u64, bool)],  // (fact bitmask, diagnosis label)
+    pub samples: &'static [(u64, bool)], // (fact bitmask, diagnosis label)
 }
 
 pub const MYCIN_MODEL: MycinModel = MycinModel {
@@ -83,8 +83,18 @@ pub const MYCIN_MODEL: MycinModel = MycinModel {
     accuracy: 0.88,
     samples: &[
         // Streptococcus pattern
-        (mycin::fact::GRAM_POS | mycin::fact::COCCUS | mycin::fact::AEROBIC | mycin::fact::FEVER, true),
-        (mycin::fact::GRAM_POS | mycin::fact::COCCUS | mycin::fact::AEROBIC | mycin::fact::FEVER | mycin::fact::RIGORS, true),
+        (
+            mycin::fact::GRAM_POS | mycin::fact::COCCUS | mycin::fact::AEROBIC | mycin::fact::FEVER,
+            true,
+        ),
+        (
+            mycin::fact::GRAM_POS
+                | mycin::fact::COCCUS
+                | mycin::fact::AEROBIC
+                | mycin::fact::FEVER
+                | mycin::fact::RIGORS,
+            true,
+        ),
         // Non-strep patterns
         (mycin::fact::GRAM_NEG | mycin::fact::ROD, false),
         (mycin::fact::GRAM_NEG | mycin::fact::ANAEROBIC, false),
@@ -96,7 +106,7 @@ pub struct StripsModel {
     pub name: &'static str,
     pub training_size: usize,
     pub accuracy: f64,
-    pub samples: &'static [(u64, bool)],  // (state bitmask, reachable label)
+    pub samples: &'static [(u64, bool)], // (state bitmask, reachable label)
 }
 
 pub const STRIPS_MODEL: StripsModel = StripsModel {
@@ -109,7 +119,7 @@ pub const STRIPS_MODEL: StripsModel = StripsModel {
         (strips::HOLDING_A, true),
         (strips::HOLDING_B, true),
         // Unreachable: contradictory state
-        (0, false),  // Empty state: nothing possible
+        (0, false), // Empty state: nothing possible
     ],
 };
 
@@ -118,7 +128,7 @@ pub struct ShrDLUModel {
     pub name: &'static str,
     pub training_size: usize,
     pub accuracy: f64,
-    pub samples: &'static [(u64, bool)],  // (state bitmask, feasible label)
+    pub samples: &'static [(u64, bool)], // (state bitmask, feasible label)
 }
 
 pub const SHRDLU_MODEL: ShrDLUModel = ShrDLUModel {
@@ -127,8 +137,14 @@ pub const SHRDLU_MODEL: ShrDLUModel = ShrDLUModel {
     accuracy: 0.89,
     samples: &[
         // PickUp(A) feasible: CLEAR_A & ON_TABLE_A & ARM_EMPTY
-        (shrdlu::clear(0) | shrdlu::on_table(0) | shrdlu::ARM_EMPTY, true),
-        (shrdlu::clear(1) | shrdlu::on_table(1) | shrdlu::ARM_EMPTY, true),
+        (
+            shrdlu::clear(0) | shrdlu::on_table(0) | shrdlu::ARM_EMPTY,
+            true,
+        ),
+        (
+            shrdlu::clear(1) | shrdlu::on_table(1) | shrdlu::ARM_EMPTY,
+            true,
+        ),
         // PickUp(A) not feasible: holding something
         (shrdlu::holding(0) | shrdlu::clear(1), false),
         // PickUp(A) not feasible: A is not clear
@@ -179,7 +195,7 @@ pub const FORTUNE500_ENSEMBLE: EnsembleConfig = EnsembleConfig {
         "Hearsay-BC",
     ],
     latency_budget_us: 5,
-    minimum_agreement: 6,  // 6/10 signals must agree
+    minimum_agreement: 6, // 6/10 signals must agree
     description: "Production ensemble: all 5 classical + 5 AutoML, Borda fusion",
 };
 
@@ -202,10 +218,17 @@ pub const INSURANCE_CLAIMS_PROFILE: UseCaseProfile = UseCaseProfile {
     name: "Insurance Claims Validation",
     industry: "Insurance",
     decision_job: "Validate claim before processing (fraud triage, medical reasonableness)",
-    recommended_systems: &["MYCIN-rule", "MYCIN-DT", "STRIPS-rule", "STRIPS-GB", "Hearsay-BC"],
+    recommended_systems: &[
+        "MYCIN-rule",
+        "MYCIN-DT",
+        "STRIPS-rule",
+        "STRIPS-GB",
+        "Hearsay-BC",
+    ],
     latency_budget_us: 10,
     expected_accuracy: 0.91,
-    example_input: "ClaimData { diagnosis: GRAM_POS, facts: [FEVER, AEROBIC], state_feasible: true }",
+    example_input:
+        "ClaimData { diagnosis: GRAM_POS, facts: [FEVER, AEROBIC], state_feasible: true }",
     example_output: "ClaimDecision { approved: true, fraud_risk: 0.05, confidence: 0.94 }",
 };
 
@@ -228,7 +251,8 @@ pub const HEALTHCARE_PROFILE: UseCaseProfile = UseCaseProfile {
     latency_budget_us: 1,
     expected_accuracy: 0.96,
     example_input: "SensorReadout { gram_stain: POS, morphology: COCCUS, growth: AEROBIC }",
-    example_output: "PathogenAlert { organism: STREPTOCOCCUS, confidence: 0.98, action: QUARANTINE }",
+    example_output:
+        "PathogenAlert { organism: STREPTOCOCCUS, confidence: 0.98, action: QUARANTINE }",
 };
 
 pub const MANUFACTURING_PROFILE: UseCaseProfile = UseCaseProfile {
@@ -238,7 +262,8 @@ pub const MANUFACTURING_PROFILE: UseCaseProfile = UseCaseProfile {
     recommended_systems: &["STRIPS-rule", "STRIPS-GB", "SHRDLU-rule", "SHRDLU-LR"],
     latency_budget_us: 500,
     expected_accuracy: 0.93,
-    example_input: "WorkOrder { goal: ASSEMBLE_UNIT_A, initial_state: PARTS_READY, inventory: SUFFICIENT }",
+    example_input:
+        "WorkOrder { goal: ASSEMBLE_UNIT_A, initial_state: PARTS_READY, inventory: SUFFICIENT }",
     example_output: "FeasibilityCheck { reachable: true, steps_required: 7, ETA: 45_minutes }",
 };
 
@@ -258,10 +283,7 @@ pub fn all_profiles() -> &'static [&'static UseCaseProfile] {
 
 /// Get a profile by name
 pub fn profile_by_name(name: &str) -> Option<&'static UseCaseProfile> {
-    all_profiles()
-        .iter()
-        .find(|p| p.name == name)
-        .map(|p| *p)
+    all_profiles().iter().find(|p| p.name == name).map(|p| *p)
 }
 
 // =============================================================================
@@ -291,7 +313,11 @@ mod tests {
         let profiles = all_profiles();
         let names: Vec<_> = profiles.iter().map(|p| p.name).collect();
         let unique_names: std::collections::BTreeSet<_> = names.iter().collect();
-        assert_eq!(names.len(), unique_names.len(), "Profiles must have unique names");
+        assert_eq!(
+            names.len(),
+            unique_names.len(),
+            "Profiles must have unique names"
+        );
     }
 
     #[test]

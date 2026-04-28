@@ -227,7 +227,9 @@ impl<const N: usize> PredictionLogBuffer<N> {
     pub fn drain_to_csv(&self) -> String {
         let entries = self.drain_to_vec();
         let mut csv = String::new();
-        csv.push_str("input_hash,binary_version,timestamp_us,decision,tier_fired,provenance_hash\n");
+        csv.push_str(
+            "input_hash,binary_version,timestamp_us,decision,tier_fired,provenance_hash\n",
+        );
 
         for entry in entries {
             csv.push_str(&format!(
@@ -346,7 +348,9 @@ mod tests {
         buffer.log_prediction(0x3333, false, 2, 0x4444);
 
         let csv = buffer.drain_to_csv();
-        assert!(csv.contains("input_hash,binary_version,timestamp_us,decision,tier_fired,provenance_hash"));
+        assert!(csv.contains(
+            "input_hash,binary_version,timestamp_us,decision,tier_fired,provenance_hash"
+        ));
         assert!(csv.contains("1111")); // First entry's input_hash
         assert!(csv.contains("3333")); // Second entry's input_hash
         assert!(csv.contains("true"));

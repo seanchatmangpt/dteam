@@ -104,7 +104,11 @@ impl ConfusionMetrics {
     ) -> HashMap<u8, f64> {
         let mut tiers: HashMap<u8, (u32, u32)> = HashMap::new(); // (correct, total) per tier
 
-        for ((&pred, &obs), &tier) in predictions.iter().zip(observed.iter()).zip(tier_sequence.iter()) {
+        for ((&pred, &obs), &tier) in predictions
+            .iter()
+            .zip(observed.iter())
+            .zip(tier_sequence.iter())
+        {
             let tier = tier.min(3);
             let (correct, total) = tiers.entry(tier).or_insert((0, 0));
             *total += 1;
@@ -115,7 +119,11 @@ impl ConfusionMetrics {
 
         let mut result = HashMap::new();
         for (tier, (correct, total)) in tiers {
-            let acc = if total == 0 { 0.0 } else { correct as f64 / total as f64 };
+            let acc = if total == 0 {
+                0.0
+            } else {
+                correct as f64 / total as f64
+            };
             result.insert(tier, acc);
         }
         result

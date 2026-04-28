@@ -130,7 +130,9 @@ pub struct Blackboard {
 }
 
 impl Blackboard {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     /// Post a hypothesis to the blackboard.
     pub fn post(&mut self, h: Hypothesis) {
@@ -140,13 +142,17 @@ impl Blackboard {
 
     /// All hypotheses at a given level.
     pub fn at(&self, level: usize) -> &[Hypothesis] {
-        if level >= LEVELS { return &[]; }
+        if level >= LEVELS {
+            return &[];
+        }
         &self.levels[level]
     }
 
     /// Highest-CF hypothesis at a level.
     pub fn best_at(&self, level: usize) -> Option<&Hypothesis> {
-        self.at(level).iter().max_by(|a, b| a.cf.partial_cmp(&b.cf).unwrap_or(std::cmp::Ordering::Equal))
+        self.at(level)
+            .iter()
+            .max_by(|a, b| a.cf.partial_cmp(&b.cf).unwrap_or(std::cmp::Ordering::Equal))
     }
 
     /// True if a hypothesis exists at the SENTENCE level.
@@ -195,7 +201,9 @@ pub struct Agenda {
 }
 
 impl Agenda {
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     /// Add KS-applicable items to the agenda for any not-yet-fired (KS, hypothesis) pairs.
     pub fn schedule(&mut self, bb: &Blackboard, ks_list: &[Ks]) {
@@ -204,19 +212,32 @@ impl Agenda {
             let hyps = bb.at(level);
             for (hyp_idx, h) in hyps.iter().enumerate() {
                 let key = (ks_idx, level, hyp_idx);
-                if bb.fired.contains(&key) { continue; }
-                if self.items.iter().any(|it| it.ks_idx == ks_idx && it.level == level && it.hyp_idx == hyp_idx) {
+                if bb.fired.contains(&key) {
+                    continue;
+                }
+                if self
+                    .items
+                    .iter()
+                    .any(|it| it.ks_idx == ks_idx && it.level == level && it.hyp_idx == hyp_idx)
+                {
                     continue;
                 }
                 let rating = (ks.rating)(h);
-                self.items.push(AgendaItem { ks_idx, level, hyp_idx, rating });
+                self.items.push(AgendaItem {
+                    ks_idx,
+                    level,
+                    hyp_idx,
+                    rating,
+                });
             }
         }
     }
 
     /// Pop the highest-rated agenda item.
     pub fn pop_best(&mut self) -> Option<AgendaItem> {
-        if self.items.is_empty() { return None; }
+        if self.items.is_empty() {
+            return None;
+        }
         let mut best_idx = 0;
         let mut best_rating = self.items[0].rating;
         for (i, it) in self.items.iter().enumerate().skip(1) {
@@ -228,50 +249,118 @@ impl Agenda {
         Some(self.items.swap_remove(best_idx))
     }
 
-    pub fn is_empty(&self) -> bool { self.items.is_empty() }
-    pub fn len(&self) -> usize { self.items.len() }
+    pub fn is_empty(&self) -> bool {
+        self.items.is_empty()
+    }
+    pub fn len(&self) -> usize {
+        self.items.len()
+    }
 }
 
 // =============================================================================
 // DEFAULT KS SET
 // =============================================================================
 
-fn rate_proportional(h: &Hypothesis) -> f32 { h.cf }
+fn rate_proportional(h: &Hypothesis) -> f32 {
+    h.cf
+}
 
-fn rate_constant_high(_h: &Hypothesis) -> f32 { 0.9 }
+fn rate_constant_high(_h: &Hypothesis) -> f32 {
+    0.9
+}
 
 /// Acoustic → Phoneme: each acoustic segment produces a phoneme hypothesis.
 fn act_acoustic_to_phoneme(h: &Hypothesis) -> Vec<Hypothesis> {
-    vec![Hypothesis::new(PHONEME, h.content.rotate_left(7), h.cf * 0.95, h.time_start, h.time_end)]
+    vec![Hypothesis::new(
+        PHONEME,
+        h.content.rotate_left(7),
+        h.cf * 0.95,
+        h.time_start,
+        h.time_end,
+    )]
 }
 
 /// Phoneme → Syllable: pairs of phonemes form syllables.
 fn act_phoneme_to_syllable(h: &Hypothesis) -> Vec<Hypothesis> {
-    vec![Hypothesis::new(SYLLABLE, h.content ^ 0xCAFE, h.cf * 0.9, h.time_start, h.time_end)]
+    vec![Hypothesis::new(
+        SYLLABLE,
+        h.content ^ 0xCAFE,
+        h.cf * 0.9,
+        h.time_start,
+        h.time_end,
+    )]
 }
 
 /// Syllable → Word: lexicon match.
 fn act_syllable_to_word(h: &Hypothesis) -> Vec<Hypothesis> {
-    vec![Hypothesis::new(WORD, h.content.wrapping_mul(0x9E3779B97F4A7C15), h.cf * 0.85, h.time_start, h.time_end)]
+    vec![Hypothesis::new(
+        WORD,
+        h.content.wrapping_mul(0x9E3779B97F4A7C15),
+        h.cf * 0.85,
+        h.time_start,
+        h.time_end,
+    )]
 }
 
 /// Word → Phrase.
 fn act_word_to_phrase(h: &Hypothesis) -> Vec<Hypothesis> {
-    vec![Hypothesis::new(PHRASE, h.content.wrapping_add(0xDEADBEEF), h.cf * 0.85, h.time_start, h.time_end)]
+    vec![Hypothesis::new(
+        PHRASE,
+        h.content.wrapping_add(0xDEADBEEF),
+        h.cf * 0.85,
+        h.time_start,
+        h.time_end,
+    )]
 }
 
 /// Phrase → Sentence.
 fn act_phrase_to_sentence(h: &Hypothesis) -> Vec<Hypothesis> {
-    vec![Hypothesis::new(SENTENCE, h.content.rotate_right(11), h.cf * 0.9, h.time_start, h.time_end)]
+    vec![Hypothesis::new(
+        SENTENCE,
+        h.content.rotate_right(11),
+        h.cf * 0.9,
+        h.time_start,
+        h.time_end,
+    )]
 }
 
 /// Default KS set covering the full pipeline.
 pub const DEFAULT_KS: [Ks; 5] = [
-    Ks { name: "acoustic_to_phoneme", trigger_level: ACOUSTIC as u8, output_level: PHONEME as u8, rating: rate_proportional, activate: act_acoustic_to_phoneme },
-    Ks { name: "phoneme_to_syllable", trigger_level: PHONEME as u8, output_level: SYLLABLE as u8, rating: rate_proportional, activate: act_phoneme_to_syllable },
-    Ks { name: "syllable_to_word", trigger_level: SYLLABLE as u8, output_level: WORD as u8, rating: rate_constant_high, activate: act_syllable_to_word },
-    Ks { name: "word_to_phrase", trigger_level: WORD as u8, output_level: PHRASE as u8, rating: rate_proportional, activate: act_word_to_phrase },
-    Ks { name: "phrase_to_sentence", trigger_level: PHRASE as u8, output_level: SENTENCE as u8, rating: rate_constant_high, activate: act_phrase_to_sentence },
+    Ks {
+        name: "acoustic_to_phoneme",
+        trigger_level: ACOUSTIC as u8,
+        output_level: PHONEME as u8,
+        rating: rate_proportional,
+        activate: act_acoustic_to_phoneme,
+    },
+    Ks {
+        name: "phoneme_to_syllable",
+        trigger_level: PHONEME as u8,
+        output_level: SYLLABLE as u8,
+        rating: rate_proportional,
+        activate: act_phoneme_to_syllable,
+    },
+    Ks {
+        name: "syllable_to_word",
+        trigger_level: SYLLABLE as u8,
+        output_level: WORD as u8,
+        rating: rate_constant_high,
+        activate: act_syllable_to_word,
+    },
+    Ks {
+        name: "word_to_phrase",
+        trigger_level: WORD as u8,
+        output_level: PHRASE as u8,
+        rating: rate_proportional,
+        activate: act_word_to_phrase,
+    },
+    Ks {
+        name: "phrase_to_sentence",
+        trigger_level: PHRASE as u8,
+        output_level: SENTENCE as u8,
+        rating: rate_constant_high,
+        activate: act_phrase_to_sentence,
+    },
 ];
 
 // =============================================================================
@@ -307,7 +396,9 @@ pub fn run(bb: &mut Blackboard, ks_list: &[Ks], max_cycles: usize) -> RunResult 
         if bb.has_sentence() {
             return RunResult::Sentence;
         }
-        if cycle == max_cycles - 1 { return RunResult::MaxCycles; }
+        if cycle == max_cycles - 1 {
+            return RunResult::MaxCycles;
+        }
     }
     RunResult::MaxCycles
 }

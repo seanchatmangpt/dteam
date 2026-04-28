@@ -180,10 +180,7 @@ pub fn validate_retraining_against_traces(_new_model_accuracy: f64) -> bool {
 /// 5. Return the new compiled plan
 ///
 /// For now, it returns a success flag indicating the call site can proceed.
-pub fn retrain_with_hdit_automl(
-    _current_accuracy: f64,
-    _baseline_accuracy: f64,
-) -> bool {
+pub fn retrain_with_hdit_automl(_current_accuracy: f64, _baseline_accuracy: f64) -> bool {
     // Integration point: Call src/ml/hdit_automl::run_hdit_automl()
     //
     // Pseudocode:
@@ -309,13 +306,7 @@ mod tests {
 
     #[test]
     fn test_retraining_context_creation() {
-        let ctx = RetrainingContext::new(
-            DriftSignal::GradualDecay,
-            0.85,
-            0.95,
-            None,
-            1000000,
-        );
+        let ctx = RetrainingContext::new(DriftSignal::GradualDecay, 0.85, 0.95, None, 1000000);
         assert_eq!(ctx.signal, DriftSignal::GradualDecay);
         assert_eq!(ctx.action, RetrainingAction::CreateRetrainingTicket);
         assert_eq!(ctx.current_accuracy, 0.85);
@@ -325,25 +316,13 @@ mod tests {
 
     #[test]
     fn test_retraining_context_accuracy_drop() {
-        let ctx = RetrainingContext::new(
-            DriftSignal::SuddenFailure,
-            0.80,
-            0.95,
-            Some(1),
-            1000000,
-        );
+        let ctx = RetrainingContext::new(DriftSignal::SuddenFailure, 0.80, 0.95, Some(1), 1000000);
         assert!((ctx.accuracy_drop_pct() - 15.0).abs() < 0.01);
     }
 
     #[test]
     fn test_retraining_context_summary() {
-        let ctx = RetrainingContext::new(
-            DriftSignal::SuddenFailure,
-            0.80,
-            1.0,
-            Some(2),
-            2000000,
-        );
+        let ctx = RetrainingContext::new(DriftSignal::SuddenFailure, 0.80, 1.0, Some(2), 2000000);
         let summary = ctx.summary();
         assert!(summary.contains("Immediate retraining"));
         assert!(summary.contains("20.00%")); // Drop percentage (80% - 100% = -20%, clamped to 0% in the drop, but 100% - 80% = 20%)
@@ -364,25 +343,13 @@ mod tests {
 
     #[test]
     fn test_retrain_rl_agents_stub() {
-        let ctx = RetrainingContext::new(
-            DriftSignal::GradualDecay,
-            0.85,
-            0.95,
-            None,
-            1000000,
-        );
+        let ctx = RetrainingContext::new(DriftSignal::GradualDecay, 0.85, 0.95, None, 1000000);
         assert!(retrain_rl_agents(&ctx));
     }
 
     #[test]
     fn test_execute_full_retrain_pipeline() {
-        let ctx = RetrainingContext::new(
-            DriftSignal::SuddenFailure,
-            0.80,
-            0.95,
-            Some(1),
-            1000000,
-        );
+        let ctx = RetrainingContext::new(DriftSignal::SuddenFailure, 0.80, 0.95, Some(1), 1000000);
         // All stubs return true, so pipeline succeeds
         assert!(execute_full_retrain_pipeline(&ctx));
     }

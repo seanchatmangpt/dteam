@@ -76,7 +76,9 @@
 //! Borda count is purely arithmetic; the blackboard uses deterministic ratings.
 
 use crate::ml::hdit_automl::SignalProfile;
-use crate::ml::hearsay::{Blackboard, Hypothesis, ACOUSTIC, DEFAULT_KS, PHONEME, SENTENCE, SYLLABLE, WORD};
+use crate::ml::hearsay::{
+    Blackboard, Hypothesis, ACOUSTIC, DEFAULT_KS, PHONEME, SENTENCE, SYLLABLE, WORD,
+};
 use crate::ml::rank_fusion;
 
 /// Run the classical Hearsay-II blackboard once and extract per-level
@@ -103,7 +105,9 @@ pub fn extract_level_scores(input: u64) -> Vec<f64> {
 /// inputs are in the top-`n_target` ranked items.
 #[must_use]
 pub fn fuse(source_scores: &[Vec<f64>], n_target: usize) -> Vec<bool> {
-    if source_scores.is_empty() { return Vec::new(); }
+    if source_scores.is_empty() {
+        return Vec::new();
+    }
     let n_inputs = source_scores[0].len();
     let higher_is_better: Vec<bool> = vec![true; source_scores.len()];
     // borda_count expects [source][input] layout — already correct.

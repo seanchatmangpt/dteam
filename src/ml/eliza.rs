@@ -165,20 +165,75 @@ pub struct ElizaTurn {
 /// Ordered by `rank` ascending: highest-priority keywords first.
 pub const DOCTOR: [ElizaRule; 11] = [
     // High-priority specific keywords
-    ElizaRule { keyword_mask: keyword_bit(kw::COMPUTER), template_index: tmpl::COMPUTER, rank: 0, _pad: [0; 6] },
-    ElizaRule { keyword_mask: keyword_bit(kw::NAME), template_index: tmpl::NAME, rank: 0, _pad: [0; 6] },
-    ElizaRule { keyword_mask: keyword_bit(kw::SORRY), template_index: tmpl::APOLOGIZE, rank: 1, _pad: [0; 6] },
-    ElizaRule { keyword_mask: keyword_bit(kw::REMEMBER), template_index: tmpl::MEMORY, rank: 2, _pad: [0; 6] },
-    ElizaRule { keyword_mask: keyword_bit(kw::DREAM), template_index: tmpl::DREAM, rank: 2, _pad: [0; 6] },
+    ElizaRule {
+        keyword_mask: keyword_bit(kw::COMPUTER),
+        template_index: tmpl::COMPUTER,
+        rank: 0,
+        _pad: [0; 6],
+    },
+    ElizaRule {
+        keyword_mask: keyword_bit(kw::NAME),
+        template_index: tmpl::NAME,
+        rank: 0,
+        _pad: [0; 6],
+    },
+    ElizaRule {
+        keyword_mask: keyword_bit(kw::SORRY),
+        template_index: tmpl::APOLOGIZE,
+        rank: 1,
+        _pad: [0; 6],
+    },
+    ElizaRule {
+        keyword_mask: keyword_bit(kw::REMEMBER),
+        template_index: tmpl::MEMORY,
+        rank: 2,
+        _pad: [0; 6],
+    },
+    ElizaRule {
+        keyword_mask: keyword_bit(kw::DREAM),
+        template_index: tmpl::DREAM,
+        rank: 2,
+        _pad: [0; 6],
+    },
     // Family keywords (collapse to FAMILY template)
-    ElizaRule { keyword_mask: keyword_bit(kw::MOTHER), template_index: tmpl::FAMILY, rank: 3, _pad: [0; 6] },
-    ElizaRule { keyword_mask: keyword_bit(kw::FATHER), template_index: tmpl::FAMILY, rank: 3, _pad: [0; 6] },
-    ElizaRule { keyword_mask: keyword_bit(kw::FAMILY), template_index: tmpl::FAMILY, rank: 3, _pad: [0; 6] },
+    ElizaRule {
+        keyword_mask: keyword_bit(kw::MOTHER),
+        template_index: tmpl::FAMILY,
+        rank: 3,
+        _pad: [0; 6],
+    },
+    ElizaRule {
+        keyword_mask: keyword_bit(kw::FATHER),
+        template_index: tmpl::FAMILY,
+        rank: 3,
+        _pad: [0; 6],
+    },
+    ElizaRule {
+        keyword_mask: keyword_bit(kw::FAMILY),
+        template_index: tmpl::FAMILY,
+        rank: 3,
+        _pad: [0; 6],
+    },
     // Affect keywords
-    ElizaRule { keyword_mask: keyword_bit(kw::HAPPY) | keyword_bit(kw::SAD), template_index: tmpl::FEELINGS, rank: 4, _pad: [0; 6] },
-    ElizaRule { keyword_mask: keyword_bit(kw::ALIKE), template_index: tmpl::SIMILARITY, rank: 4, _pad: [0; 6] },
+    ElizaRule {
+        keyword_mask: keyword_bit(kw::HAPPY) | keyword_bit(kw::SAD),
+        template_index: tmpl::FEELINGS,
+        rank: 4,
+        _pad: [0; 6],
+    },
+    ElizaRule {
+        keyword_mask: keyword_bit(kw::ALIKE),
+        template_index: tmpl::SIMILARITY,
+        rank: 4,
+        _pad: [0; 6],
+    },
     // Self-reference
-    ElizaRule { keyword_mask: keyword_bit(kw::I), template_index: tmpl::REFLECT_I, rank: 5, _pad: [0; 6] },
+    ElizaRule {
+        keyword_mask: keyword_bit(kw::I),
+        template_index: tmpl::REFLECT_I,
+        rank: 5,
+        _pad: [0; 6],
+    },
 ];
 
 // =============================================================================
@@ -330,27 +385,71 @@ pub fn reflect(text: &str) -> String {
 pub fn render_template(template: u8, rotation: usize) -> &'static str {
     let responses: &[&[&str]] = &[
         // APOLOGIZE
-        &["Please don't apologize.", "Apologies are not necessary.", "What feelings do you have when you apologize?"],
+        &[
+            "Please don't apologize.",
+            "Apologies are not necessary.",
+            "What feelings do you have when you apologize?",
+        ],
         // DREAM
-        &["What does that dream suggest to you?", "Do you often have dreams?", "Have you dreamt about this before?"],
+        &[
+            "What does that dream suggest to you?",
+            "Do you often have dreams?",
+            "Have you dreamt about this before?",
+        ],
         // FAMILY
-        &["Tell me more about your family.", "Who else in your family comes to mind?", "Your family is important to you."],
+        &[
+            "Tell me more about your family.",
+            "Who else in your family comes to mind?",
+            "Your family is important to you.",
+        ],
         // ELABORATE
-        &["Can you elaborate on that?", "What makes you say that?", "Please go on."],
+        &[
+            "Can you elaborate on that?",
+            "What makes you say that?",
+            "Please go on.",
+        ],
         // SIMILARITY
-        &["In what way are they alike?", "What similarity do you see?", "What resemblance do you notice?"],
+        &[
+            "In what way are they alike?",
+            "What similarity do you see?",
+            "What resemblance do you notice?",
+        ],
         // FEELINGS
-        &["How does that make you feel?", "Tell me more about those feelings.", "What circumstances produce that feeling?"],
+        &[
+            "How does that make you feel?",
+            "Tell me more about those feelings.",
+            "What circumstances produce that feeling?",
+        ],
         // COMPUTER
-        &["Do computers worry you?", "What do you think about machines?", "Are you frightened by computers?"],
+        &[
+            "Do computers worry you?",
+            "What do you think about machines?",
+            "Are you frightened by computers?",
+        ],
         // MEMORY
-        &["What does that memory mean to you?", "Why do you remember that now?", "What makes you think of that?"],
+        &[
+            "What does that memory mean to you?",
+            "Why do you remember that now?",
+            "What makes you think of that?",
+        ],
         // REFLECT_I
-        &["You say you... go on.", "What do you mean when you say that?", "Tell me more about yourself."],
+        &[
+            "You say you... go on.",
+            "What do you mean when you say that?",
+            "Tell me more about yourself.",
+        ],
         // REFLECT_YOU
-        &["We were discussing you, not me.", "Why do you mention me?", "What about me interests you?"],
+        &[
+            "We were discussing you, not me.",
+            "Why do you mention me?",
+            "What about me interests you?",
+        ],
         // NAME
-        &["Names don't interest me.", "I don't care about names.", "Please continue."],
+        &[
+            "Names don't interest me.",
+            "I don't care about names.",
+            "Please continue.",
+        ],
         // FALLBACK_GO_ON
         &["Please go on.", "Continue.", "I see."],
         // FALLBACK_TELL
@@ -381,7 +480,10 @@ impl Default for ElizaSession {
 
 impl ElizaSession {
     pub fn new() -> Self {
-        ElizaSession { rotation: 0, history: 0 }
+        ElizaSession {
+            rotation: 0,
+            history: 0,
+        }
     }
 
     /// Full text-in / text-out turn. Cold path (~10 µs).
@@ -399,7 +501,11 @@ impl ElizaSession {
         }
         let result = turn(mask, &DOCTOR, self.history);
         self.history = result.state;
-        let template = if result.matched { result.template } else { tmpl::FALLBACK_GO_ON };
+        let template = if result.matched {
+            result.template
+        } else {
+            tmpl::FALLBACK_GO_ON
+        };
         let response = render_template(template, self.rotation);
         self.rotation = self.rotation.wrapping_add(1);
         response.to_string()
@@ -414,11 +520,7 @@ impl ElizaSession {
 ///
 /// Each input mask is run through `turn_fast`; predicts true if a rule matched
 /// (template != 0xFF). Timing is measured in nanoseconds-equivalent units.
-pub fn eliza_automl_signal(
-    name: &str,
-    input_masks: &[u64],
-    anchor: &[bool],
-) -> SignalProfile {
+pub fn eliza_automl_signal(name: &str, input_masks: &[u64], anchor: &[bool]) -> SignalProfile {
     let mut predictions = Vec::with_capacity(input_masks.len());
     let mut total_ns = 0u64;
     for &mask in input_masks {
@@ -559,11 +661,7 @@ mod tests {
 
     #[test]
     fn eliza_automl_signal_predicts_correctly() {
-        let masks = [
-            keyword_bit(kw::DREAM),
-            0,
-            keyword_bit(kw::SORRY),
-        ];
+        let masks = [keyword_bit(kw::DREAM), 0, keyword_bit(kw::SORRY)];
         let anchor = [true, false, true];
         let sig = eliza_automl_signal("eliza", &masks, &anchor);
         assert_eq!(sig.predictions, vec![true, false, true]);

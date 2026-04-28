@@ -142,7 +142,13 @@ mod tests {
         let scorer = MaturityScorer::new();
         // Construct an extreme state
         let artifacts: Vec<&str> = (0..50)
-            .map(|i| if i % 2 == 0 { "/root/plans/x.md" } else { "/root/ontologies/y.nt" })
+            .map(|i| {
+                if i % 2 == 0 {
+                    "/root/plans/x.md"
+                } else {
+                    "/root/ontologies/y.nt"
+                }
+            })
             .collect();
         let state = make_state(100, &artifacts);
         assert!(scorer.evaluate(&state).unwrap() <= 5);

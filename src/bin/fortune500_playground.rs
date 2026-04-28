@@ -10,12 +10,12 @@
 //!
 //! All models are embedded at compile time (const data); zero loading overhead.
 
-use std::io::{self, Write};
-use std::time::Instant;
 use dteam::ml::automl_config;
 use dteam::ml::eliza::{self, kw as eliza_kw};
 use dteam::ml::mycin::fact as mycin_fact;
 use dteam::ml::strips;
+use std::io::{self, Write};
+use std::time::Instant;
 
 // =============================================================================
 // DECISION RESULT — Unified Output Format
@@ -60,7 +60,7 @@ fn measure_ns(f: impl Fn()) -> u64 {
         })
         .collect();
     samples.sort_unstable();
-    samples[50]  // median
+    samples[50] // median
 }
 
 fn measure_full(f: impl Fn(), n: usize) -> (u64, u64, u64) {
@@ -72,9 +72,9 @@ fn measure_full(f: impl Fn(), n: usize) -> (u64, u64, u64) {
         })
         .collect();
     samples.sort_unstable();
-    let median = samples[n/2];
+    let median = samples[n / 2];
     let min = samples[0];
-    let max = samples[n-1];
+    let max = samples[n - 1];
     (median, min, max)
 }
 
@@ -88,7 +88,10 @@ fn run_insurance_profile() {
 
     let profile = automl_config::INSURANCE_CLAIMS_PROFILE;
     println!("Job: {}", profile.decision_job);
-    println!("Expected Accuracy: {:.0}%", profile.expected_accuracy * 100.0);
+    println!(
+        "Expected Accuracy: {:.0}%",
+        profile.expected_accuracy * 100.0
+    );
     println!("Latency Budget: {} µs\n", profile.latency_budget_us);
 
     // Scenario 1: STREP diagnosis (legitimate claim)
@@ -99,14 +102,22 @@ fn run_insurance_profile() {
     let result = dteam::ml::mycin::infer(facts, &dteam::ml::mycin::RULES);
     let diagnoses = result.conclusions;
 
-    let latency_mycin = (measure_ns(|| { let _ = dteam::ml::mycin::infer(facts, &dteam::ml::mycin::RULES); }) / 1000).max(1);
+    let latency_mycin = (measure_ns(|| {
+        let _ = dteam::ml::mycin::infer(facts, &dteam::ml::mycin::RULES);
+    }) / 1000)
+        .max(1);
 
     let mut results = vec![
         DecisionResult {
-            decision: if diagnoses != 0 { "APPROVE".to_string() } else { "DENY".to_string() },
+            decision: if diagnoses != 0 {
+                "APPROVE".to_string()
+            } else {
+                "DENY".to_string()
+            },
             confidence: 0.92,
             system: "MYCIN-Rule".to_string(),
-            reasoning: "Clinical pattern matches STREPTOCOCCUS (GRAM_POS + COCCUS + AEROBIC)".to_string(),
+            reasoning: "Clinical pattern matches STREPTOCOCCUS (GRAM_POS + COCCUS + AEROBIC)"
+                .to_string(),
             latency_us: latency_mycin,
         },
         DecisionResult {
@@ -114,7 +125,10 @@ fn run_insurance_profile() {
             confidence: 0.88,
             system: "MYCIN-DT (AutoML)".to_string(),
             reasoning: "Decision tree learned STREP pattern from training data".to_string(),
-            latency_us: (measure_ns(|| { let _ = dteam::ml::mycin::infer_fast(facts, &dteam::ml::mycin::RULES); }) / 1000).max(1),
+            latency_us: (measure_ns(|| {
+                let _ = dteam::ml::mycin::infer_fast(facts, &dteam::ml::mycin::RULES);
+            }) / 1000)
+                .max(1),
         },
     ];
 
@@ -123,13 +137,20 @@ fn run_insurance_profile() {
     }
 
     let agreement = results.iter().filter(|r| r.decision == "APPROVE").count();
-    println!("🤝 Ensemble Agreement: {}/{} systems → HIGH CONFIDENCE ✓\n", agreement, results.len());
+    println!(
+        "🤝 Ensemble Agreement: {}/{} systems → HIGH CONFIDENCE ✓\n",
+        agreement,
+        results.len()
+    );
 
     // Scenario 2: Impossible state (fraud flag)
     println!("⚠️  Scenario 2: Contradictory Medical Claims (Fraud Signal)");
     println!("────────────────────────────────────────────────────\n");
 
-    let latency_strips = (measure_ns(|| { let _ = strips::plan_default(strips::INITIAL_STATE, strips::HOLDING_A); }) / 1000).max(1);
+    let latency_strips = (measure_ns(|| {
+        let _ = strips::plan_default(strips::INITIAL_STATE, strips::HOLDING_A);
+    }) / 1000)
+        .max(1);
 
     results = vec![
         DecisionResult {
@@ -144,7 +165,10 @@ fn run_insurance_profile() {
             confidence: 0.85,
             system: "STRIPS-GB (AutoML)".to_string(),
             reasoning: "Boosting model learned contradiction patterns in fraud dataset".to_string(),
-            latency_us: (measure_ns(|| { let _ = strips::plan_default(strips::INITIAL_STATE, strips::HOLDING_A); }) / 1000).max(1),
+            latency_us: (measure_ns(|| {
+                let _ = strips::plan_default(strips::INITIAL_STATE, strips::HOLDING_A);
+            }) / 1000)
+                .max(1),
         },
     ];
 
@@ -152,8 +176,15 @@ fn run_insurance_profile() {
         result.display();
     }
 
-    let agreement = results.iter().filter(|r| r.decision == "DENY" || r.decision == "FLAG").count();
-    println!("🤝 Ensemble Agreement: {}/{} systems → FRAUD ALERT ⚠️\n", agreement, results.len());
+    let agreement = results
+        .iter()
+        .filter(|r| r.decision == "DENY" || r.decision == "FLAG")
+        .count();
+    println!(
+        "🤝 Ensemble Agreement: {}/{} systems → FRAUD ALERT ⚠️\n",
+        agreement,
+        results.len()
+    );
 }
 
 fn run_ecommerce_profile() {
@@ -162,7 +193,10 @@ fn run_ecommerce_profile() {
 
     let profile = automl_config::ECOMMERCE_PROFILE;
     println!("Job: {}", profile.decision_job);
-    println!("Expected Accuracy: {:.0}%", profile.expected_accuracy * 100.0);
+    println!(
+        "Expected Accuracy: {:.0}%",
+        profile.expected_accuracy * 100.0
+    );
     println!("Latency Budget: {} µs\n", profile.latency_budget_us);
 
     // Scenario: Happy path (feasible order)
@@ -172,7 +206,10 @@ fn run_ecommerce_profile() {
     let intent = eliza::keyword_bit(eliza_kw::I);
     let _template = eliza::turn_fast(intent, &eliza::DOCTOR);
 
-    let latency_eliza = (measure_ns(|| { let _ = eliza::turn_fast(intent, &eliza::DOCTOR); }) / 1000).max(1);
+    let latency_eliza = (measure_ns(|| {
+        let _ = eliza::turn_fast(intent, &eliza::DOCTOR);
+    }) / 1000)
+        .max(1);
 
     let results = vec![
         DecisionResult {
@@ -187,14 +224,20 @@ fn run_ecommerce_profile() {
             confidence: 0.89,
             system: "ELIZA-NB (AutoML)".to_string(),
             reasoning: "Naive Bayes learned intent from keyword co-occurrence".to_string(),
-            latency_us: (measure_ns(|| { let _ = eliza::turn_fast(intent, &eliza::DOCTOR); }) / 1000).max(1),
+            latency_us: (measure_ns(|| {
+                let _ = eliza::turn_fast(intent, &eliza::DOCTOR);
+            }) / 1000)
+                .max(1),
         },
         DecisionResult {
             decision: "FRAUD_RISK: 0.02".to_string(),
             confidence: 0.91,
             system: "Hearsay-BC (Fusion)".to_string(),
             reasoning: "Multi-source fusion: device + location + history consensus".to_string(),
-            latency_us: (measure_ns(|| { let _ = eliza::turn_fast(intent, &eliza::DOCTOR); }) / 1000).max(1),
+            latency_us: (measure_ns(|| {
+                let _ = eliza::turn_fast(intent, &eliza::DOCTOR);
+            }) / 1000)
+                .max(1),
         },
     ];
 
@@ -211,7 +254,10 @@ fn run_healthcare_profile() {
 
     let profile = automl_config::HEALTHCARE_PROFILE;
     println!("Job: {}", profile.decision_job);
-    println!("Expected Accuracy: {:.0}%", profile.expected_accuracy * 100.0);
+    println!(
+        "Expected Accuracy: {:.0}%",
+        profile.expected_accuracy * 100.0
+    );
     println!("Latency Budget: {} µs\n", profile.latency_budget_us);
 
     // Scenario: Pathogen detection
@@ -221,11 +267,18 @@ fn run_healthcare_profile() {
     let facts = mycin_fact::GRAM_POS | mycin_fact::COCCUS | mycin_fact::AEROBIC;
     let diagnoses = dteam::ml::mycin::infer_fast(facts, &dteam::ml::mycin::RULES);
 
-    let latency_mycin_fast = (measure_ns(|| { let _ = dteam::ml::mycin::infer_fast(facts, &dteam::ml::mycin::RULES); }) / 1000).max(1);
+    let latency_mycin_fast = (measure_ns(|| {
+        let _ = dteam::ml::mycin::infer_fast(facts, &dteam::ml::mycin::RULES);
+    }) / 1000)
+        .max(1);
 
     let results = vec![
         DecisionResult {
-            decision: if diagnoses != 0 { "QUARANTINE".to_string() } else { "SAFE".to_string() },
+            decision: if diagnoses != 0 {
+                "QUARANTINE".to_string()
+            } else {
+                "SAFE".to_string()
+            },
             confidence: 0.98,
             system: "MYCIN-Rule".to_string(),
             reasoning: "Gram stain + morphology → STREPTOCOCCUS confirmed".to_string(),
@@ -236,7 +289,10 @@ fn run_healthcare_profile() {
             confidence: 0.94,
             system: "MYCIN-DT (AutoML)".to_string(),
             reasoning: "Decision tree learned STREP signature from clinical lab data".to_string(),
-            latency_us: (measure_ns(|| { let _ = dteam::ml::mycin::infer_fast(facts, &dteam::ml::mycin::RULES); }) / 1000).max(1),
+            latency_us: (measure_ns(|| {
+                let _ = dteam::ml::mycin::infer_fast(facts, &dteam::ml::mycin::RULES);
+            }) / 1000)
+                .max(1),
         },
     ];
 
@@ -253,14 +309,20 @@ fn run_manufacturing_profile() {
 
     let profile = automl_config::MANUFACTURING_PROFILE;
     println!("Job: {}", profile.decision_job);
-    println!("Expected Accuracy: {:.0}%", profile.expected_accuracy * 100.0);
+    println!(
+        "Expected Accuracy: {:.0}%",
+        profile.expected_accuracy * 100.0
+    );
     println!("Latency Budget: {} µs\n", profile.latency_budget_us);
 
     // Scenario: Work order feasibility
     println!("⚙️  Scenario: Assembly Order Validation");
     println!("─────────────────────────────────────────\n");
 
-    let latency_strips_plan = (measure_ns(|| { let _ = strips::plan_default(strips::INITIAL_STATE, strips::HOLDING_A); }) / 1000).max(1);
+    let latency_strips_plan = (measure_ns(|| {
+        let _ = strips::plan_default(strips::INITIAL_STATE, strips::HOLDING_A);
+    }) / 1000)
+        .max(1);
 
     let results = vec![
         DecisionResult {
@@ -275,14 +337,21 @@ fn run_manufacturing_profile() {
             confidence: 0.93,
             system: "STRIPS-GB (AutoML)".to_string(),
             reasoning: "Gradient boosting learned reachability from state features".to_string(),
-            latency_us: (measure_ns(|| { let _ = strips::plan_default(strips::INITIAL_STATE, strips::HOLDING_A); }) / 1000).max(1),
+            latency_us: (measure_ns(|| {
+                let _ = strips::plan_default(strips::INITIAL_STATE, strips::HOLDING_A);
+            }) / 1000)
+                .max(1),
         },
         DecisionResult {
             decision: "EXECUTE: 7 steps".to_string(),
             confidence: 0.91,
             system: "SHRDLU-Rule".to_string(),
-            reasoning: "Goal-clearing recursion: clear dependencies, execute primitives".to_string(),
-            latency_us: (measure_ns(|| { let _ = strips::plan_default(strips::INITIAL_STATE, strips::HOLDING_A); }) / 1000).max(1),
+            reasoning: "Goal-clearing recursion: clear dependencies, execute primitives"
+                .to_string(),
+            latency_us: (measure_ns(|| {
+                let _ = strips::plan_default(strips::INITIAL_STATE, strips::HOLDING_A);
+            }) / 1000)
+                .max(1),
         },
     ];
 
@@ -300,8 +369,11 @@ fn list_profiles() {
     for profile in automl_config::all_profiles() {
         println!("📌 {} ({})", profile.name, profile.industry);
         println!("   Job: {}", profile.decision_job);
-        println!("   Accuracy: {:.0}% | Latency Budget: {} µs",
-                 profile.expected_accuracy * 100.0, profile.latency_budget_us);
+        println!(
+            "   Accuracy: {:.0}% | Latency Budget: {} µs",
+            profile.expected_accuracy * 100.0,
+            profile.latency_budget_us
+        );
         println!();
     }
 }
@@ -315,7 +387,11 @@ fn show_ensemble_config() {
     println!("Description: {}", config.description);
     println!("Systems: {}", config.systems.join(" + "));
     println!("Latency Budget: {} µs", config.latency_budget_us);
-    println!("Minimum Agreement: {}/{} systems\n", config.minimum_agreement, config.systems.len());
+    println!(
+        "Minimum Agreement: {}/{} systems\n",
+        config.minimum_agreement,
+        config.systems.len()
+    );
 
     println!("This ensemble guarantees:");
     println!("  ✓ Nanosecond inference (all models embedded as const)");
@@ -337,28 +413,61 @@ fn show_theory() {
 
 fn run_benchmark() {
     println!("\n⚡ SYSTEM LATENCY BENCHMARKS\n============================\n");
-    println!("{:<20} | {:>10} | {:>8} | {:>8}", "System", "Median ns", "Min ns", "Max ns");
+    println!(
+        "{:<20} | {:>10} | {:>8} | {:>8}",
+        "System", "Median ns", "Min ns", "Max ns"
+    );
     println!("{}", "-".repeat(50));
 
-    let (median, min, max) = measure_full(|| {
-        let _ = dteam::ml::mycin::infer(mycin_fact::GRAM_POS | mycin_fact::COCCUS, &dteam::ml::mycin::RULES);
-    }, 1000);
-    println!("{:<20} | {:>10} | {:>8} | {:>8}", "mycin::infer", median, min, max);
+    let (median, min, max) = measure_full(
+        || {
+            let _ = dteam::ml::mycin::infer(
+                mycin_fact::GRAM_POS | mycin_fact::COCCUS,
+                &dteam::ml::mycin::RULES,
+            );
+        },
+        1000,
+    );
+    println!(
+        "{:<20} | {:>10} | {:>8} | {:>8}",
+        "mycin::infer", median, min, max
+    );
 
-    let (median, min, max) = measure_full(|| {
-        let _ = dteam::ml::mycin::infer_fast(mycin_fact::GRAM_POS | mycin_fact::COCCUS, &dteam::ml::mycin::RULES);
-    }, 1000);
-    println!("{:<20} | {:>10} | {:>8} | {:>8}", "mycin::infer_fast", median, min, max);
+    let (median, min, max) = measure_full(
+        || {
+            let _ = dteam::ml::mycin::infer_fast(
+                mycin_fact::GRAM_POS | mycin_fact::COCCUS,
+                &dteam::ml::mycin::RULES,
+            );
+        },
+        1000,
+    );
+    println!(
+        "{:<20} | {:>10} | {:>8} | {:>8}",
+        "mycin::infer_fast", median, min, max
+    );
 
-    let (median, min, max) = measure_full(|| {
-        let _ = eliza::turn_fast(eliza::keyword_bit(eliza_kw::DREAM), &eliza::DOCTOR);
-    }, 1000);
-    println!("{:<20} | {:>10} | {:>8} | {:>8}", "eliza::turn_fast", median, min, max);
+    let (median, min, max) = measure_full(
+        || {
+            let _ = eliza::turn_fast(eliza::keyword_bit(eliza_kw::DREAM), &eliza::DOCTOR);
+        },
+        1000,
+    );
+    println!(
+        "{:<20} | {:>10} | {:>8} | {:>8}",
+        "eliza::turn_fast", median, min, max
+    );
 
-    let (median, min, max) = measure_full(|| {
-        let _ = strips::plan_default(strips::INITIAL_STATE, strips::HOLDING_A);
-    }, 1000);
-    println!("{:<20} | {:>10} | {:>8} | {:>8}", "strips::plan_default", median, min, max);
+    let (median, min, max) = measure_full(
+        || {
+            let _ = strips::plan_default(strips::INITIAL_STATE, strips::HOLDING_A);
+        },
+        1000,
+    );
+    println!(
+        "{:<20} | {:>10} | {:>8} | {:>8}",
+        "strips::plan_default", median, min, max
+    );
 
     println!();
 }
