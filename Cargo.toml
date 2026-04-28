@@ -3,7 +3,10 @@ name = "dteam"
 version = "1.3.0"
 edition = "2021"
 license = "BUSL-1.1"
+authors = ["Sean Chatman <xpointsh@gmail.com>"]
 description = "Deterministic Process Intelligence Engine (dteam) - Digital Team"
+repository = "https://github.com/dteam-ai/dteam"
+homepage = "https://dteam.ai"
 
 [workspace]
 
@@ -113,6 +116,10 @@ path = "src/bin/sr.rs"
 name = "conformance"
 path = "src/bin/conformance.rs"
 
+[[bin]]
+name = "fortune500_playground"
+path = "src/bin/fortune500_playground.rs"
+
 [[bench]]
 name = "reinforcement_bench"
 harness = false
@@ -195,4 +202,12 @@ harness = false
 
 [[bench]]
 name = "pdc_pipeline_bench"
+harness = false
+
+[[bench]]
+name = "symbolic_learned_bench"
+harness = false
+
+[[bench]]
+name = "bitmask_replay_bench"
 harness = false
