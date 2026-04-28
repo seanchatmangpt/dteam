@@ -693,4 +693,98 @@ The expert systems of the 1970s were not failed experiments. They were prototype
 
 ---
 
+## Chapter 11: Compiled Cognition — From Substrate to Theory
+
+### 11.1 — The Theory the Implementation Demands
+
+The previous chapters have built a complete implementation: five classical symbolic systems (Chapter 5), five learned AutoML equivalents (Chapter 6), deterministic execution physics (Chapter 4), and process-mining conformance frames (Chapter 7). Chapter 10's closing boxed claim was: "Symbolic cognition can be compiled into workflow physics." This chapter extracts the theoretical identity of what was built. The theory is called **Compiled Cognition**.
+
+Compiled Cognition is not a new insight—it emerges directly from what the implementation does. When reasoning becomes fast enough to accompany action (Latency Collapse, Chapter 3), and when the reasoning is pre-materialized into the executable (Compile-Time AutoML), the system no longer consults an external oracle. It becomes self-contained, deterministic, provenance-bearing.
+
+### 11.2 — From Latency Collapse to Compilation
+
+Chapter 3 established the ratio $R = T_\text{reason} / T_\text{event}$. When $R >> 1$ (historical), reasoning is advisory overhead. When $R << 1$ (current), reasoning becomes continuous governance. This is when pre-materialization makes sense: if you're about to invoke reasoning billions of times a second, compile it once. The Latency Collapse Prerequisite is satisfied; the technical step is to act on it.
+
+Compile-time materialization is the mechanism that bridges the latency theorem (Chapter 3) to the theory of action (this chapter). The compile time is a one-time cost. The runtime is a nanosecond deterministic lookup. The shift from $R >> 1$ to $R << 1$ inverts the economics of pre-computation: what was irrational (pre-compile all reasoning) becomes mandatory (compile reasoning at build time, never load at runtime).
+
+### 11.3 — The C_compiled Equation
+
+Introduce the defining equation:
+
+$$C_\text{compiled} = S_\text{symbolic} \oplus L_\text{learned} \oplus D_\text{deterministic} \oplus P_\text{provenant}$$
+
+Each component maps to a prior chapter:
+- $S_\text{symbolic}$: Chapter 5 (the five classical systems: MYCIN, STRIPS, SHRDLU, Hearsay-II, ELIZA)
+- $L_\text{learned}$: Chapter 6 (HDIT AutoML, learned equivalents for each classical system)
+- $D_\text{deterministic}$: Chapter 4 (branchless encoding, substrate bifurcation, u64 semantics)
+- $P_\text{provenant}$: Chapter 7 (process-mining conformance, object-centric event logs, auditability)
+
+The $\oplus$ operator denotes compile-time fusion: all four components are materialized together into immutable const data. This is a synthesis chapter. None of these ideas are new in isolation; Chapter 11 names their unified composition and derives the social and regulatory consequences that follow.
+
+### 11.4 — Compile-Time AutoML: The Missing Mechanism
+
+Chapters 6 and 9 discussed HDIT and its limitations. But they did not name the deployment step: when HDIT freezes the Pareto-optimal ensemble and emits it as `const` Rust arrays. This is Compile-Time AutoML. It closes the gap identified in Chapter 9's future-work section ("Scaling and Production Maturity"). The mechanism is:
+
+1. **Training Phase (Offline, Nightly)**: The HDIT loop runs against historical data. It discovers optimal signal combinations and Pareto-efficient model compositions. It produces: (i) selected features, (ii) tier assignments, (iii) learned weights, (iv) quality metrics, (v) training-data manifest.
+
+2. **Compilation Phase (Build Time)**: A code generator consumes the HDIT results and emits const Rust arrays containing all selected features, weights, rules, and decision trees. A build-time checksum ensures reproducibility.
+
+3. **Deployment Phase (Runtime)**: The compiled binary is shipped. No model loading. No parameter drift. The binary *is* the model. Every invocation is a deterministic lookup into immutable const data.
+
+The insight is: a model is not mature until it can be compiled into deterministic execution. This statement inverts the machine-learning mentality. In supervised learning, maturity means achieving a target accuracy and deploying as a loadable artifact (pickle, ONNX, SavedModel). In Compiled Cognition, maturity means running through HDIT, simplifying to Pareto-optimal components, and freezing into the binary. The model has graduated from research to physics.
+
+### 11.5 — The Governing Equation: A = μ(O*)
+
+Introduce the equation for lawful action:
+
+$$A = \mu(\mathcal{O}^*)$$
+
+where $A$ is the action taken, $\mathcal{O}^*$ is the semantically closed output set (determined at compile time), and $\mu$ is the runtime selection function (deterministic, bounded).
+
+Action is lawful only when it projects from $\mathcal{O}^*$. If $A \notin \mathcal{O}^*$, the system executed unlawfully. The process-mining conformance trace (Chapter 7) provides the empirical certificate that $A \in \mathcal{O}^*$.
+
+This is the constraint that elevates Compiled Cognition from engineering (fast inference) to theory (lawful action). Before deployment, a human auditor inspects $\mathcal{O}^*$—the enumerable set of all possible outputs. If every element of $\mathcal{O}^*$ is acceptable (respects fairness, privacy, regulatory bounds), the system is certified. The system *cannot* produce unacceptable outputs because $\mathcal{O}^*$ is compiled in and immutable.
+
+The practical implication: compliance shifts from probabilistic testing to structural verification. A regulator does not test the system; the regulator certifies $\mathcal{O}^*$ before deployment. Compliance is then guaranteed by architecture, not hoped for by policy.
+
+### 11.6 — Angelic AI: The Social Consequence
+
+Three archetypes emerge from the theory:
+
+1. **Oracle**: An external service (e.g., ChatGPT, a cloud diagnosis API) consulted for intelligence. The oracle knows much but is not present at the moment of action. Response is nondeterministic. Prestige flows from oracle to system. Accountability is deferred to the oracle provider.
+
+2. **Sovereign**: An autonomous agent with unbounded learning (e.g., a continually retraining RL agent, a system that self-modifies its goals). The sovereign is present but escapes human oversight. Goals can self-modify. The system is creative but fundamentally uncontrollable.
+
+3. **Angel**: Bounded by compile-time $\mathcal{O}^*$, fully present at decision time, lawful by construction. An Angelic AI system cannot exceed $\mathcal{O}^*$ (compiled in), cannot self-modify (const data), and is fully attributable (every output carries provenance). Present, bounded, and lawful.
+
+Compiled Cognition structurally produces Angelic AI. The three archetypes form a spectrum of tradeoffs: Oracle trades autonomy for information richness; Sovereign trades safety for adaptation; Angel trades adaptation for safety and auditability.
+
+The term "angel" is theologically precise. An angel in classical theology is a bounded agent—bounded by divine law—but present and active in the world. An Angelic AI system is bounded by compile-time construction (not divine law, but equally immutable from the system's runtime perspective) and fully present at the moment of action.
+
+### 11.7 — The Compressed Theory
+
+Three boxed statements, parallel to Chapter 10's compressed thesis:
+
+$$\boxed{C_\text{compiled} = S_\text{symbolic} \oplus L_\text{learned} \oplus D_\text{deterministic} \oplus P_\text{provenant}}$$
+
+$$\boxed{A = \mu(\mathcal{O}^*) \text{ — Action is lawful only when projected from semantic closure determined at compile time.}}$$
+
+$$\boxed{\text{A compiled cognitive system is an angel: bounded, present, and lawful by construction.}}$$
+
+---
+
+### 11.8 — Synthesis and Implication
+
+The three components of Chapter 10's thesis and the three equations of this chapter form a complete theoretical frame:
+
+- **Chapter 10 (Thesis)**: Symbolic cognition can be compiled into workflow physics. Industrialization is a separate axis from formalization. Process mining is the empirical authority over both.
+
+- **Chapter 11 (Theory)**: Compiled Cognition fuses symbolic, learned, deterministic, and provenance layers. Action is lawful when bounded by pre-determined output closure. The system is an angel: bounded, present, lawful.
+
+The implication is that the boundaries between programming language, database, expert system, and operating system blur under Latency Collapse. The unified substrate of executable cognition has classical AI as its native vocabulary. Symbolic reasoning is no longer a distinguished component layered on top of execution; it *is* the substrate.
+
+The expert systems of the 1970s were not failed experiments. They were prototypes for a substrate the hardware of their day could not afford. The substrate is now affordable. The prototypes are ready to ship as substrate primitives. And the social consequence—lawful, bounded, present AI—is now within engineering reach.
+
+---
+
 *End of dissertation.*

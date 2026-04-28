@@ -1,5 +1,23 @@
 # Fortune 500 Playground — Nanosecond Cognition Interactive Demo
 
+## What You Are About To Witness
+
+This playground lets you observe **Compiled Cognition in action**—inference embedded at compile time, not served at runtime.
+
+Everything here is baked into the binary before it runs. No models load from disk. No weights are fetched over the network. No inference services spin up. The reasoning is substrate, not service.
+
+Three numbered properties of what you will see:
+
+1. **Embedded at compile time**: All 10 classical and AutoML models (ELIZA, MYCIN, STRIPS, SHRDLU, Hearsay-II + Naive Bayes, Decision Tree, Gradient Boosting, Logistic Regression, Borda Count) are const data, verified at build time, embedded as read-only memory. Zero loading overhead. The binary is complete.
+
+2. **Deterministic**: Run the same input profile twice, observe byte-identical outputs. No runtime randomness, no floating-point variance, no model drift. The inference is reproducible and auditable—exact trace, exact score, exact timestamp.
+
+3. **Zero external dependencies**: This binary is self-contained. No inference servers, no config files, no cloud calls, no database lookups. Feed it input; it decides. All intelligence is embedded as substrate.
+
+**The ontological claim:** Intelligence here is a substrate property—part of what the code *is*—not a service that the code *calls*. You are witnessing the shift from OracleAI (consult an external reasoning service) to AngelAI (reason as part of execution).
+
+---
+
 ## Quick Start
 
 ### Interactive REPL
@@ -494,6 +512,24 @@ This playground is part of the dteam nanosecond-cognition research project. For 
 2. Review module docs: `cargo doc --open`
 3. Run tests: `cargo test --lib`
 4. Inspect source: All models in `src/ml/`
+
+---
+
+## Theory Behind the Playground
+
+This playground operationalizes a three-part theoretical framework:
+
+**1. Latency Collapse (R << 1):** When decision latency drops below ~1 microsecond, it becomes negligible vs. I/O, network, and serialization. At this point, you can reason continuously, not in batch windows. The execution model shifts from "offline recommendation" to "inline decision."
+
+**2. Compile-Time AutoML:** All models—symbolic rules and learned weights—are trained once, frozen at build time, and embedded as const data. No serialization risk, no deserialization latency, no runtime loading, no model drift. Inference is native code, deterministic, auditable.
+
+**3. Angelic AI (Embedded Cognition):** Intelligence becomes a property of the system itself, not a service it consults. Decisions flow inline with execution. No external dependency. This is the shift from OracleAI (external reasoning service) to AngelAI (embedded reasoning substrate).
+
+When all three properties hold, you have a deterministic, auditable, high-speed decision system that can be compiled, shipped, and executed as a single binary artifact.
+
+**The playground is the proof:** Observe the theory in action. Run the same input twice; get identical outputs. Check the timestamps; latencies are sub-microsecond. Inspect the code; all constants are in `src/ml/automl_config.rs`, versioned in git, compiled at build time.
+
+For full theory, see `ENTERPRISE_WHITEPAPER.md` (sections 1–2 on Compiled Cognition, Latency Collapse, and the Ontological Shift).
 
 ---
 
