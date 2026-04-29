@@ -1,0 +1,684 @@
+//! Knowledge hook 4-tuple architecture — (trigger, check, act, receipt) autonomic system.
+//!
+//! Hooks encode the closed-loop cognitive pattern: detect a condition (trigger),
+//! validate it (check), execute a transformation (act), and emit provenance (receipt).
+//! Hooks are stateless, deterministic, and composable via HookRegistry.
+//!
+//! # Architecture
+//!
+//! Each `KnowledgeHook` is a 4-tuple:
+//! - **Trigger**: When to fire (RDF change, SPARQL ASK, or manual)
+//! - **Check**: Validation predicate (SPARQL or Fn)
+//! - **Act**: Transformation that produces bounded delta (SPARQL CONSTRUCT or Fn)
+//! - **Receipt**: Optional PROV activity emission
+//!
+//! # Examples
+//!
+//! ```ignore
+//! let mut registry = HookRegistry::new();
+//! registry.register(missing_evidence_hook());
+//! let outcomes = registry.fire_matching(&field)?;
+//! for outcome in outcomes {
+//!     println!("{}: {} triples", outcome.hook_name, outcome.delta.len());
+//! }
+//! ```
+
+use crate::construct8::Construct8;
+use crate::field::FieldContext;
+use crate::graph::GraphIri;
+use crate::receipt::Receipt;
+use anyhow::Result;
+use chrono::Utc;
+
+/// Trigger condition for a hook to fire.
+///
+/// Encodes patterns: reactive (RDF property change), pattern-match,
+/// type-presence, interrogative (SPARQL ASK), or manual invocation.
+#[derive(Debug, Clone)]
+pub enum HookTrigger {
+    /// Fire when a triple with the given predicate is asserted in the graph.
+    /// Evaluates to ASK `{ ?s <predicate> ?o }`.
+    RdfChange {
+        /// The predicate IRI to watch for assertions.
+        predicate: GraphIri,
+    },
+
+    /// Fire when a SPARQL ASK query returns true.
+    /// Query is prepended with PREFIXES automatically.
+    SparqlAsk {
+        /// The SPARQL ASK query string.
+        query: String,
+    },
+
+    /// Fire when any quad matching `(subject?, predicate?, object?)` exists.
+    /// Direct triple-pattern lookup — no SPARQL parsing.
+    Pattern {
+        /// Subject IRI to match (None = wildcard).
+        subject: Option<oxigraph::model::NamedNode>,
+        /// Predicate IRI to match (None = wildcard).
+        predicate: Option<oxigraph::model::NamedNode>,
+        /// Object term to match (None = wildcard).
+        object: Option<oxigraph::model::Term>,
+    },
+
+    /// Fire when any instance of the given class exists.
+    /// Equivalent to `Pattern { predicate: rdf:type, object: class }` but cheaper.
+    TypePresent(oxigraph::model::NamedNode),
+
+    /// Fire unconditionally (manual invocation only).
+    Manual,
+}
+
+/// Validation predicate for a hook condition.
+///
+/// Encodes patterns: declarative (SPARQL), imperative (Fn), pattern-match, or
+/// denial-polarity admit. All except `Admit` return `Result<bool>`.
+#[derive(Clone)]
+pub enum HookCheck {
+    /// SPARQL ASK query. Query is prepended with PREFIXES automatically.
+    Sparql(String),
+
+    /// Rust function pointer. Must be deterministic and stateless.
+    Fn(fn(&FieldContext) -> Result<bool>),
+
+    /// Direct triple-pattern existence check. No SPARQL parsing.
+    Pattern {
+        /// Subject IRI to match (None = wildcard).
+        subject: Option<oxigraph::model::NamedNode>,
+        /// Predicate IRI to match (None = wildcard).
+        predicate: Option<oxigraph::model::NamedNode>,
+        /// Object term to match (None = wildcard).
+        object: Option<oxigraph::model::Term>,
+    },
+
+    /// Denial-polarity admit function: 0 = admitted, nonzero = denied.
+    /// Cannot fail; composed via bitwise OR for branchless gating.
+    Admit(fn(&FieldContext) -> u64),
+}
+
+impl std::fmt::Debug for HookCheck {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Sparql(q) => f.debug_tuple("Sparql").field(q).finish(),
+            Self::Fn(_) => f.debug_tuple("Fn").field(&"<fn>").finish(),
+            Self::Pattern { subject, predicate, object } => f
+                .debug_struct("Pattern")
+                .field("subject", subject)
+                .field("predicate", predicate)
+                .field("object", object)
+                .finish(),
+            Self::Admit(_) => f.debug_tuple("Admit").field(&"<admit>").finish(),
+        }
+    }
+}
+
+/// Transformation action that produces a bounded CONSTRUCT delta.
+///
+/// Encodes patterns: declarative (SPARQL CONSTRUCT), imperative (Fn), or
+/// pre-computed constant triples (no parsing).
+#[derive(Clone)]
+pub enum HookAct {
+    /// SPARQL CONSTRUCT query producing ≤8 triples. Query is prepended with PREFIXES automatically.
+    Sparql(String),
+
+    /// Rust function pointer producing bounded delta. Must be deterministic and stateless.
+    Fn(fn(&FieldContext) -> Result<Construct8>),
+
+    /// Pre-computed triples returned verbatim (≤8). No parsing or SPARQL.
+    ConstantTriples(Vec<oxigraph::model::Triple>),
+}
+
+impl std::fmt::Debug for HookAct {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Sparql(q) => f.debug_tuple("Sparql").field(q).finish(),
+            Self::Fn(_) => f.debug_tuple("Fn").field(&"<fn>").finish(),
+            Self::ConstantTriples(t) => f.debug_tuple("ConstantTriples").field(&t.len()).finish(),
+        }
+    }
+}
+
+/// Knowledge hook: reactive closure (trigger, check, act, receipt).
+///
+/// Hooks are stateless, deterministic rule activations in the field's
+/// RDF graph. All IRIs and SPARQL strings use public ontologies only.
+#[derive(Debug, Clone)]
+pub struct KnowledgeHook {
+    /// Unique hook name for provenance and debugging.
+    pub name: &'static str,
+
+    /// Firing condition: when to evaluate this hook.
+    pub trigger: HookTrigger,
+
+    /// Validation predicate: must pass before act runs.
+    pub check: HookCheck,
+
+    /// Transformation action: produces bounded delta.
+    pub act: HookAct,
+
+    /// If true, emit a PROV activity receipt after successful act.
+    pub emit_receipt: bool,
+}
+
+/// Outcome of a fired and executed hook.
+///
+/// Captures the delta produced and optional provenance receipt.
+#[derive(Debug, Clone)]
+pub struct HookOutcome {
+    /// Name of the hook that fired.
+    pub hook_name: &'static str,
+
+    /// Bounded delta (≤8 triples) produced by act.
+    pub delta: Construct8,
+
+    /// Optional PROV activity receipt if emit_receipt was true.
+    pub receipt: Option<Receipt>,
+}
+
+/// Registry of knowledge hooks with firing orchestration.
+///
+/// Hooks are evaluated in registration order. A hook fires if:
+/// 1. Trigger evaluates to true, AND
+/// 2. Check evaluates to true, AND
+/// 3. Act produces a non-error delta.
+///
+/// The registry enforces deterministic sequencing and captures all outcomes.
+#[derive(Debug, Default)]
+pub struct HookRegistry {
+    hooks: Vec<KnowledgeHook>,
+}
+
+impl HookRegistry {
+    /// Create a new empty hook registry.
+    pub fn new() -> Self {
+        Self {
+            hooks: Vec::new(),
+        }
+    }
+
+    /// Register a knowledge hook for evaluation.
+    ///
+    /// Hooks are evaluated in registration order.
+    pub fn register(&mut self, hook: KnowledgeHook) {
+        self.hooks.push(hook);
+    }
+
+    /// Fire all hooks whose triggers and checks match the field context.
+    ///
+    /// Iterates registered hooks in order. For each hook:
+    /// 1. Evaluate trigger — skip if false
+    /// 2. Evaluate check — skip if false or error
+    /// 3. Execute act — capture delta and optional receipt
+    /// 4. Append outcome to results
+    ///
+    /// Hook execution is deterministic and side-effect free at the registry level.
+    /// Individual act functions may have imperative side effects (e.g., logging).
+    pub fn fire_matching(&self, field: &FieldContext) -> Result<Vec<HookOutcome>> {
+        let mut outcomes = Vec::new();
+
+        for hook in &self.hooks {
+            // Evaluate trigger
+            let trigger_fired = evaluate_trigger(&hook.trigger, field)?;
+            if !trigger_fired {
+                continue;
+            }
+
+            // Evaluate check
+            let check_passed = evaluate_check(&hook.check, field)?;
+            if !check_passed {
+                continue;
+            }
+
+            // Execute act
+            let delta = evaluate_act(&hook.act, field)?;
+
+            // Generate receipt if requested
+            let receipt = if hook.emit_receipt {
+                let activity_iri = GraphIri::from_iri(&format!(
+                    "http://example.org/hook/{}#{}",
+                    hook.name,
+                    Utc::now().timestamp()
+                ))?;
+                let hash = Receipt::blake3_hex(&delta.receipt_bytes());
+                Some(Receipt::new(activity_iri, hash, Utc::now()))
+            } else {
+                None
+            };
+
+            outcomes.push(HookOutcome {
+                hook_name: hook.name,
+                delta,
+                receipt,
+            });
+        }
+
+        Ok(outcomes)
+    }
+}
+
+/// Evaluate a hook trigger against the field context.
+///
+/// - `RdfChange { predicate }` → ASK `{ ?s <predicate> ?o }`
+/// - `SparqlAsk { query }` → ASK `{ <query> }` with PREFIXES prepended
+/// - `Manual` → always true
+fn evaluate_trigger(trigger: &HookTrigger, field: &FieldContext) -> Result<bool> {
+    match trigger {
+        HookTrigger::RdfChange { predicate } => {
+            let query = format!("ASK {{ ?s <{}> ?o }}", predicate.as_str());
+            field.graph.ask(&query)
+        }
+        HookTrigger::SparqlAsk { query } => field.graph.ask(query),
+        HookTrigger::Pattern { subject, predicate, object } => {
+            field.graph.pattern_exists(subject.as_ref(), predicate.as_ref(), object.as_ref())
+        }
+        HookTrigger::TypePresent(class) => {
+            let rdf_type = oxigraph::model::NamedNode::new(
+                "http://www.w3.org/1999/02/22-rdf-syntax-ns#type",
+            )?;
+            let class_term: oxigraph::model::Term = class.clone().into();
+            field.graph.pattern_exists(None, Some(&rdf_type), Some(&class_term))
+        }
+        HookTrigger::Manual => Ok(true),
+    }
+}
+
+/// Evaluate a hook check against the field context.
+///
+/// - `Sparql(query)` → call field.graph.ask() with PREFIXES prepended
+/// - `Fn(f)` → call f(field)
+fn evaluate_check(check: &HookCheck, field: &FieldContext) -> Result<bool> {
+    match check {
+        HookCheck::Sparql(query) => field.graph.ask(query),
+        HookCheck::Fn(f) => f(field),
+        HookCheck::Pattern { subject, predicate, object } => {
+            field.graph.pattern_exists(subject.as_ref(), predicate.as_ref(), object.as_ref())
+        }
+        HookCheck::Admit(f) => Ok(crate::admit::admitted(f(field))),
+    }
+}
+
+/// Evaluate a hook act against the field context.
+///
+/// - `Sparql(query)` → call field.graph.construct(), wrap in Construct8
+/// - `Fn(f)` → call f(field) directly
+fn evaluate_act(act: &HookAct, field: &FieldContext) -> Result<Construct8> {
+    match act {
+        HookAct::Sparql(query) => {
+            let triples = field.graph.construct(query)?;
+            let mut delta = Construct8::empty();
+            for triple in triples {
+                if !delta.push(triple) {
+                    anyhow::bail!("CONSTRUCT query produced more than 8 triples");
+                }
+            }
+            Ok(delta)
+        }
+        HookAct::Fn(f) => f(field),
+        HookAct::ConstantTriples(triples) => {
+            let mut delta = Construct8::empty();
+            for triple in triples {
+                if !delta.push(triple.clone()) {
+                    anyhow::bail!("ConstantTriples act exceeded 8-triple budget");
+                }
+            }
+            Ok(delta)
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Built-in hook helpers — direct triple-pattern Fn pointers (no SPARQL parsing).
+// ---------------------------------------------------------------------------
+
+/// Check: any `schema:DigitalDocument` instance lacking a `prov:value`.
+///
+/// Direct iteration over typed subjects with short-circuit on first miss.
+fn check_any_doc_missing_value(field: &FieldContext) -> Result<bool> {
+    let dd = oxigraph::model::NamedNode::new("https://schema.org/DigitalDocument")?;
+    let pv = oxigraph::model::NamedNode::new("http://www.w3.org/ns/prov#value")?;
+    for d in field.graph.instances_of(&dd)? {
+        if !field.graph.has_value_for(&d, &pv)? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+/// Act: emit a placeholder `prov:value` triple for each documented gap (≤8 triples).
+fn emit_missing_evidence_delta(field: &FieldContext) -> Result<Construct8> {
+    let dd = oxigraph::model::NamedNode::new("https://schema.org/DigitalDocument")?;
+    let pv = oxigraph::model::NamedNode::new("http://www.w3.org/ns/prov#value")?;
+    let mut delta = Construct8::empty();
+    for d in field.graph.instances_of(&dd)? {
+        if delta.is_full() {
+            break;
+        }
+        if !field.graph.has_value_for(&d, &pv)? {
+            let triple = oxigraph::model::Triple::new(
+                d,
+                pv.clone(),
+                oxigraph::model::Term::Literal(oxigraph::model::Literal::new_simple_literal(
+                    "placeholder",
+                )),
+            );
+            // Capacity bounded by Construct8 (≤8); push always succeeds here.
+            let _ = delta.push(triple);
+        }
+    }
+    Ok(delta)
+}
+
+/// Check: any subject carries a `skos:prefLabel`.
+fn check_concept_with_label(field: &FieldContext) -> Result<bool> {
+    let pref_label =
+        oxigraph::model::NamedNode::new("http://www.w3.org/2004/02/skos/core#prefLabel")?;
+    field.graph.pattern_exists(None, Some(&pref_label), None)
+}
+
+/// Act: emit a `skos:definition` placeholder for each labeled concept (≤8 triples).
+fn emit_phrase_definition_delta(field: &FieldContext) -> Result<Construct8> {
+    let pref_label =
+        oxigraph::model::NamedNode::new("http://www.w3.org/2004/02/skos/core#prefLabel")?;
+    let definition =
+        oxigraph::model::NamedNode::new("http://www.w3.org/2004/02/skos/core#definition")?;
+    let mut delta = Construct8::empty();
+    for (concept, _label) in field.graph.pairs_with_predicate(&pref_label)? {
+        if delta.is_full() {
+            break;
+        }
+        let triple = oxigraph::model::Triple::new(
+            concept,
+            definition.clone(),
+            oxigraph::model::Term::Literal(oxigraph::model::Literal::new_simple_literal(
+                "derived from prefLabel",
+            )),
+        );
+        let _ = delta.push(triple);
+    }
+    Ok(delta)
+}
+
+/// Check: any subject carries an `rdf:type` assertion.
+fn check_any_typed_subject(field: &FieldContext) -> Result<bool> {
+    let rdf_type =
+        oxigraph::model::NamedNode::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")?;
+    field.graph.pattern_exists(None, Some(&rdf_type), None)
+}
+
+/// Act: emit two SHACL validity triples per typed subject (≤4 subjects, ≤8 triples).
+fn emit_validity_delta(field: &FieldContext) -> Result<Construct8> {
+    let rdf_type =
+        oxigraph::model::NamedNode::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")?;
+    let target_class = oxigraph::model::NamedNode::new("http://www.w3.org/ns/shacl#targetClass")?;
+    let node_kind = oxigraph::model::NamedNode::new("http://www.w3.org/ns/shacl#nodeKind")?;
+    let blank_or_iri =
+        oxigraph::model::NamedNode::new("http://www.w3.org/ns/shacl#BlankNodeOrIRI")?;
+    let blank_or_iri_term: oxigraph::model::Term = blank_or_iri.into();
+
+    let mut delta = Construct8::empty();
+    let mut subjects_emitted: u8 = 0;
+    for (subj, type_term) in field.graph.pairs_with_predicate(&rdf_type)? {
+        if subjects_emitted >= 4 {
+            break;
+        }
+        if let oxigraph::model::Term::NamedNode(_) = type_term {
+            let t1 = oxigraph::model::Triple::new(
+                subj.clone(),
+                target_class.clone(),
+                type_term.clone(),
+            );
+            let t2 = oxigraph::model::Triple::new(
+                subj,
+                node_kind.clone(),
+                blank_or_iri_term.clone(),
+            );
+            // Construct8 hard-caps at 8; both pushes succeed within the 4-subject loop bound.
+            let _ = delta.push(t1);
+            let _ = delta.push(t2);
+            subjects_emitted += 1;
+        }
+    }
+    Ok(delta)
+}
+
+/// Act: emit a deterministic `prov:Activity` triple pair from a BLAKE3-derived URN.
+fn emit_receipt_activity_delta(_field: &FieldContext) -> Result<Construct8> {
+    let h = blake3::hash(b"receipt_hook");
+    let activity_iri =
+        oxigraph::model::NamedNode::new(&format!("urn:blake3:{}", h.to_hex()))?;
+    let rdf_type =
+        oxigraph::model::NamedNode::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")?;
+    let prov_activity = oxigraph::model::NamedNode::new("http://www.w3.org/ns/prov#Activity")?;
+    let prov_was_associated_with =
+        oxigraph::model::NamedNode::new("http://www.w3.org/ns/prov#wasAssociatedWith")?;
+    // PROV-O canonical class: prov:Agent (prov:Service is not a real PROV-O class).
+    let prov_agent = oxigraph::model::NamedNode::new("http://www.w3.org/ns/prov#Agent")?;
+
+    let prov_activity_term: oxigraph::model::Term = prov_activity.into();
+    let prov_agent_term: oxigraph::model::Term = prov_agent.into();
+
+    let mut delta = Construct8::empty();
+    let _ = delta.push(oxigraph::model::Triple::new(
+        activity_iri.clone(),
+        rdf_type,
+        prov_activity_term,
+    ));
+    let _ = delta.push(oxigraph::model::Triple::new(
+        activity_iri,
+        prov_was_associated_with,
+        prov_agent_term,
+    ));
+    Ok(delta)
+}
+
+/// Missing evidence hook: fires when a DigitalDocument lacks `prov:value`.
+///
+/// **Trigger:** `TypePresent(schema:DigitalDocument)` — direct triple-pattern lookup
+/// **Check:** `Fn(check_any_doc_missing_value)` — short-circuits on first gap
+/// **Act:** `Fn(emit_missing_evidence_delta)` — placeholder `prov:value` per gap (≤8)
+/// **Receipt:** Emitted on success
+pub fn missing_evidence_hook() -> KnowledgeHook {
+    KnowledgeHook {
+        name: "missing_evidence",
+        trigger: HookTrigger::TypePresent(
+            oxigraph::model::NamedNode::new("https://schema.org/DigitalDocument")
+                .expect("Invalid schema:DigitalDocument IRI"),
+        ),
+        check: HookCheck::Fn(check_any_doc_missing_value),
+        act: HookAct::Fn(emit_missing_evidence_delta),
+        emit_receipt: true,
+    }
+}
+
+/// Phrase binding hook: fires when any subject carries a `skos:prefLabel`.
+///
+/// **Trigger:** `Pattern { predicate: skos:prefLabel }` — direct triple-pattern lookup
+/// **Check:** `Fn(check_concept_with_label)` — short-circuits on first match
+/// **Act:** `Fn(emit_phrase_definition_delta)` — `skos:definition` placeholder per pair (≤8)
+/// **Receipt:** Emitted on success
+pub fn phrase_binding_hook() -> KnowledgeHook {
+    let pref_label =
+        oxigraph::model::NamedNode::new("http://www.w3.org/2004/02/skos/core#prefLabel")
+            .expect("Invalid skos:prefLabel IRI");
+    KnowledgeHook {
+        name: "phrase_binding",
+        trigger: HookTrigger::Pattern {
+            subject: None,
+            predicate: Some(pref_label),
+            object: None,
+        },
+        check: HookCheck::Fn(check_concept_with_label),
+        act: HookAct::Fn(emit_phrase_definition_delta),
+        emit_receipt: true,
+    }
+}
+
+/// Transition admissibility hook: fires when `rdf:type` assertions are present.
+///
+/// **Trigger:** `Pattern { predicate: rdf:type }` — direct triple-pattern lookup
+/// **Check:** `Fn(check_any_typed_subject)` — short-circuits on first typed subject
+/// **Act:** `Fn(emit_validity_delta)` — SHACL validity per typed subject (≤4 subjects, ≤8 triples)
+/// **Receipt:** Emitted on success
+pub fn transition_admissibility_hook() -> KnowledgeHook {
+    let rdf_type =
+        oxigraph::model::NamedNode::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
+            .expect("Invalid rdf:type IRI");
+    KnowledgeHook {
+        name: "transition_admissibility",
+        trigger: HookTrigger::Pattern {
+            subject: None,
+            predicate: Some(rdf_type),
+            object: None,
+        },
+        check: HookCheck::Fn(check_any_typed_subject),
+        act: HookAct::Fn(emit_validity_delta),
+        emit_receipt: true,
+    }
+}
+
+/// Receipt hook: manual trigger that emits a deterministic PROV activity receipt.
+///
+/// **Trigger:** `Manual` invocation only
+/// **Check:** Always true
+/// **Act:** `Fn(emit_receipt_activity_delta)` — `urn:blake3:` activity IRI + `prov:Activity` + `prov:wasAssociatedWith prov:Agent`
+/// **Receipt:** Always emitted
+pub fn receipt_hook() -> KnowledgeHook {
+    KnowledgeHook {
+        name: "receipt",
+        trigger: HookTrigger::Manual,
+        check: HookCheck::Fn(|_field| Ok(true)),
+        act: HookAct::Fn(emit_receipt_activity_delta),
+        emit_receipt: true,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Verify that SPARQL ASK trigger fires when query returns true.
+    #[test]
+    fn sparql_ask_trigger_fires_when_true() -> Result<()> {
+        let mut field = FieldContext::new("test");
+        field.load_field_state(
+            "<http://example.org/doc1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://schema.org/DigitalDocument> .\n"
+        )?;
+
+        let trigger = HookTrigger::SparqlAsk {
+            query: "ASK { ?s rdf:type schema:DigitalDocument }".to_string(),
+        };
+
+        let result = evaluate_trigger(&trigger, &field)?;
+        assert!(result, "SPARQL ASK trigger should fire when query matches");
+
+        Ok(())
+    }
+
+    /// Verify that SPARQL ASK trigger does not fire when query returns false.
+    #[test]
+    fn sparql_ask_trigger_does_not_fire_when_false() -> Result<()> {
+        let field = FieldContext::new("test");
+
+        let trigger = HookTrigger::SparqlAsk {
+            query: "ASK { ?s rdf:type schema:NonExistent }".to_string(),
+        };
+
+        let result = evaluate_trigger(&trigger, &field)?;
+        assert!(!result, "SPARQL ASK trigger should not fire when query does not match");
+
+        Ok(())
+    }
+
+    /// Verify that missing_evidence_hook fires when a DigitalDocument lacks prov:value.
+    #[test]
+    fn missing_evidence_hook_fires_on_gap() -> Result<()> {
+        let mut field = FieldContext::new("test");
+        field.load_field_state(
+            "<http://example.org/doc1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://schema.org/DigitalDocument> .\n"
+        )?;
+
+        let hook = missing_evidence_hook();
+        let mut registry = HookRegistry::new();
+        registry.register(hook);
+
+        let outcomes = registry.fire_matching(&field)?;
+        assert!(!outcomes.is_empty(), "Hook should fire on missing prov:value");
+        assert_eq!(outcomes[0].hook_name, "missing_evidence");
+        assert!(!outcomes[0].delta.is_empty(), "Delta should contain constructed triple");
+
+        Ok(())
+    }
+
+    /// Verify that missing_evidence_hook does not fire when document is complete.
+    #[test]
+    fn missing_evidence_hook_does_not_fire_complete() -> Result<()> {
+        let mut field = FieldContext::new("test");
+        field.load_field_state(
+            "<http://example.org/doc1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://schema.org/DigitalDocument> .\n\
+             <http://example.org/doc1> <http://www.w3.org/ns/prov#value> \"complete\" .\n"
+        )?;
+
+        let hook = missing_evidence_hook();
+        let mut registry = HookRegistry::new();
+        registry.register(hook);
+
+        let outcomes = registry.fire_matching(&field)?;
+        assert!(
+            outcomes.is_empty(),
+            "Hook should not fire when prov:value is present"
+        );
+
+        Ok(())
+    }
+
+    /// Verify that hook registry fires all matching hooks in order.
+    #[test]
+    fn hook_registry_fires_all_matching() -> Result<()> {
+        let mut field = FieldContext::new("test");
+        field.load_field_state(
+            "<http://example.org/concept1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2004/02/skos/core#Concept> .\n\
+             <http://example.org/concept1> <http://www.w3.org/2004/02/skos/core#prefLabel> \"Test\" .\n"
+        )?;
+
+        let hook1 = phrase_binding_hook();
+        let hook2 = transition_admissibility_hook();
+
+        let mut registry = HookRegistry::new();
+        registry.register(hook1);
+        registry.register(hook2);
+
+        let outcomes = registry.fire_matching(&field)?;
+        assert!(!outcomes.is_empty(), "Registry should fire matching hooks");
+
+        Ok(())
+    }
+
+    /// Verify that hook registry returns receipts when emit_receipt is true.
+    #[test]
+    fn hook_registry_returns_receipts() -> Result<()> {
+        let mut field = FieldContext::new("test");
+        field.load_field_state(
+            "<http://example.org/doc1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://schema.org/DigitalDocument> .\n"
+        )?;
+
+        let hook = missing_evidence_hook();
+        assert!(
+            hook.emit_receipt,
+            "missing_evidence_hook should emit receipts"
+        );
+
+        let mut registry = HookRegistry::new();
+        registry.register(hook);
+
+        let outcomes = registry.fire_matching(&field)?;
+        assert!(!outcomes.is_empty(), "Should have outcomes");
+        assert!(
+            outcomes[0].receipt.is_some(),
+            "Outcome should have receipt when emit_receipt is true"
+        );
+        let receipt = outcomes[0].receipt.as_ref().unwrap();
+        assert_eq!(receipt.hash.len(), 64, "BLAKE3 hash should be 64 hex chars");
+
+        Ok(())
+    }
+}

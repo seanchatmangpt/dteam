@@ -1,0 +1,23 @@
+[package]
+name = "ccog"
+version = "0.1.0"
+edition = "2021"
+license = "BUSL-1.1"
+authors = ["Sean Chatman <xpointsh@gmail.com>"]
+description = "Compiled Cognition core: field-cognition facade over RDF graph closure"
+
+[dependencies]
+oxigraph = { version = "0.5", default-features = false }
+blake3 = "1.5"
+chrono = { version = "0.4", features = ["serde"] }
+thiserror = "1"
+serde = { version = "1.0", features = ["derive"] }
+anyhow = "1.0"
+
+[dev-dependencies]
+criterion = "0.5"
+proptest = "1.2.0"
+
+[[bench]]
+name = "ccog_hot_path_bench"
+harness = false
