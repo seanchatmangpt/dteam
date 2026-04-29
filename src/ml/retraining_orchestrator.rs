@@ -166,7 +166,7 @@ pub fn validate_retraining_against_traces(_new_model_accuracy: f64) -> bool {
     // let new_fitness = replay_log_on_new_model(&traces, &new_model);
     // new_fitness >= baseline_fitness * 1.05 // At least 5% improvement
     // ```
-    true
+    unimplemented!("model validation pending integration with conformance replay module")
 }
 
 /// Integration hook: called to trigger HDIT AutoML re-evaluation.
@@ -191,7 +191,7 @@ pub fn retrain_with_hdit_automl(_current_accuracy: f64, _baseline_accuracy: f64)
     // let new_plan = run_hdit_automl(candidates, &anchor, n_target);
     // save_compiled_plan(&new_plan);
     // ```
-    true
+    unimplemented!("HDIT AutoML re-evaluation pending integration with signal pool module")
 }
 
 /// Integration hook: called to retrain RL agents with new experience.
@@ -217,7 +217,7 @@ pub fn retrain_rl_agents(_context: &RetrainingContext) -> bool {
     //     if !result.converged() { return false; }
     // }
     // ```
-    true
+    unimplemented!("RL agent retraining pending integration with automation module")
 }
 
 /// Orchestrate the full retraining workflow for an approved action.
@@ -330,27 +330,32 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "model validation pending")]
     fn test_validate_retraining_stub() {
-        // Stub always returns true
-        assert!(validate_retraining_against_traces(0.9));
+        // Stub now panics with unimplemented!
+        let _ = validate_retraining_against_traces(0.9);
     }
 
     #[test]
+    #[should_panic(expected = "HDIT AutoML")]
     fn test_retrain_with_hdit_automl_stub() {
-        // Stub always returns true
-        assert!(retrain_with_hdit_automl(0.85, 0.95));
+        // Stub now panics with unimplemented!
+        let _ = retrain_with_hdit_automl(0.85, 0.95);
     }
 
     #[test]
+    #[should_panic(expected = "RL agent")]
     fn test_retrain_rl_agents_stub() {
+        // Stub now panics with unimplemented!
         let ctx = RetrainingContext::new(DriftSignal::GradualDecay, 0.85, 0.95, None, 1000000);
-        assert!(retrain_rl_agents(&ctx));
+        let _ = retrain_rl_agents(&ctx);
     }
 
     #[test]
+    #[should_panic(expected = "not implemented")]
     fn test_execute_full_retrain_pipeline() {
+        // Pipeline will panic when calling retrain_with_hdit_automl
         let ctx = RetrainingContext::new(DriftSignal::SuddenFailure, 0.80, 0.95, Some(1), 1000000);
-        // All stubs return true, so pipeline succeeds
-        assert!(execute_full_retrain_pipeline(&ctx));
+        let _ = execute_full_retrain_pipeline(&ctx);
     }
 }

@@ -130,7 +130,7 @@ pub mod simd;
 // Re-export autonomic for easier access
 pub use autonomic::{
     ActionRisk, ActionType, AutonomicAction, AutonomicEvent, AutonomicKernel, AutonomicResult,
-    AutonomicState, DefaultKernel,
+    AutonomicState, DefaultKernel, Vision2030Kernel,
 };
 
 pub mod benchmark;

@@ -48,7 +48,6 @@ ed25519-dalek = { version = "2", default-features = false, features = ["std"] }
 wasm-bindgen = "0.2"
 serde-wasm-bindgen = "0.6"
 hashbrown = "0.14"
-wasm4pm = { path = "/Users/sac/chatmangpt/wasm4pm/wasm4pm", default-features = false, features = ["powl", "streaming_basic", "hand_rolled_stats"] }
 
 [features]
 default = ["token-based-replay"]

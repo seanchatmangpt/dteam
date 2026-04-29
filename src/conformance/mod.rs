@@ -228,6 +228,9 @@ pub fn token_replay_projected(log: &ProjectedLog, petri_net: &PetriNet) -> f64 {
         let mut produced_tokens = initial_mask.count_ones();
 
         for &act_idx in trace {
+            if act_idx >= act_to_t_idx.len() {
+                continue; // guard: trace has unknown activity
+            }
             unsafe {
                 let t_idx = *act_to_t_idx.get_unchecked(act_idx);
                 let tm = trans_masks.get_unchecked(t_idx);

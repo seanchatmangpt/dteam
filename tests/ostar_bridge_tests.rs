@@ -171,6 +171,34 @@ fn conform_returns_real_fitness() {
 }
 
 #[test]
+fn discover_powl_returns_valid_result() {
+    let payload = json!({
+        "op": "discover_powl",
+        "log": minimal_xes_json()
+    });
+
+    let (response, exited_ok) = run_bridge(payload);
+
+    assert!(exited_ok, "ostar_bridge exited with error: {}", response);
+    assert_eq!(
+        response["ok"], true,
+        "response ok must be true: {}",
+        response
+    );
+
+    // The handle_discover_powl handler returns petri_net.{places_count, transitions_count, arcs_count}.
+    // Assert transitions_count > 0 to confirm a valid result was returned.
+    let transitions_count = response["transitions_count"]
+        .as_u64()
+        .expect("transitions_count must be a number");
+    assert!(
+        transitions_count > 0,
+        "transitions_count must be > 0, got {} — POWL discovery returned empty net",
+        transitions_count
+    );
+}
+
+#[test]
 fn autonomic_returns_measured_latency() {
     let payload = json!({
         "op": "autonomic"
