@@ -88,6 +88,8 @@ mod tests {
             conformance_score: 0.9,
             drift_detected: false,
             active_cases: 0,
+            field_elevation: 0.0,
+            pack_posture: crate::autonomic::types::PackPosture::Nominal,
         };
 
         let actions = vec![
@@ -111,6 +113,8 @@ mod tests {
             conformance_score: 0.5,
             drift_detected: false,
             active_cases: 0,
+            field_elevation: 0.0,
+            pack_posture: crate::autonomic::types::PackPosture::Nominal,
         };
 
         let actions: Vec<AutonomicAction> = vec![];

@@ -3,7 +3,10 @@ use crate::autonomic::{
     ActionRisk, ActionType, AutonomicAction, AutonomicEvent, AutonomicFeedback, AutonomicKernel,
     AutonomicResult, AutonomicState,
 };
+use crate::autonomic::bark::{BarkEvent, BarkKind};
+use crate::autonomic::types::PackPosture;
 use crate::config::AutonomicConfig;
+use crate::io::prediction_log::PredictionLogBuffer;
 use crate::ml::LinUcb;
 use crate::ocpm::StreamingOcDfg;
 use crate::powl::core::PowlModel;
@@ -23,6 +26,8 @@ const HEALTH_PENALTY_SWAR_VIOLATION: f32 = 0.05;
 const OCPM_DIVERGENCE_THRESHOLD: u32 = 5;
 const CONFORMANCE_REWARD_REPAIR: f32 = 0.2;
 const HEALTH_REWARD_REPAIR: f32 = 0.1;
+const CONFORMANCE_REWARD_RECOVER: f32 = 0.15;
+const HEALTH_REWARD_RECOVER: f32 = 0.05;
 const HEALTH_DECAY_NEGATIVE_REWARD: f32 = 0.02;
 const HEALTH_IMPROVEMENT_POSITIVE_REWARD: f32 = 0.01;
 const FNV_MIX_PRIME: u64 = 0x9E3779B185EBCA87;
@@ -58,6 +63,7 @@ pub struct Vision2030Kernel<const WORDS: usize> {
     pub adaptation_count: u32,
     pub total_firings: u64,
     pub total_violations: u64,
+    pub prediction_log: PredictionLogBuffer<64>,
 }
 
 impl<const WORDS: usize> Default for Vision2030Kernel<WORDS> {
@@ -158,6 +164,8 @@ impl<const WORDS: usize> Vision2030Kernel<WORDS> {
                 conformance_score: 1.0,
                 drift_detected: false,
                 active_cases: 0,
+                field_elevation: 0.0,
+                pack_posture: PackPosture::Nominal,
             },
             activity_table,
             transition_inputs,
@@ -171,6 +179,7 @@ impl<const WORDS: usize> Vision2030Kernel<WORDS> {
             adaptation_count: 0,
             total_firings: 0,
             total_violations: 0,
+            prediction_log: PredictionLogBuffer::<64>::new(1),
         }
     }
 
@@ -192,6 +201,55 @@ impl<const WORDS: usize> Vision2030Kernel<WORDS> {
             ctx[5 + i] = (self.sketch.estimate(key) as f32 / 100.0).clamp(0.0, 1.0);
         }
         ctx
+    }
+
+    /// Compute adaptive OCPM divergence threshold from binding frequency distribution.
+    ///
+    /// Scans binding_frequencies[0..4096] and computes mean + 2*std_dev to detect
+    /// anomalous edge frequencies. Uses integer arithmetic throughout to avoid floats.
+    /// Floor at OCPM_DIVERGENCE_THRESHOLD for cold-start safety.
+    fn ocpm_divergence_threshold(&self) -> u32 {
+        const EDGE_CACHE: usize = 4096;
+        let mut sum: u64 = 0;
+        let mut sum_sq: u128 = 0;
+
+        // Accumulate frequency statistics
+        for &freq in &self.oc_dfg.binding_frequencies[0..EDGE_CACHE] {
+            sum = sum.wrapping_add(freq as u64);
+            sum_sq = sum_sq.wrapping_add((freq as u128).wrapping_mul(freq as u128));
+        }
+
+        // Compute mean and variance using integer arithmetic
+        let mean: u64 = sum / (EDGE_CACHE as u64);
+        let mean_sq: u128 = (mean as u128).wrapping_mul(mean as u128);
+        let mean_of_sq: u128 = sum_sq / (EDGE_CACHE as u128);
+        let variance: u128 = if mean_of_sq > mean_sq {
+            mean_of_sq - mean_sq
+        } else {
+            0
+        };
+
+        // Integer square root of variance for std_dev
+        let std_dev = {
+            if variance == 0 {
+                0u64
+            } else {
+                // Newton-Raphson for u64
+                let mut x = (variance as u64).wrapping_add(1) >> 1;
+                let mut prev = 0u64;
+                while x != prev && x > 0 {
+                    prev = x;
+                    let q = variance / (x as u128);
+                    x = ((x as u128).wrapping_add(q)) as u64 >> 1;
+                }
+                x
+            }
+        };
+
+        // Threshold = mean + 2*std_dev, floor at OCPM_DIVERGENCE_THRESHOLD
+        let adaptive_threshold = (mean.wrapping_add(2u64.wrapping_mul(std_dev)))
+            .max(OCPM_DIVERGENCE_THRESHOLD as u64) as u32;
+        adaptive_threshold
     }
 }
 
@@ -271,6 +329,7 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
             }
         }
 
+        let adaptive_threshold = self.ocpm_divergence_threshold();
         for &(_id_hash, type_hash, qual_hash) in &mock_objects[..mock_objects_len] {
             let binding_hash = activity_hash
                 .wrapping_mul(FNV_MIX_PRIME)
@@ -278,7 +337,7 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
                 .wrapping_mul(FNV_MIX_PRIME)
                 .wrapping_add(qual_hash);
             let binding_idx = (binding_hash as usize) & EDGE_MASK_4096;
-            if self.oc_dfg.binding_frequencies[binding_idx] > OCPM_DIVERGENCE_THRESHOLD {
+            if self.oc_dfg.binding_frequencies[binding_idx] > adaptive_threshold {
                 ocpm_drift = true;
             }
         }
@@ -291,6 +350,26 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
                 (self.state.conformance_score - CONFORMANCE_PENALTY_SWAR_VIOLATION).max(0.0);
             self.state.process_health =
                 (self.state.process_health - HEALTH_PENALTY_SWAR_VIOLATION).max(0.0);
+
+            // Emit Detection bark from detector breed
+            let _bark = BarkEvent {
+                kind: BarkKind::Detection,
+                source_breed: "detector",
+                signal_hash: fnv1a_64(b"ocpm_drift"),
+                timestamp_us: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_micros() as u64)
+                    .unwrap_or(0),
+                tighten: true,
+            };
+
+            // Tighten pack posture on detection
+            self.state.pack_posture = match self.state.pack_posture {
+                PackPosture::Nominal => PackPosture::Elevated,
+                PackPosture::Elevated => PackPosture::Tightened,
+                PackPosture::Tightened => PackPosture::Lockdown,
+                PackPosture::Lockdown => PackPosture::Lockdown,
+            };
         }
 
         if let Some(idx) = act_idx_opt {
@@ -349,15 +428,16 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
     }
 
     fn propose(&self, state: &AutonomicState) -> Vec<AutonomicAction> {
-        const ACTION_PALETTE: [(ActionType, ActionRisk, &'static str, u64); 3] = [
+        const ACTION_PALETTE: [(ActionType, ActionRisk, &'static str, u64); 4] = [
             (ActionType::Recommend, ActionRisk::Low, "Throughput optimization", 101),
             (ActionType::Repair, ActionRisk::Medium, "Axiomatic structural repair", 102),
             (ActionType::Escalate, ActionRisk::High, "Critical escalation", 103),
+            (ActionType::Recover, ActionRisk::Low, "Evidence recovery from audit log", 104),
         ];
 
         let context = self.state_context(state);
         self.last_context.set(context);
-        let action_idx = self.bandit.select_action(&context, 3);
+        let action_idx = self.bandit.select_action(&context, 4);
 
         // Heuristic q-values — ties (both 0.0 at cold start) resolve to Repair when drifted
         let q_repair =
@@ -365,8 +445,8 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
         let q_opt =
             state.process_health / (1.0 + self.sketch.estimate("opt_signal") as f32);
 
-        if state.drift_detected && q_repair >= q_opt {
-            return vec![
+        let candidates = if state.drift_detected && q_repair >= q_opt {
+            vec![
                 AutonomicAction::new(
                     ACTION_PALETTE[1].3,
                     ACTION_PALETTE[1].0,
@@ -379,16 +459,24 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
                     ACTION_PALETTE[2].1,
                     ACTION_PALETTE[2].2,
                 ),
-            ];
+            ]
+        } else {
+            let arm = action_idx.min(3);
+            vec![AutonomicAction::new(
+                ACTION_PALETTE[arm].3,
+                ACTION_PALETTE[arm].0,
+                ACTION_PALETTE[arm].1,
+                ACTION_PALETTE[arm].2,
+            )]
+        };
+
+        // MDF wiring: if MDF finds a minimum-decisive action, return it; else fall through to candidates
+        use crate::autonomic::MinimumDecisiveForce;
+        if let Some(mdf_action) = MinimumDecisiveForce::is_minimal_decisive(&candidates, state) {
+            return vec![mdf_action.clone()];
         }
 
-        let arm = action_idx.min(2);
-        vec![AutonomicAction::new(
-            ACTION_PALETTE[arm].3,
-            ACTION_PALETTE[arm].0,
-            ACTION_PALETTE[arm].1,
-            ACTION_PALETTE[arm].2,
-        )]
+        candidates
     }
 
     fn accept(&self, action: &AutonomicAction, state: &AutonomicState) -> bool {
@@ -414,17 +502,25 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
         let t_start = std::time::Instant::now();
 
         let is_repair = (action.action_type == ActionType::Repair) as u64;
+        let is_recover = (action.action_type == ActionType::Recover) as u64;
 
         self.pre_action_conformance = self.state.conformance_score;
         self.total_firings = self.total_firings.saturating_add(1);
 
-        self.state.drift_detected = select_u64(is_repair, 0, self.state.drift_detected as u64) != 0;
+        self.state.drift_detected = select_u64(is_repair | is_recover, 0, self.state.drift_detected as u64) != 0;
 
         if is_repair != 0 {
             self.trace_cursor = 0;
             self.state.conformance_score =
                 (self.state.conformance_score + CONFORMANCE_REWARD_REPAIR).min(1.0);
             self.state.process_health = (self.state.process_health + HEALTH_REWARD_REPAIR).min(1.0);
+        } else if is_recover != 0 {
+            // Recover action: attempt to pull last positive entry from prediction log
+            if let Some(_entry) = self.prediction_log.last_positive_entry() {
+                self.state.conformance_score =
+                    (self.state.conformance_score + CONFORMANCE_REWARD_RECOVER).min(1.0);
+                self.state.process_health = (self.state.process_health + HEALTH_REWARD_RECOVER).min(1.0);
+            }
         }
 
         let execution_latency_ms = t_start.elapsed().as_millis() as u64;
