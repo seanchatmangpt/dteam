@@ -623,4 +623,7 @@ pub mod dteam {
         }
     }
 }
+#[cfg(target_arch = "wasm32")]
+pub mod wasm;
+
 pub mod proptest_xes;

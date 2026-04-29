@@ -1,4 +1,5 @@
 pub mod controller;
+#[cfg(feature = "native")]
 pub mod execution;
 pub mod indexer;
 pub mod ontology;
@@ -11,6 +12,7 @@ pub mod verifier;
 pub mod workspace;
 
 pub use controller::AutonomicController;
+#[cfg(feature = "native")]
 pub use execution::ExecutionEngine;
 pub use indexer::{PortfolioIndexer, PortfolioState};
 pub use ontology::OntologyClosureEngine;

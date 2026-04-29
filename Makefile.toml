@@ -42,7 +42,7 @@ args = ["fmt", "--all", "--", "--check"]
 description = "Lint the codebase and deny warnings."
 install_crate = "clippy"
 command = "cargo"
-args = ["clippy", "--all-targets", "--", "-D", "warnings"]
+args = ["clippy", "--all-targets", "--features", "native", "--", "-D", "warnings"]
 
 [tasks.audit]
 description = "Audit dependencies for security vulnerabilities."
@@ -55,29 +55,39 @@ args = ["audit"]
 [tasks.check]
 description = "Run fast compilation check."
 command = "cargo"
-args = ["check", "--all-targets"]
+args = ["check", "--all-targets", "--features", "native"]
 
 [tasks.build]
 description = "Build the project in release mode."
 command = "cargo"
-args = ["build", "--release"]
+args = ["build", "--release", "--features", "native"]
 
 [tasks.build-debug]
 description = "Build the project in debug mode."
 command = "cargo"
 args = ["build"]
 
+[tasks.wasm-build]
+description = "Build the project for WebAssembly (wasm32-unknown-unknown) in release mode."
+command = "cargo"
+args = ["build", "--target", "wasm32-unknown-unknown", "--release"]
+
+[tasks.wasm-check]
+description = "Run fast compilation check for WebAssembly (wasm32-unknown-unknown)."
+command = "cargo"
+args = ["check", "--target", "wasm32-unknown-unknown"]
+
 # --- Testing & Benchmarking ---
 
 [tasks.test]
 description = "Run the library test suite."
 command = "cargo"
-args = ["test", "--lib", "--", "--nocapture"]
+args = ["test", "--lib", "--features", "native", "--", "--nocapture"]
 
 [tasks.test-all]
 description = "Run all tests including doc tests and integration tests."
 command = "cargo"
-args = ["test", "--all-targets", "--", "--nocapture"]
+args = ["test", "--all-targets", "--features", "native", "--", "--nocapture"]
 
 [tasks.bench]
 description = "Run the performance benchmarks."
