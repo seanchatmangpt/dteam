@@ -8,17 +8,14 @@
 //! Backs §5.6 of `docs/COMPILED_COGNITION.md`: "auditability is structural,
 //! not procedural."
 
-use dteam::io::prediction_log::PredictionLogBuffer;
+use dteam::io::prediction_log::{PredictionLogBuffer, blake3_input_hash};
 use dteam::ml::drift_detector::{compute_confusion_matrix, detect_drift, DriftSignal};
 use dteam::ml::mycin::{infer_fast, RULES};
 use dteam::ml::retraining_orchestrator::{handle_drift_signal, RetrainingAction};
 
-/// Hash a fact bitmask deterministically for `input_hash`.
-fn hash_facts(facts: u64) -> u64 {
-    // Simple Wang/FNV-style mix; deterministic and stable across runs.
-    let mut x = facts.wrapping_mul(0x9E37_79B9_7F4A_7C15);
-    x ^= x >> 32;
-    x.wrapping_mul(0xBF58_476D_1CE4_E5B9)
+/// Hash a fact bitmask deterministically for `input_hash` using BLAKE3-256.
+fn hash_facts(facts: u64) -> [u8; 32] {
+    blake3_input_hash(&facts.to_le_bytes())
 }
 
 #[test]
