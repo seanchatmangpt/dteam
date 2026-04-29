@@ -28,9 +28,7 @@ where
     fn select_action(&self, state: S) -> A {
         let features = state.features();
         let mut context = [0.0; D];
-        for i in 0..D.min(features.len()) {
-            context[i] = features[i];
-        }
+        context[..D.min(features.len())].copy_from_slice(&features[..D.min(features.len())]);
 
         let idx = self.model.select_action(&context, A::ACTION_COUNT);
         A::from_index(idx).unwrap_or_else(|| A::from_index(0).unwrap())
@@ -39,9 +37,7 @@ where
     fn update(&mut self, state: S, _action: A, reward: f32, _next_state: S, _done: bool) {
         let features = state.features();
         let mut context = [0.0; D];
-        for i in 0..D.min(features.len()) {
-            context[i] = features[i];
-        }
+        context[..D.min(features.len())].copy_from_slice(&features[..D.min(features.len())]);
         self.model.update(&context, reward);
     }
 

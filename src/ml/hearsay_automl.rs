@@ -121,7 +121,7 @@ pub fn hearsay_automl_signal(name: &str, inputs: &[u64], anchor: &[bool]) -> Sig
     let n_target = anchor.iter().filter(|&&a| a).count().max(1);
 
     // Build N=4 source streams: for each level, the per-input best-CF
-    let mut source_streams: Vec<Vec<f64>> = vec![Vec::with_capacity(inputs.len()); 4];
+    let mut source_streams: Vec<Vec<f64>> = (0..4).map(|_| Vec::with_capacity(inputs.len())).collect();
     for &inp in inputs {
         let level_scores = extract_level_scores(inp);
         for (i, s) in level_scores.iter().enumerate() {

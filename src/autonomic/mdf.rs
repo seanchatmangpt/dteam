@@ -2,7 +2,7 @@
 //!
 //! Given a candidate set of actions and a current state, MDF filters to actions that:
 //! 1. Have positive expected reward (via Simulator evaluation)
-//! 2. Achieve improvement (order_of increases)
+//! 2. Achieve improvement in organizational health
 //! 3. Among those, have the minimum force (ActionRisk cost)
 //!
 //! This ensures escalation is minimal necessary: we do not recommend Critical when Medium suffices.
@@ -19,12 +19,6 @@ pub fn force_estimate(action: &AutonomicAction) -> f64 {
         ActionRisk::High => 3.0,
         ActionRisk::Critical => 4.0,
     }
-}
-
-/// Order (organizational health/status) as the weighted average of health and conformance.
-/// Range [0.0, 1.0]; higher is better.
-fn order_of(state: &AutonomicState) -> f64 {
-    ((state.process_health as f64) + (state.conformance_score as f64)) / 2.0
 }
 
 /// Minimum Decisive Force filter — selects the lowest-cost action that improves state.

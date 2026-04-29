@@ -346,7 +346,7 @@ mod tests {
         assert_eq!(entry.input_hash, blake3_input_hash(b"input_1234"));
         assert_eq!(entry.binary_version, 42);
         assert_eq!(entry.timestamp_us, 1000000);
-        assert_eq!(entry.decision, true);
+        assert!(entry.decision);
         assert_eq!(entry.tier_fired, 1);
         assert_eq!(entry.provenance_hash, 0x5678);
     }

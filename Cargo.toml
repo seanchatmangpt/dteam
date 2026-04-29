@@ -38,15 +38,13 @@ tracing-opentelemetry = { version = "0.32", optional = true }
 opentelemetry-otlp = { version = "0.31", features = ["grpc-tonic", "trace"], optional = true }
 tokio = { version = "1.52", features = ["full"], optional = true }
 quick-xml = { version = "0.37", features = ["serialize"] }
-uuid = { version = "1.0", features = ["v4", "serde", "js"] }
+uuid = { version = "1.0", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 sha2 = "0.10"
 hex = "0.4"
 blake3 = "1.5"
 blake2 = "0.10"
 ed25519-dalek = { version = "2", default-features = false, features = ["std"] }
-wasm-bindgen = "0.2"
-serde-wasm-bindgen = "0.6"
 hashbrown = "0.14"
 
 [features]
@@ -77,10 +75,14 @@ crate-type = ["cdylib", "rlib"]
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.2", features = ["js"] }
 console_error_panic_hook = "0.1"
+uuid = { version = "1.0", features = ["js"] }
+wasm-bindgen = "0.2"
+serde-wasm-bindgen = "0.6"
 
 [[bin]]
 name = "pdc2025"
 path = "src/bin/pdc2025.rs"
+required-features = ["native"]
 
 [[bin]]
 name = "ostar_bridge"

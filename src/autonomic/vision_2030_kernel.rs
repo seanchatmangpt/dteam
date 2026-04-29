@@ -428,7 +428,7 @@ impl<const WORDS: usize> AutonomicKernel for Vision2030Kernel<WORDS> {
     }
 
     fn propose(&self, state: &AutonomicState) -> Vec<AutonomicAction> {
-        const ACTION_PALETTE: [(ActionType, ActionRisk, &'static str, u64); 4] = [
+        const ACTION_PALETTE: [(ActionType, ActionRisk, &str, u64); 4] = [
             (ActionType::Recommend, ActionRisk::Low, "Throughput optimization", 101),
             (ActionType::Repair, ActionRisk::Medium, "Axiomatic structural repair", 102),
             (ActionType::Escalate, ActionRisk::High, "Critical escalation", 103),

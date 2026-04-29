@@ -156,6 +156,7 @@ impl RetrainingContext {
 /// 4. Return `true` if the new model is an improvement
 ///
 /// For now, it always returns `true` (caller must implement validation).
+#[deprecated(note = "stub — must implement before production use")]
 pub fn validate_retraining_against_traces(_new_model_accuracy: f64) -> bool {
     true
 }
@@ -171,6 +172,7 @@ pub fn validate_retraining_against_traces(_new_model_accuracy: f64) -> bool {
 /// 5. Return the new compiled plan
 ///
 /// For now, it returns a success flag indicating the call site can proceed.
+#[deprecated(note = "stub — must implement before production use")]
 pub fn retrain_with_hdit_automl(_current_accuracy: f64, _baseline_accuracy: f64) -> bool {
     true
 }
@@ -186,6 +188,7 @@ pub fn retrain_with_hdit_automl(_current_accuracy: f64, _baseline_accuracy: f64)
 /// 5. Return success/failure
 ///
 /// For now, it returns a success flag.
+#[deprecated(note = "stub — must implement before production use")]
 pub fn retrain_rl_agents(_context: &RetrainingContext) -> bool {
     true
 }

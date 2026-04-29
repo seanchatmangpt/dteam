@@ -114,7 +114,7 @@ mod tests {
     fn make_state(active_projects: usize, artifacts: &[&str]) -> PortfolioState {
         PortfolioState {
             active_projects,
-            known_artifacts: artifacts.iter().map(|s| PathBuf::from(s)).collect(),
+            known_artifacts: artifacts.iter().copied().map(PathBuf::from).collect(),
         }
     }
 

@@ -17,6 +17,7 @@ pub mod models;
 pub mod ocel;
 pub mod ontology_proptests;
 pub mod proptest_kernel_verification;
+pub mod provenance_chain;
 pub mod reinforcement;
 pub mod reinforcement_tests;
 pub mod utils;
@@ -25,6 +26,7 @@ pub use agentic::ralph::patterns::universe64::Universe64;
 // Re-export models for easier access
 pub use conformance::*;
 pub use models::*;
+pub use provenance_chain::{Blake3Chain, LinkKind};
 
 // Zero-heap, stack-allocated RL state for nanosecond-scale updates.
 #[derive(Clone, Copy, Eq, Hash, PartialEq, Debug)]
@@ -116,6 +118,11 @@ pub mod rl_state_serialization {
 }
 pub mod automation;
 pub mod autonomic;
+pub mod breeds;
+pub mod compile_eligible;
+pub mod pack_admission;
+pub use breeds::{Breed, BreedKind, Dachshund, Detector, Guardian, Herder, Recorder, Retriever, Watchdog};
+pub use pack_admission::{AdmissibilityVerdict, MarkChickenVerdict, PackAdmission};
 
 // Vision 2030 Core Modules
 pub mod agentic;
@@ -627,3 +634,4 @@ pub mod dteam {
 pub mod wasm;
 
 pub mod proptest_xes;
+pub mod proptest_zero_allocation;
