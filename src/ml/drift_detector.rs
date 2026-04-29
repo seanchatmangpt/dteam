@@ -307,7 +307,7 @@ mod tests {
     fn test_detect_drift_sudden_failure() {
         let mut predictions = vec![true; 80];
         predictions.extend(vec![false; 20]);
-        let mut observed = vec![true; 100];
+        let observed = vec![true; 100];
 
         let cm = compute_confusion_matrix(&predictions, &observed);
         let tier_seq = vec![0; 100];
