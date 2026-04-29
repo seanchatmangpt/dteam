@@ -210,3 +210,7 @@ harness = false
 [[bench]]
 name = "bitmask_replay_bench"
 harness = false
+
+[[bench]]
+name = "bpn_measurement_bench"
+harness = false

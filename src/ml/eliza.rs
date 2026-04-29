@@ -269,22 +269,33 @@ pub const DOCTOR: [ElizaRule; 11] = [
 /// ```
 #[inline(always)]
 #[must_use]
-pub fn turn_fast(input_mask: u64, rules: &[ElizaRule]) -> u8 {
-    let mut best: u8 = 0xFF;
-    let mut best_rank: u8 = 0xFF;
-    let mut i = 0;
-    while i < rules.len() {
-        let r = rules[i];
-        // Branchless: bit-mask both `match` and `improvement-over-best`
-        let matches = ((r.keyword_mask & input_mask) == r.keyword_mask) as u8;
-        let improves = ((r.rank < best_rank) as u8) & matches;
-        // Conditional move via bitmask multiply (branchless)
-        let pick_mask = (improves as u64).wrapping_neg();
-        best = ((r.template_index as u64 & pick_mask) | (best as u64 & !pick_mask)) as u8;
-        best_rank = ((r.rank as u64 & pick_mask) | (best_rank as u64 & !pick_mask)) as u8;
-        i += 1;
+pub const fn select_u64(mask: u64, a: u64, b: u64) -> u64 {
+    (a & mask) | (b & !mask)
+}
+
+#[inline(always)]
+#[must_use]
+pub fn turn_fast(input_mask: u64, rules: &[ElizaRule; 11]) -> u8 {
+    let mut best: u64 = 0xFF;
+    #[allow(unused_assignments)]
+    let mut best_rank: u64 = 0xFF;
+
+    macro_rules! step {
+        ($idx:expr) => {
+            let r = rules[$idx];
+            let matches = ((r.keyword_mask & input_mask) == r.keyword_mask) as u64;
+            let improves = ((r.rank as u64) < best_rank) as u64 & matches;
+            let pick_mask = improves.wrapping_neg();
+            best = select_u64(pick_mask, r.template_index as u64, best);
+            best_rank = select_u64(pick_mask, r.rank as u64, best_rank);
+        };
     }
-    best
+
+    step!(0); step!(1); step!(2); step!(3); step!(4);
+    step!(5); step!(6); step!(7); step!(8); step!(9); step!(10);
+
+    let _ = best_rank;
+    best as u8
 }
 
 /// Warm path: returns the full turn record (state + matched + template).

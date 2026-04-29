@@ -6,6 +6,7 @@ use std::hash::{Hash, Hasher};
 
 pub mod bitmask_replay;
 pub mod case_centric;
+pub mod token_replay;
 pub mod trace_generator;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

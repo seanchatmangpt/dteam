@@ -256,6 +256,12 @@ pub fn apply(state: State, op: &Op) -> Option<State> {
     Some((state & !op.del) | op.add)
 }
 
+#[inline(always)]
+#[must_use]
+pub const fn select_u64(mask: u64, a: u64, b: u64) -> u64 {
+    (a & mask) | (b & !mask)
+}
+
 /// Branchless apply: returns `state` unchanged if precondition unmet.
 #[inline(always)]
 #[must_use]
@@ -263,7 +269,7 @@ pub fn apply_fast(state: State, op: &Op) -> State {
     let satisfied = ((op.pre & state) == op.pre) as u64;
     let mask = satisfied.wrapping_neg();
     let next = (state & !op.del) | op.add;
-    (next & mask) | (state & !mask)
+    select_u64(mask, next, state)
 }
 
 /// Goal test: all goal bits must be set in state.

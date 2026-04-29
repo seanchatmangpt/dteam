@@ -291,18 +291,29 @@ pub const RULES: [MycinRule; 12] = [
 ///
 /// Returns the OR of all rule conclusions whose conditions are satisfied.
 /// Branchless rule scan: `~20 ns` for 12 rules.
-#[inline]
+#[inline(always)]
 #[must_use]
-pub fn infer_fast(facts: u64, rules: &[MycinRule]) -> u64 {
+pub const fn select_u64(mask: u64, a: u64, b: u64) -> u64 {
+    (a & mask) | (b & !mask)
+}
+
+#[inline(always)]
+#[must_use]
+pub fn infer_fast(facts: u64, rules: &[MycinRule; 12]) -> u64 {
     let mut conclusions = 0u64;
-    let mut i = 0;
-    while i < rules.len() {
-        let r = rules[i];
-        let satisfied = ((r.conditions & facts) == r.conditions) as u64;
-        let mask = satisfied.wrapping_neg();
-        conclusions |= r.conclusion & mask;
-        i += 1;
+
+    macro_rules! step {
+        ($idx:expr) => {
+            let r = rules[$idx];
+            let satisfied = ((r.conditions & facts) == r.conditions) as u64;
+            let mask = satisfied.wrapping_neg();
+            conclusions |= select_u64(mask, r.conclusion, 0);
+        };
     }
+
+    step!(0); step!(1); step!(2); step!(3); step!(4); step!(5);
+    step!(6); step!(7); step!(8); step!(9); step!(10); step!(11);
+
     conclusions
 }
 

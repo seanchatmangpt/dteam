@@ -43,6 +43,7 @@ fn auditability_pipeline_mycin_drift_to_retrain() {
         let input_hash = hash_facts(facts);
         log.log_prediction(
             input_hash,
+            /*timestamp_us=*/ 0,
             decision,
             /*tier_fired=*/ 0,
             PROVENANCE_HASH_MYCIN_V1,
@@ -68,7 +69,7 @@ fn auditability_pipeline_mycin_drift_to_retrain() {
     );
 
     // 3) Drift detector emits a non-Healthy signal at baseline 0.95.
-    let signal = detect_drift(&metrics, &tier_seq, /*baseline_accuracy=*/ 0.95);
+    let signal = detect_drift(&metrics, &predictions, &observed, &tier_seq, /*baseline_accuracy=*/ 0.95, &[]);
     assert!(
         signal.needs_retraining(),
         "drift signal must indicate retraining needed; got {:?}",

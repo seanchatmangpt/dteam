@@ -114,6 +114,28 @@ pub fn initial_state() -> State {
     s
 }
 
+#[inline(always)]
+#[must_use]
+pub const fn select_u64(mask: u64, a: u64, b: u64) -> u64 {
+    (a & mask) | (b & !mask)
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Op {
+    pub pre: State,
+    pub del: State,
+    pub add: State,
+}
+
+#[inline(always)]
+#[must_use]
+pub fn apply_fast(state: State, op: &Op) -> State {
+    let satisfied = ((op.pre & state) == op.pre) as u64;
+    let mask = satisfied.wrapping_neg();
+    let next = (state & !op.del) | op.add;
+    select_u64(mask, next, state)
+}
+
 // =============================================================================
 // COMMANDS
 // =============================================================================

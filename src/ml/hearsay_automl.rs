@@ -89,7 +89,7 @@ use crate::ml::rank_fusion;
 #[must_use]
 pub fn extract_level_scores(input: u64) -> Vec<f64> {
     let mut bb = Blackboard::new();
-    bb.post(Hypothesis::new(ACOUSTIC, input, 0.9, 0, 10));
+    bb.post(Hypothesis::new(ACOUSTIC, input, 900, 0, 10));
     let _ = crate::ml::hearsay::run(&mut bb, &DEFAULT_KS, 32);
     let mut scores = Vec::with_capacity(4);
     for level in &[ACOUSTIC, PHONEME, SYLLABLE, WORD] {
@@ -141,7 +141,7 @@ pub fn hearsay_sentence_signal(name: &str, inputs: &[u64], anchor: &[bool]) -> S
     let mut predictions = Vec::with_capacity(inputs.len());
     for &inp in inputs {
         let mut bb = Blackboard::new();
-        bb.post(Hypothesis::new(ACOUSTIC, inp, 0.9, 0, 10));
+        bb.post(Hypothesis::new(ACOUSTIC, inp, 90, 0, 10));
         let _ = crate::ml::hearsay::run(&mut bb, &DEFAULT_KS, 32);
         predictions.push(!bb.at(SENTENCE).is_empty());
     }
