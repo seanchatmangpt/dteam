@@ -250,24 +250,31 @@ pub fn canonical_scenarios() -> Vec<CausalScenario> {
             perturbations: vec![(Perturbation::DropPostureBit(PostureBit::CALM), Ask, "default fallback")],
         },
         CausalScenario {
-            name: "ask_via_dd_structure_evidence_gap",
+            name: "ask_via_digital_document_missing_prov_value",
             profile: "enterprise",
             field_ntriples: "<http://example.org/doc1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://schema.org/DigitalDocument> .\n".to_string(),
-            // DigitalDocument type present triggers evidence gap (Ask).
-            // Removing the DD type triple falls to calm baseline (Ignore).
-            // This proves the system reads actual RDF structure: code must parse the
-            // DigitalDocument type and check for missing properties, not just execute
-            // "if triple_count > 0: set DD_MISSING" hardcoded logic.
+            // DigitalDocument type present WITHOUT prov:value triggers evidence gap (Ask).
+            // Two perturbations prove different aspects of the evidence gap:
+            // 1. Drop DD type → Ignore (no document exists, no gap)
+            // 2. Add prov:value → Ignore (gap closed, evidence now present)
+            // Together they prove prov:value *absence* is load-bearing, not DD presence.
             posture_bits: vec![PostureBit::CALM],
             expectation_bits: vec![],
             risk_bits: vec![],
             affordance_bits: vec![],
             expected: Ask,
-            perturbations: vec![(
-                Perturbation::DropTriple("<http://example.org/doc1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://schema.org/DigitalDocument> ."),
-                Ignore,
-                "calm baseline"
-            )],
+            perturbations: vec![
+                (
+                    Perturbation::DropTriple("<http://example.org/doc1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://schema.org/DigitalDocument> ."),
+                    Ignore,
+                    "calm baseline"
+                ),
+                (
+                    Perturbation::AddTriple("<http://example.org/doc1> <http://www.w3.org/ns/prov#value> \"complete\" ."),
+                    Ignore,
+                    "calm baseline"
+                ),
+            ],
         },
     ]
 }
