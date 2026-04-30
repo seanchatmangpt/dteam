@@ -16,7 +16,10 @@ pub mod admit;
 pub mod config;
 pub mod gemini_cli;
 pub mod schema;
+pub mod world_corpus;
 
 pub use admit::{admit, LlmAdmissionError};
 pub use config::LlmConfig;
 pub use schema::{Counterfactual, ExpectedInstinct, OcelEvent, OcelObject, OcelWorld};
+pub use world_corpus::world_to_corpus;
+pub use ccog::instinct::AutonomicInstinct;

@@ -16,15 +16,17 @@
 
 use ccog::compiled::CompiledFieldSnapshot;
 use ccog::field::FieldContext;
-use ccog::instinct::{select_instinct_v0, AutonomicInstinct};
+use ccog::instinct::{select_instinct_v0, select_instinct_v0_with_reason, AutonomicInstinct};
 use ccog::multimodal::{ContextBit, ContextBundle, PostureBit, PostureBundle};
 
 /// A perturbation is a closed-form mutation of the closed context.
-/// Each variant removes exactly one load-bearing input.
+/// Each variant removes or adds exactly one load-bearing input.
 #[derive(Clone, Debug)]
 pub enum Perturbation {
     /// Remove the named N-Triple line (string match).
     DropTriple(&'static str),
+    /// Add an N-Triple line.
+    AddTriple(&'static str),
     /// Clear a posture bit.
     DropPostureBit(u32),
     /// Clear an expectation context bit.
@@ -55,7 +57,7 @@ pub struct CausalScenario {
     pub expected: AutonomicInstinct,
     /// Perturbations with expected response class after removal.
     /// Each perturbation must produce this specific response (not just any different response).
-    pub perturbations: Vec<(Perturbation, AutonomicInstinct)>,
+    pub perturbations: Vec<(Perturbation, AutonomicInstinct, &'static str)>,
 }
 
 /// Materialize a closed cognition surface from `(field, posture, ctx)`.
@@ -84,9 +86,9 @@ pub fn build_inputs(s: &CausalScenario) -> (FieldContext, PostureBundle, Context
 }
 
 /// Compute the response under `(field, posture, ctx)`.
-pub fn respond(field: &FieldContext, posture: &PostureBundle, ctx: &ContextBundle) -> AutonomicInstinct {
+pub fn respond(field: &FieldContext, posture: &PostureBundle, ctx: &ContextBundle) -> (AutonomicInstinct, &'static str) {
     let snap = CompiledFieldSnapshot::from_field(field).expect("snapshot");
-    select_instinct_v0(&snap, posture, ctx)
+    select_instinct_v0_with_reason(&snap, posture, ctx)
 }
 
 /// Apply one perturbation, returning a new closed surface.
@@ -108,6 +110,17 @@ pub fn perturb(
             if !kept.is_empty() {
                 field.load_field_state(&kept).expect("perturbed field reloads");
             }
+        }
+        Perturbation::AddTriple(line) => {
+            // Append the new triple to the field state.
+            let mut augmented = s.field_ntriples.clone();
+            if !augmented.is_empty() && !augmented.ends_with('\n') {
+                augmented.push('\n');
+            }
+            augmented.push_str(line);
+            augmented.push('\n');
+            field = FieldContext::new(s.name);
+            field.load_field_state(&augmented).expect("augmented field reloads");
         }
         Perturbation::DropPostureBit(b) => {
             posture.posture_mask &= !(1u64 << b);
@@ -146,7 +159,7 @@ pub fn canonical_scenarios() -> Vec<CausalScenario> {
             risk_bits: vec![],
             affordance_bits: vec![],
             expected: Settle,
-            perturbations: vec![(Perturbation::DropPostureBit(PostureBit::SETTLED), Ask)],
+            perturbations: vec![(Perturbation::DropPostureBit(PostureBit::SETTLED), Ask, "default fallback")],
         },
         CausalScenario {
             name: "retrieve_via_expected_package",
@@ -158,9 +171,9 @@ pub fn canonical_scenarios() -> Vec<CausalScenario> {
             affordance_bits: vec![ContextBit::CAN_RETRIEVE_NOW],
             expected: Retrieve,
             perturbations: vec![
-                (Perturbation::DropExpectation(ContextBit::PACKAGE_EXPECTED), Ask),
-                (Perturbation::DropAffordance(ContextBit::CAN_RETRIEVE_NOW), Ask),
-                (Perturbation::DropPostureBit(PostureBit::CADENCE_DELIVERY), Ask),
+                (Perturbation::DropExpectation(ContextBit::PACKAGE_EXPECTED), Ask, "default fallback"),
+                (Perturbation::DropAffordance(ContextBit::CAN_RETRIEVE_NOW), Ask, "default fallback"),
+                (Perturbation::DropPostureBit(PostureBit::CADENCE_DELIVERY), Ask, "default fallback"),
             ],
         },
         CausalScenario {
@@ -173,8 +186,8 @@ pub fn canonical_scenarios() -> Vec<CausalScenario> {
             affordance_bits: vec![ContextBit::CAN_INSPECT],
             expected: Inspect,
             perturbations: vec![
-                (Perturbation::DropAffordance(ContextBit::CAN_INSPECT), Ask),
-                (Perturbation::DropPostureBit(PostureBit::ALERT), Ask),
+                (Perturbation::DropAffordance(ContextBit::CAN_INSPECT), Ask, "default fallback"),
+                (Perturbation::DropPostureBit(PostureBit::ALERT), Ask, "default fallback"),
             ],
         },
         CausalScenario {
@@ -194,7 +207,8 @@ pub fn canonical_scenarios() -> Vec<CausalScenario> {
                 Perturbation::DropTriple(
                     "<http://example.org/d1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://schema.org/DigitalDocument> ."
                 ),
-                Ignore
+                Ignore,
+                "calm baseline"
             )],
         },
         CausalScenario {
@@ -207,8 +221,8 @@ pub fn canonical_scenarios() -> Vec<CausalScenario> {
             affordance_bits: vec![],
             expected: Refuse,
             perturbations: vec![
-                (Perturbation::DropRisk(ContextBit::THEFT_RISK), Ask),
-                (Perturbation::DropPostureBit(PostureBit::ALERT), Ask),
+                (Perturbation::DropRisk(ContextBit::THEFT_RISK), Ask, "default fallback"),
+                (Perturbation::DropPostureBit(PostureBit::ALERT), Ask, "default fallback"),
             ],
         },
         CausalScenario {
@@ -221,7 +235,7 @@ pub fn canonical_scenarios() -> Vec<CausalScenario> {
             affordance_bits: vec![],
             expected: Escalate,
             perturbations: vec![
-                (Perturbation::DropRisk(ContextBit::MUST_ESCALATE), Ask),
+                (Perturbation::DropRisk(ContextBit::MUST_ESCALATE), Ask, "default fallback"),
             ],
         },
         CausalScenario {
@@ -233,15 +247,17 @@ pub fn canonical_scenarios() -> Vec<CausalScenario> {
             risk_bits: vec![],
             affordance_bits: vec![],
             expected: Ignore,
-            perturbations: vec![(Perturbation::DropPostureBit(PostureBit::CALM), Ask)],
+            perturbations: vec![(Perturbation::DropPostureBit(PostureBit::CALM), Ask, "default fallback")],
         },
         CausalScenario {
-            name: "ask_via_dd_type_evidence_gap_content_sensitive",
+            name: "ask_via_dd_structure_evidence_gap",
             profile: "enterprise",
-            field_ntriples: "<http://example.org/doc1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://schema.org/DigitalDocument> .\n<http://example.org/doc1> <http://purl.org/dc/terms/title> \"Test Document\" .\n".to_string(),
-            // DigitalDocument present with content makes Ask fire (evidence gap detected).
-            // Removing the DD triple falls to Ignore (no gap). This proves the system
-            // reads actual RDF structure, not a hardcoded presence counter.
+            field_ntriples: "<http://example.org/doc1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://schema.org/DigitalDocument> .\n".to_string(),
+            // DigitalDocument type present triggers evidence gap (Ask).
+            // Removing the DD type triple falls to calm baseline (Ignore).
+            // This proves the system reads actual RDF structure: code must parse the
+            // DigitalDocument type and check for missing properties, not just execute
+            // "if triple_count > 0: set DD_MISSING" hardcoded logic.
             posture_bits: vec![PostureBit::CALM],
             expectation_bits: vec![],
             risk_bits: vec![],
@@ -249,7 +265,8 @@ pub fn canonical_scenarios() -> Vec<CausalScenario> {
             expected: Ask,
             perturbations: vec![(
                 Perturbation::DropTriple("<http://example.org/doc1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://schema.org/DigitalDocument> ."),
-                Ignore
+                Ignore,
+                "calm baseline"
             )],
         },
     ]

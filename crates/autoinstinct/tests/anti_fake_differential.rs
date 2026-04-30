@@ -49,15 +49,15 @@ fn differential_decide_equals_decide_with_trace_baseline() {
 #[test]
 fn differential_decide_equals_decide_with_trace_perturbed() {
     for s in canonical_scenarios() {
-        for p in &s.perturbations {
-            let (f, _, _) = perturb(&s, p);
+        for (pert, _, _) in &s.perturbations {
+            let (f, _, _) = perturb(&s, pert);
             let snap = CompiledFieldSnapshot::from_field(&f).expect("snap");
             let direct = decide(&snap);
             let (traced, _trace) = decide_with_trace_table(&snap, BUILTINS);
             assert_eq!(
                 direct.fired, traced.fired,
                 "scenario `{}` perturbation {:?}: decide vs decide_with_trace drift",
-                s.name, p
+                s.name, pert
             );
         }
     }
@@ -130,21 +130,21 @@ fn differential_present_mask_load_bearing_under_perturbation() {
         let s0 = CompiledFieldSnapshot::from_field(&f0).expect("snap0");
         let mask0 = decide(&s0).present_mask;
         let fired0 = decide(&s0).fired;
-        for p in &s.perturbations {
+        for (pert, _, _) in &s.perturbations {
             // Only triple-drop perturbations affect the snapshot's
             // present_mask; posture/context bit drops live outside the
             // snapshot. So we only exercise the triple variant here.
-            if !matches!(p, autoinstinct::causal_harness::Perturbation::DropTriple(_)) {
+            if !matches!(pert, autoinstinct::causal_harness::Perturbation::DropTriple(_)) {
                 continue;
             }
-            let (f1, _, _) = perturb(&s, p);
+            let (f1, _, _) = perturb(&s, pert);
             let s1 = CompiledFieldSnapshot::from_field(&f1).expect("snap1");
             let mask1 = decide(&s1).present_mask;
             let fired1 = decide(&s1).fired;
             assert_ne!(
                 mask0, mask1,
                 "scenario `{}`: triple perturbation {:?} did not change present_mask",
-                s.name, p
+                s.name, pert
             );
             // fired mask must also change (or at least be allowed to differ)
             assert!(

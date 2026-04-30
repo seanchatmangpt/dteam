@@ -88,6 +88,11 @@ fn validate_structural(w: &OcelWorld) -> Result<(), LlmAdmissionError> {
             "world has zero events".into(),
         ));
     }
+    if w.counterfactuals.is_empty() {
+        return Err(LlmAdmissionError::Structural(
+            "world has zero counterfactuals".into(),
+        ));
+    }
     let known: HashSet<&str> = w.objects.iter().map(|o| o.id.as_str()).collect();
     for ev in &w.events {
         if ev.objects.is_empty() {

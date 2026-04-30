@@ -17,7 +17,7 @@ use ccog::instinct::AutonomicInstinct;
 
 fn assert_positive(s: &CausalScenario) {
     let (field, posture, ctx) = build_inputs(s);
-    let got = respond(&field, &posture, &ctx);
+    let (got, _) = respond(&field, &posture, &ctx);
     assert_eq!(
         got, s.expected,
         "scenario `{}` expected {:?} but got {:?}",
@@ -29,6 +29,7 @@ fn perturbation_tag(p: &autoinstinct::causal_harness::Perturbation) -> &'static 
     use autoinstinct::causal_harness::Perturbation::*;
     match p {
         DropTriple(_) => "drop_ntriple",
+        AddTriple(_) => "add_ntriple",
         DropPostureBit(_) => "drop_posture",
         DropExpectation(_) => "drop_expectation",
         DropRisk(_) => "drop_risk",
@@ -37,26 +38,32 @@ fn perturbation_tag(p: &autoinstinct::causal_harness::Perturbation) -> &'static 
 }
 
 fn assert_every_perturbation_changes_response(s: &CausalScenario) {
-    let baseline = {
+    let (baseline, _) = {
         let (f, p, c) = build_inputs(s);
         respond(&f, &p, &c)
     };
-    for (pert, expected_after) in &s.perturbations {
+    for (pert, expected_after, expected_reason) in &s.perturbations {
         let (f, p, c) = perturb(s, pert);
-        let after = respond(&f, &p, &c);
+        let (after, after_reason) = respond(&f, &p, &c);
         println!(
-            "scenario={} baseline={:?} perturb={} expected={:?} after={:?} correct={}",
+            "scenario={} baseline={:?} perturb={} expected={:?} after={:?} reason={} correct={}",
             s.name,
             baseline,
             perturbation_tag(pert),
             expected_after,
             after,
-            after == *expected_after
+            after_reason,
+            after == *expected_after && after_reason == *expected_reason
         );
         assert_eq!(
             after, *expected_after,
             "scenario `{}`: perturbation {:?} produced {:?} but expected {:?}",
             s.name, pert, after, expected_after
+        );
+        assert_eq!(
+            after_reason, *expected_reason,
+            "scenario `{}`: perturbation {:?} expected trace reason `{}` but got `{}`",
+            s.name, pert, expected_reason, after_reason
         );
     }
 }
@@ -84,9 +91,9 @@ fn causal_remove_required_triple_changes_response() {
         .expect("ask scenario present");
     // Without the DigitalDocument triple, evidence-gap branch can't fire,
     // so Ask should fall through to Ignore (calm + empty).
-    let (pert, expected) = &s.perturbations[0];
+    let (pert, expected, _) = &s.perturbations[0];
     let (f, p, c) = perturb(s, pert);
-    let result = respond(&f, &p, &c);
+    let (result, _) = respond(&f, &p, &c);
     assert_eq!(result, *expected, "removing DD triple must produce Ignore");
     assert_ne!(result, AutonomicInstinct::Ask);
 }
@@ -98,9 +105,9 @@ fn causal_remove_required_posture_bit_changes_response() {
         .iter()
         .find(|s| s.name == "settle_via_settled_posture")
         .expect("settle scenario present");
-    let (pert, expected) = &s.perturbations[0];
+    let (pert, expected, _) = &s.perturbations[0];
     let (f, p, c) = perturb(s, pert);
-    let result = respond(&f, &p, &c);
+    let (result, _) = respond(&f, &p, &c);
     assert_eq!(result, *expected);
     assert_ne!(result, AutonomicInstinct::Settle);
 }
@@ -113,13 +120,13 @@ fn causal_remove_required_affordance_changes_response() {
         .find(|s| s.name == "retrieve_via_expected_package")
         .expect("retrieve scenario present");
     // Drop CAN_RETRIEVE_NOW — Retrieve precondition fails.
-    let (pert, expected) = s
+    let (pert, expected, _) = s
         .perturbations
         .iter()
-        .find(|(p, _)| matches!(p, autoinstinct::causal_harness::Perturbation::DropAffordance(_)))
+        .find(|(p, _, _)| matches!(p, autoinstinct::causal_harness::Perturbation::DropAffordance(_)))
         .expect("retrieve scenario must drop CAN_RETRIEVE_NOW");
     let (f, p, c) = perturb(s, pert);
-    let result = respond(&f, &p, &c);
+    let (result, _) = respond(&f, &p, &c);
     assert_eq!(result, *expected);
     assert_ne!(result, AutonomicInstinct::Retrieve);
 }
@@ -134,10 +141,10 @@ fn causal_constant_response_policy_is_rejected_by_gauntlet() {
     let mut seen: HashSet<AutonomicInstinct> = HashSet::new();
     for s in canonical_scenarios() {
         let (f, p, c) = build_inputs(&s);
-        seen.insert(respond(&f, &p, &c));
-        for (pert, _) in &s.perturbations {
+        seen.insert(respond(&f, &p, &c).0);
+        for (pert, _, _) in &s.perturbations {
             let (f, p, c) = perturb(&s, pert);
-            seen.insert(respond(&f, &p, &c));
+            seen.insert(respond(&f, &p, &c).0);
         }
     }
     assert!(

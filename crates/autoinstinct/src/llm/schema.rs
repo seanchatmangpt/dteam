@@ -40,6 +40,7 @@ pub struct OcelObject {
     #[serde(rename = "type")]
     pub kind: String,
     /// Human-readable label.
+    #[serde(default)]
     pub label: String,
     /// Public-ontology type IRI (must satisfy
     /// [`crate::doctrine::public_ontology_profiles`]).
@@ -67,6 +68,12 @@ pub struct OcelEvent {
     /// Free attribute bag.
     #[serde(default)]
     pub attributes: BTreeMap<String, serde_json::Value>,
+    /// Expected response class under this event's conditions.
+    #[serde(default)]
+    pub expected_response: Option<AutonomicInstinct>,
+    /// Free-form outcome tag (e.g. "earned", "rolled-back").
+    #[serde(default)]
+    pub outcome: Option<String>,
 }
 
 /// One counterfactual perturbation.
