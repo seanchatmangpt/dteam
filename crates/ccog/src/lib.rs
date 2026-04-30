@@ -1,9 +1,16 @@
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
+#![cfg_attr(
+    feature = "nightly",
+    feature(portable_simd, generic_const_exprs, const_trait_impl, inline_const)
+)]
+#![cfg_attr(feature = "nightly", allow(incomplete_features))]
 
 //! Compiled Cognition core: field-cognition facade over RDF graph closure.
 
 pub mod admit;
+pub mod mask;
+pub mod packs;
 pub mod bark_artifact;
 pub mod bark_kernel;
 pub mod compiled;
@@ -21,10 +28,12 @@ pub mod hooks;
 pub mod powl;
 pub mod powl64;
 pub mod trace;
+pub mod conformance;
 pub mod utils;
 
 pub mod breeds {
-    //! Cognitive breed passes: ELIZA, MYCIN, STRIPS, SHRDLU, Prolog, Hearsay-II, DENDRAL.
+    //! Cognitive breed passes: ELIZA, MYCIN, STRIPS, SHRDLU, Prolog, Hearsay-II,
+    //! DENDRAL, plus Phase-9 expansions GPS / SOAR / PRS / CBR.
     pub mod eliza;
     pub mod mycin;
     pub mod strips;
@@ -32,7 +41,13 @@ pub mod breeds {
     pub mod prolog;
     pub mod hearsay;
     pub mod dendral;
+    pub mod gps;
+    pub mod soar;
+    pub mod prs;
+    pub mod cbr;
 }
+
+pub mod abi;
 
 pub mod runtime;
 

@@ -1,11 +1,41 @@
-//! Causal trace artifact for bark dispatch (Phase 5 Track E).
+//! Causal trace artifact for bark dispatch (Phase 5 Track E + Phase 7).
 //!
 //! Provides a "decision-only with reasoning" path that mirrors the
 //! [`crate::bark_artifact::bark`] dispatch but records *why* each slot fired
 //! or was skipped — without executing slot acts. The resulting [`CcogTrace`]
 //! is the causal artifact other tracks (replay, conformance) consume.
+//!
+//! # Mask domains — three different bit spaces
+//!
+//! The trace mixes three independent u64 bit-set domains. Confusing them is
+//! a category error and was the cause of the Phase 5 stub bug.
+//!
+//! - **Predicate-bit domain** (`require_mask`, `present_mask`): bits index
+//!   into [`crate::compiled_hook::Predicate`] canonical predicate IDs. A
+//!   slot fires iff `(require_mask & present_mask) == require_mask`.
+//! - **Runtime-slot domain** (`BarkDecision.fired`): bit `i` is set iff the
+//!   slot at table position `i` fired. Indexed by `BarkSlot` table position
+//!   post-`compile()`. Tables longer than 64 slots have their tail
+//!   silently truncated.
+//! - **Plan-node domain** (`BarkSlot.predecessor_mask`): bit `j` set means
+//!   "plan-node `j` must be advanced before this slot fires". Today all
+//!   built-in slots use `0` (no predecessor constraint). Phase 7
+//!   `decide_with_trace` records `BarkSkipReason::PredecessorNotAdvanced`
+//!   when a plan-node predecessor has not been observed; the alloc-free
+//!   `decide_table` ignores this field by contract.
+//!
+//! # Phase 7: decide_with_trace
+//!
+//! [`decide_with_trace`] / [`decide_with_trace_table`] are the diagnostic
+//! cousins of [`crate::bark_artifact::decide`]. They produce the same
+//! [`crate::bark_artifact::BarkDecision`] (load-bearing equivalence
+//! invariant — see `tests/decide_eq_with_trace.rs`) plus a [`CcogTrace`]
+//! with per-slot reasoning. They allocate (the trace) and invoke real hook
+//! check fns; do **not** put them on the hot path.
 
-use crate::bark_artifact::{BarkSlot, BUILTINS};
+use crate::bark_artifact::{
+    decide_table, BarkDecision, BarkSlot, BUILTINS, BUILTIN_HOOKS,
+};
 use crate::compiled::CompiledFieldSnapshot;
 use crate::compiled_hook::compute_present_mask;
 use crate::verdict::PackPosture;
@@ -69,11 +99,8 @@ pub struct CcogTrace {
     pub nodes: Vec<BarkNodeTrace>,
 }
 
-impl Default for PackPosture {
-    fn default() -> Self {
-        PackPosture::Calm
-    }
-}
+// `impl Default for PackPosture` lives in `verdict.rs` (Phase 8 posture
+// unification). Do not re-add here — there must be exactly one impl.
 
 impl CcogTrace {
     /// Number of nodes whose `skip_reason` is `Some` — i.e. nodes that were skipped.
@@ -110,44 +137,108 @@ pub enum BenchmarkTier {
     ConformanceReplay,
 }
 
-/// Decision-only bark dispatch that produces a [`CcogTrace`].
+/// Look up a real hook check fn by slot name from `BUILTIN_HOOKS`.
 ///
-/// Re-implements the same `present_mask` / `require_mask` walk as
-/// [`crate::bark_artifact::bark_table`] but records the per-slot reasoning
-/// instead of executing the slot's `act` function. Useful for replay,
-/// conformance checking, and debugging — not for materialization.
-pub fn trace_bark(snap: &CompiledFieldSnapshot, table: &'static [BarkSlot]) -> CcogTrace {
-    let present_mask = compute_present_mask(snap);
-    let mut trace = CcogTrace {
-        present_mask,
-        posture: PackPosture::default(),
-        nodes: Vec::with_capacity(table.len()),
-    };
+/// Returns `None` if the slot name is not in the built-in registry — for
+/// custom tables the trace records `trigger_fired == check_passed`
+/// (mask-encoded check), preserving the original stub semantics.
+fn lookup_check_fn(name: &'static str) -> Option<fn(&CompiledFieldSnapshot) -> bool> {
+    for (hook_name, check) in BUILTIN_HOOKS {
+        if *hook_name == name {
+            return Some(*check);
+        }
+    }
+    None
+}
+
+/// Map a (trigger_fired, check_passed) pair to the canonical typed skip
+/// reason and its display string. Returns `None` if the slot fired.
+fn classify_skip(
+    trigger_fired: bool,
+    check_passed: bool,
+) -> Option<(BarkSkipReason, &'static str)> {
+    if !trigger_fired {
+        Some((
+            BarkSkipReason::RequireMaskUnsatisfied,
+            "require_mask not satisfied",
+        ))
+    } else if !check_passed {
+        Some((BarkSkipReason::CheckFailed, "check returned false"))
+    } else {
+        None
+    }
+}
+
+/// Decide-with-trace over the default `BUILTINS` slot table.
+///
+/// Phase 7 entry point: produces both the canonical [`BarkDecision`] (via
+/// [`decide_table`], unchanged alloc-free path) AND a [`CcogTrace`] whose
+/// per-slot reasoning was computed by invoking the real hook check fns
+/// from `BUILTIN_HOOKS`. Decision-equivalence with
+/// [`crate::bark_artifact::decide`] is the load-bearing invariant.
+pub fn decide_with_trace(snap: &CompiledFieldSnapshot) -> (BarkDecision, CcogTrace) {
+    decide_with_trace_table(snap, BUILTINS)
+}
+
+/// Decide-with-trace over an arbitrary const slot table.
+///
+/// Pass-1 calls [`decide_table`] for the canonical decision. Pass-2 walks
+/// the table, looks up the real check fn by slot name in `BUILTIN_HOOKS`
+/// (falling back to the mask-encoded check for unknown slots), and records
+/// a `BarkNodeTrace` per slot with a typed [`BarkSkipReason`].
+pub fn decide_with_trace_table(
+    snap: &CompiledFieldSnapshot,
+    table: &'static [BarkSlot],
+) -> (BarkDecision, CcogTrace) {
+    // Pass 1 — canonical alloc-free decision.
+    let decision = decide_table(snap, table);
+    let present_mask = decision.present_mask;
+
+    // Pass 2 — per-slot reasoning with real check fns.
+    let mut nodes = Vec::with_capacity(table.len());
     for (i, slot) in table.iter().enumerate() {
         let trigger_fired = (slot.require_mask & present_mask) == slot.require_mask;
-        let check_passed = trigger_fired; // mask-encoded
-        let (skip_reason, skip) = if !trigger_fired {
-            (
-                Some("require_mask not satisfied"),
-                Some(BarkSkipReason::RequireMaskUnsatisfied),
-            )
+        // Use real check fn when available; fall back to mask-encoded check.
+        let check_passed = if trigger_fired {
+            match lookup_check_fn(slot.name) {
+                Some(check) => check(snap),
+                None => true,
+            }
         } else {
-            (None, None)
+            false
         };
-        let node = BarkNodeTrace {
+        let (skip, skip_reason) = match classify_skip(trigger_fired, check_passed) {
+            Some((s, msg)) => (Some(s), Some(msg)),
+            None => (None, None),
+        };
+        nodes.push(BarkNodeTrace {
             slot_idx: i as u16,
             hook_id: slot.name,
             require_mask: slot.require_mask,
-            predecessor_mask: 0,
+            predecessor_mask: slot.predecessor_mask,
             trigger_fired,
             check_passed,
             act_emitted_triples: 0,
             receipt_urn: None,
             skip_reason,
             skip,
-        };
-        trace.nodes.push(node);
+        });
     }
+
+    let trace = CcogTrace {
+        present_mask,
+        posture: PackPosture::default(),
+        nodes,
+    };
+    (decision, trace)
+}
+
+/// Decision-only bark dispatch that produces a [`CcogTrace`].
+///
+/// Phase 7: now delegates to [`decide_with_trace_table`]. Preserved as a
+/// public entry point for legacy callers that only want the trace.
+pub fn trace_bark(snap: &CompiledFieldSnapshot, table: &'static [BarkSlot]) -> CcogTrace {
+    let (_decision, trace) = decide_with_trace_table(snap, table);
     trace
 }
 

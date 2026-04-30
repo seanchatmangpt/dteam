@@ -1,41 +1,56 @@
-//! Compiled field snapshot for nanosecond hook bark (Phase 4 Stage 1).
+//! Compiled field snapshot for nanosecond hook bark (Phase 4 Stage 1, Phase 8 interned).
 //!
 //! Builds once per `fire_matching` call by single-pass
 //! `quads_for_pattern(None,None,None,None)` enumeration. Built-in hooks read
-//! the snapshot via O(1) `HashMap` lookups instead of repeated graph walks,
-//! amortizing the parser/iterator cost across all hooks in a fire.
+//! the snapshot via O(1) `PackedKeyTable` lookups (Phase 8 migration —
+//! HashMap/HashSet replaced by content-addressed dense tables keyed by
+//! `fnv1a_64` of the IRI bytes), amortizing the parser/iterator cost across
+//! all hooks in a fire.
 //!
 //! # Indices
 //!
-//! - `instances_by_class` — `rdf:type` → subjects
-//! - `subject_predicate_present` — `(s, p)` existence
-//! - `label_index` — lowercase `skos:prefLabel`/`skos:altLabel`/`schema:name` → subjects
-//! - `by_predicate` — predicate → `(subject, object)` pairs
+//! - `instances_by_class` — `fnv1a_64(class IRI)` → subjects
+//! - `subject_predicate_present` — `fnv1a_64(subj || 0x00 || pred)` → present-bit
+//! - `label_index` — `fnv1a_64(lowercase label)` → subjects
+//! - `by_predicate` — `fnv1a_64(pred IRI)` → `(subject, object)` pairs
+//!
+//! # Hash collision policy
+//!
+//! `PackedKeyTable` is keyed solely by the `u64` hash; collisions overwrite.
+//! For the four-entry-class snapshot sizes we expect (≤ a few thousand
+//! distinct IRIs per fire), a 64-bit FNV-1a collision has probability
+//! ≤ 2⁻⁶². Documented in `subject_predicate_present_collision_test`.
 
 use crate::field::FieldContext;
+use crate::utils::dense::{fnv1a_64, PackedKeyTable};
 use anyhow::Result;
 use oxigraph::model::{NamedNode, Term};
-use std::collections::{HashMap, HashSet};
 
 /// One-pass indexed snapshot of the field's graph state.
 ///
-/// Built from a single full-graph traversal. Provides O(1) lookups for
-/// the patterns built-in hooks need: class instances, subject-predicate
-/// presence, lowercase label index, and predicate → pairs.
+/// All four indices are [`PackedKeyTable`]s keyed by `fnv1a_64` of the
+/// IRI bytes — no `std::collections::HashMap` on the hot path.
 #[derive(Debug, Default)]
 pub struct CompiledFieldSnapshot {
-    instances_by_class: HashMap<String, Vec<NamedNode>>,
-    subject_predicate_present: HashSet<(String, String)>,
-    label_index: HashMap<String, Vec<NamedNode>>,
-    by_predicate: HashMap<String, Vec<(NamedNode, Term)>>,
+    instances_by_class: PackedKeyTable<(), Vec<NamedNode>>,
+    subject_predicate_present: PackedKeyTable<(), ()>,
+    label_index: PackedKeyTable<(), Vec<NamedNode>>,
+    by_predicate: PackedKeyTable<(), Vec<(NamedNode, Term)>>,
+}
+
+#[inline]
+fn hash_pair(subj: &str, pred: &str) -> u64 {
+    // Deterministic concatenation: subj || 0x00 || pred. The NUL byte cannot
+    // appear inside an IRI so the boundary is unambiguous.
+    let mut buf: Vec<u8> = Vec::with_capacity(subj.len() + 1 + pred.len());
+    buf.extend_from_slice(subj.as_bytes());
+    buf.push(0);
+    buf.extend_from_slice(pred.as_bytes());
+    fnv1a_64(&buf)
 }
 
 impl CompiledFieldSnapshot {
     /// Build a snapshot from the field's graph in a single pass.
-    ///
-    /// Iterates `field.graph.all_triples()` exactly once and populates all
-    /// indices. Blank-node subjects are skipped (subject_predicate_present
-    /// requires NamedNode subjects).
     pub fn from_field(field: &FieldContext) -> Result<Self> {
         const RDF_TYPE: &str = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
         const SKOS_PREF_LABEL: &str = "http://www.w3.org/2004/02/skos/core#prefLabel";
@@ -52,35 +67,44 @@ impl CompiledFieldSnapshot {
             let pred = triple.predicate;
             let obj = triple.object;
 
-            let pred_iri = pred.as_str().to_string();
-            let subj_iri = subj.as_str().to_string();
+            let pred_iri = pred.as_str();
+            let subj_iri = subj.as_str();
 
-            snap.subject_predicate_present
-                .insert((subj_iri, pred_iri.clone()));
+            let pair_h = hash_pair(subj_iri, pred_iri);
+            snap.subject_predicate_present.insert(pair_h, (), ());
 
             if pred.as_str() == RDF_TYPE {
                 if let Term::NamedNode(class) = &obj {
-                    snap.instances_by_class
-                        .entry(class.as_str().to_string())
-                        .or_default()
-                        .push(subj.clone());
+                    let class_h = fnv1a_64(class.as_str().as_bytes());
+                    if let Some(bucket) = snap.instances_by_class.get_mut(class_h) {
+                        bucket.push(subj.clone());
+                    } else {
+                        snap.instances_by_class
+                            .insert(class_h, (), vec![subj.clone()]);
+                    }
                 }
             }
 
             if matches!(pred.as_str(), SKOS_PREF_LABEL | SKOS_ALT_LABEL | SCHEMA_NAME) {
                 if let Term::Literal(lit) = &obj {
                     let lc = lit.value().to_lowercase();
-                    let bucket = snap.label_index.entry(lc).or_default();
-                    if !bucket.iter().any(|n| n == &subj) {
-                        bucket.push(subj.clone());
+                    let lh = fnv1a_64(lc.as_bytes());
+                    if let Some(bucket) = snap.label_index.get_mut(lh) {
+                        if !bucket.iter().any(|n| n == &subj) {
+                            bucket.push(subj.clone());
+                        }
+                    } else {
+                        snap.label_index.insert(lh, (), vec![subj.clone()]);
                     }
                 }
             }
 
-            snap.by_predicate
-                .entry(pred_iri)
-                .or_default()
-                .push((subj, obj));
+            let ph = fnv1a_64(pred_iri.as_bytes());
+            if let Some(bucket) = snap.by_predicate.get_mut(ph) {
+                bucket.push((subj, obj));
+            } else {
+                snap.by_predicate.insert(ph, (), vec![(subj, obj)]);
+            }
         }
 
         Ok(snap)
@@ -89,23 +113,22 @@ impl CompiledFieldSnapshot {
     /// Subjects with `rdf:type class`. O(1) lookup.
     pub fn instances_of(&self, class: &NamedNode) -> &[NamedNode] {
         self.instances_by_class
-            .get(class.as_str())
+            .get(fnv1a_64(class.as_str().as_bytes()))
             .map(Vec::as_slice)
             .unwrap_or(&[])
     }
 
     /// True iff `(subject, predicate, ?)` exists in the graph. O(1) lookup.
     pub fn has_value_for(&self, subject: &NamedNode, predicate: &NamedNode) -> bool {
-        self.subject_predicate_present.contains(&(
-            subject.as_str().to_string(),
-            predicate.as_str().to_string(),
-        ))
+        self.subject_predicate_present
+            .get(hash_pair(subject.as_str(), predicate.as_str()))
+            .is_some()
     }
 
     /// Subjects whose `skos:prefLabel`/`skos:altLabel`/`schema:name` lowercases to `lowercase`.
     pub fn lookup_label(&self, lowercase: &str) -> &[NamedNode] {
         self.label_index
-            .get(lowercase)
+            .get(fnv1a_64(lowercase.as_bytes()))
             .map(Vec::as_slice)
             .unwrap_or(&[])
     }
@@ -113,7 +136,7 @@ impl CompiledFieldSnapshot {
     /// All `(subject, object)` pairs for the given predicate. O(1) lookup.
     pub fn pairs_with_predicate(&self, predicate: &NamedNode) -> &[(NamedNode, Term)] {
         self.by_predicate
-            .get(predicate.as_str())
+            .get(fnv1a_64(predicate.as_str().as_bytes()))
             .map(Vec::as_slice)
             .unwrap_or(&[])
     }
@@ -121,7 +144,7 @@ impl CompiledFieldSnapshot {
     /// True iff any triple uses the given predicate. O(1) lookup.
     pub fn has_any_with_predicate(&self, predicate: &NamedNode) -> bool {
         self.by_predicate
-            .get(predicate.as_str())
+            .get(fnv1a_64(predicate.as_str().as_bytes()))
             .is_some_and(|v| !v.is_empty())
     }
 }
@@ -194,6 +217,30 @@ mod tests {
         let snap = CompiledFieldSnapshot::from_field(&field)?;
         let p = NamedNode::new("http://www.w3.org/2004/02/skos/core#prefLabel")?;
         assert_eq!(snap.pairs_with_predicate(&p).len(), 2);
+        Ok(())
+    }
+
+    /// Documents that the interned snapshot is keyed by `fnv1a_64`
+    /// of `subj || 0x00 || pred`. Equal hashes overwrite (one
+    /// presence-bit per pair) — collision probability is ≤ 2⁻⁶² for
+    /// realistic snapshot sizes.
+    #[test]
+    fn subject_predicate_present_collision_test() -> Result<()> {
+        let mut field = FieldContext::new("test");
+        field.load_field_state(
+            "<http://example.org/d1> <http://www.w3.org/ns/prov#value> \"x\" .\n\
+             <http://example.org/d1> <http://www.w3.org/ns/prov#wasGeneratedBy> <http://example.org/a1> .\n\
+             <http://example.org/d2> <http://www.w3.org/ns/prov#value> \"y\" .\n",
+        )?;
+        let snap = CompiledFieldSnapshot::from_field(&field)?;
+        let s1 = NamedNode::new("http://example.org/d1")?;
+        let s2 = NamedNode::new("http://example.org/d2")?;
+        let pv = NamedNode::new("http://www.w3.org/ns/prov#value")?;
+        let pg = NamedNode::new("http://www.w3.org/ns/prov#wasGeneratedBy")?;
+        assert!(snap.has_value_for(&s1, &pv));
+        assert!(snap.has_value_for(&s1, &pg));
+        assert!(snap.has_value_for(&s2, &pv));
+        assert!(!snap.has_value_for(&s2, &pg));
         Ok(())
     }
 }

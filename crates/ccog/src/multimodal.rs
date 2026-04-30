@@ -50,6 +50,20 @@ pub mod ContextBit {
     pub const MUST_ESCALATE: u32 = 7;
 }
 
+/// Field-pack bit-namespace re-exports (Phase 12, additive).
+///
+/// Packs allocate posture/context bits within their reserved band; these
+/// re-exports surface the band ranges from `crate::packs::bits` without
+/// pulling the full pack tree into the multimodal namespace.
+///
+/// Band layout: 0–15 core, 16–31 lifestyle, 32–47 edge, 48–55 enterprise,
+/// 56–63 dev.
+pub mod pack_bits {
+    pub use crate::packs::bits::{
+        CORE_RANGE, DEV_RANGE, EDGE_RANGE, ENTERPRISE_RANGE, LIFESTYLE_RANGE,
+    };
+}
+
 /// Multimodal posture bundle from the trusted local interpreter.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PostureBundle {

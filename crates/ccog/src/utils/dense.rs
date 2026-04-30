@@ -122,6 +122,27 @@ impl<K, V> PackedKeyTable<K, V> {
         }
     }
 
+    /// Mutable lookup by `hash`. Returns `None` if not present.
+    #[inline]
+    pub fn get_mut(&mut self, hash: u64) -> Option<&mut V> {
+        if self.indices.is_empty() {
+            return None;
+        }
+        let mask = (self.indices.len() - 1) as u64;
+        let mut idx = (hash & mask) as usize;
+        loop {
+            let entry_idx = self.indices[idx];
+            if entry_idx == EMPTY_INDEX {
+                return None;
+            }
+            let entry_pos = entry_idx as usize;
+            if self.entries[entry_pos].0 == hash {
+                return Some(&mut self.entries[entry_pos].2);
+            }
+            idx = (idx + 1) & mask as usize;
+        }
+    }
+
     /// Look up a value by `hash`. Returns `None` if not present.
     #[inline]
     pub fn get(&self, hash: u64) -> Option<&V> {

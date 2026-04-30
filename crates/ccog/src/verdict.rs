@@ -3,6 +3,7 @@
 use crate::graph::GraphIri;
 use crate::operation::Operation;
 use crate::receipt::Receipt;
+use smallvec::SmallVec;
 
 /// Bound terms from ELIZA phrase binding pass.
 #[derive(Clone, Debug)]
@@ -108,6 +109,12 @@ pub enum PackPosture {
     Settled,
 }
 
+impl Default for PackPosture {
+    fn default() -> Self {
+        PackPosture::Calm
+    }
+}
+
 impl std::fmt::Display for PackPosture {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
@@ -160,6 +167,83 @@ pub enum Breed {
     /// Used by `BarkKernel::linear` and any plan-builder that targets the
     /// compiled-hook slot table.
     CompiledHook = 7,
+    /// GPS: General-Problem-Solver-style means-ends gap reduction. Admitted
+    /// when both `urn:ccog:GoalState` and `urn:ccog:CurrentState` instances
+    /// are present in the field graph.
+    Gps = 8,
+    /// SOAR: chunking — compresses repeated breed sequences into a
+    /// macro-operator. Admitted only when the field graph carries a
+    /// `urn:ccog:trace-history` resource with ≥3 `prov:wasGeneratedBy`
+    /// activities sharing a `urn:ccog:vocab:shapeFingerprint` literal.
+    /// Hard-depends on Phase 7 trace history persistence; until that lands,
+    /// admission will routinely return false on real fields.
+    Soar = 9,
+    /// PRS: Procedural Reasoning System / BDI commit. Admitted when the
+    /// field graph contains all three of `urn:ccog:Belief`, `urn:ccog:Desire`,
+    /// and `urn:ccog:Intention` typed subjects.
+    Prs = 10,
+    /// CBR: Case-Based Reasoning reuse. Admitted when ≥1 `urn:ccog:Case`
+    /// instance is present with a `urn:ccog:vocab:caseFingerprint` BLAKE3 IRI.
+    Cbr = 11,
+}
+
+/// Single move in a GPS gap-reduction plan: shrink one mismatched
+/// goal/current pair toward equality.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ReductionMove {
+    /// IRI of the goal-state subject targeted by this move.
+    pub goal: GraphIri,
+    /// IRI of the current-state subject this move shrinks toward the goal.
+    pub current: GraphIri,
+}
+
+/// GPS verdict: ordered means-ends moves that close gaps between current
+/// and goal states. `residual_gaps` saturates at 255.
+#[derive(Clone, Debug)]
+pub struct GapReductionPlan {
+    /// IRI of the GPS root activity (`urn:ccog:gps-root` by convention).
+    pub root: GraphIri,
+    /// Bounded sequence of reduction moves; `SmallVec` keeps eight inline.
+    pub moves: SmallVec<[ReductionMove; 8]>,
+    /// Number of goal/current pairs left unresolved. Saturating.
+    pub residual_gaps: u8,
+}
+
+/// SOAR verdict: macro-operator summarizing ≥3 historic breed invocations
+/// sharing a single shape fingerprint.
+#[derive(Clone, Debug)]
+pub struct MacroOperator {
+    /// 32-byte BLAKE3 hash of the canonical shape fingerprint, hex-encoded
+    /// in an `urn:blake3:` IRI.
+    pub fingerprint: GraphIri,
+    /// Compressed bit-packed breed sequence (4 bits per slot up to 4 slots).
+    pub compressed_breeds: u16,
+    /// Number of times this fingerprint has been observed (saturating at 255).
+    pub replay_count: u8,
+}
+
+/// PRS verdict: a single Belief/Desire/Intention triple commit.
+#[derive(Clone, Debug)]
+pub struct IntentionCommit {
+    /// IRI of the Belief subject.
+    pub belief: GraphIri,
+    /// IRI of the Desire subject.
+    pub desire: GraphIri,
+    /// IRI of the Intention subject.
+    pub intention: GraphIri,
+    /// True iff the intention is pinned (default false until committed).
+    pub committed: bool,
+}
+
+/// CBR verdict: a reused historical case with adapted construct.
+#[derive(Clone, Debug)]
+pub struct ReusedCase {
+    /// IRI of the case instance reused from the case library.
+    pub case_iri: GraphIri,
+    /// Q8 fixed-point similarity score (`0..=255`, mapped from `[0.0, 1.0]`).
+    pub similarity_q8: u8,
+    /// IRI of the adapted construct emitted when reusing this case.
+    pub adapted_construct: GraphIri,
 }
 
 /// Soundness classification for a POWL8 plan.
