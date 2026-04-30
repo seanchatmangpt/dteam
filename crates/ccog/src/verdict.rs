@@ -155,6 +155,8 @@ pub enum Breed {
     Hearsay = 5,
     /// DENDRAL: provenance chain reconstruction.
     Dendral = 6,
+    /// Opaque compiled hook activity — placeholder for compiled-hook plan nodes.
+    CompiledHook = 7,
 }
 
 /// Soundness classification for a POWL8 plan.

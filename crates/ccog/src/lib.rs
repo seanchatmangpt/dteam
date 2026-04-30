@@ -10,6 +10,8 @@ pub mod compiled;
 pub mod compiled_hook;
 pub mod graph;
 pub mod field;
+pub mod instinct;
+pub mod multimodal;
 pub mod operation;
 pub mod verdict;
 pub mod receipt;
@@ -18,6 +20,7 @@ pub mod construct8;
 pub mod hooks;
 pub mod powl;
 pub mod powl64;
+pub mod trace;
 pub mod utils;
 
 pub mod breeds {
