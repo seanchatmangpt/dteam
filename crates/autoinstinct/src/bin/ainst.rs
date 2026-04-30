@@ -1,0 +1,285 @@
+//! `ainst` — AutoInstinct CLI per PRD §14.
+//!
+//! All twelve commands surface the v30.1.1 trace-to-instinct compiler
+//! pipeline. Built only with `--features cli`.
+
+use std::path::PathBuf;
+
+use anyhow::{Context, Result};
+use clap::{Parser, Subcommand};
+
+use autoinstinct::compile::{compile, CompileInputs};
+use autoinstinct::corpus::TraceCorpus;
+use autoinstinct::domain::{profile, Domain};
+use autoinstinct::gauntlet;
+use autoinstinct::manifest::{build as build_manifest, verify};
+use autoinstinct::motifs::discover;
+use autoinstinct::ocel::{validate, OcelLog};
+use autoinstinct::synth::synthesize;
+use autoinstinct::world_gen::{generate as generate_world, ScenarioSpec};
+use autoinstinct::AUTOINSTINCT_VERSION;
+
+#[derive(Parser)]
+#[command(name = "ainst", version = AUTOINSTINCT_VERSION,
+          about = "AutoInstinct: trace-to-instinct compiler for ccog")]
+struct Cli {
+    #[command(subcommand)]
+    cmd: Cmd,
+}
+
+#[derive(Subcommand)]
+enum Cmd {
+    /// Generate an OCEL world from a scenario spec JSON file.
+    GenerateOcel {
+        /// Scenario spec JSON file.
+        spec: PathBuf,
+        /// Output OCEL JSON file.
+        #[arg(long)]
+        out: PathBuf,
+    },
+    /// Validate an OCEL JSON file (ontology purity, references, uniqueness).
+    ValidateOcel {
+        /// OCEL JSON file to validate.
+        path: PathBuf,
+    },
+    /// Ingest a trace corpus JSON and emit a one-line summary.
+    IngestCorpus {
+        /// Corpus JSON file.
+        path: PathBuf,
+    },
+    /// Discover motifs from a corpus JSON.
+    DiscoverMotifs {
+        /// Corpus JSON file.
+        corpus: PathBuf,
+        /// Minimum support to count a motif.
+        #[arg(long, default_value_t = 2)]
+        min_support: u32,
+        /// Output motifs JSON.
+        #[arg(long)]
+        out: PathBuf,
+    },
+    /// Propose a candidate policy from a motifs JSON.
+    ProposePolicy {
+        /// Motifs JSON file.
+        motifs: PathBuf,
+        /// Output candidate policy JSON.
+        #[arg(long)]
+        out: PathBuf,
+    },
+    /// Generate JTBD scenarios from motifs (counterfactual pairings).
+    GenerateJtbd {
+        /// Motifs JSON file.
+        motifs: PathBuf,
+        /// Output JTBD scenarios JSON.
+        #[arg(long)]
+        out: PathBuf,
+    },
+    /// Run the gauntlet over a candidate policy + scenarios.
+    RunGauntlet {
+        /// Candidate policy JSON.
+        candidate: PathBuf,
+        /// Scenarios JSON.
+        scenarios: PathBuf,
+    },
+    /// Compile an admitted candidate into a field-pack JSON.
+    CompilePack {
+        /// Candidate policy JSON.
+        candidate: PathBuf,
+        /// Pack name.
+        #[arg(long)]
+        name: String,
+        /// Domain (lifestyle | edge | enterprise | dev | supply-chain | healthcare | financial).
+        #[arg(long)]
+        domain: String,
+        /// Output pack JSON.
+        #[arg(long)]
+        out: PathBuf,
+    },
+    /// Publish a compiled pack manifest (writes manifest JSON beside the pack).
+    PublishPack {
+        /// Compiled pack JSON.
+        pack: PathBuf,
+    },
+    /// Print a deployment descriptor for a pack at a tier+region.
+    DeployEdge {
+        /// Compiled pack JSON.
+        pack: PathBuf,
+        /// Tier (edge | fog | cloud).
+        #[arg(long)]
+        tier: String,
+        /// Region tag.
+        #[arg(long)]
+        region: String,
+    },
+    /// Verify a manifest's `manifest_digest_urn`.
+    VerifyReplay {
+        /// Manifest JSON file.
+        manifest: PathBuf,
+    },
+    /// Export a portable bundle (pack + manifest as one JSON object).
+    ExportBundle {
+        /// Compiled pack JSON.
+        pack: PathBuf,
+        /// Output bundle JSON.
+        #[arg(long)]
+        out: PathBuf,
+    },
+}
+
+fn read_json<T: serde::de::DeserializeOwned>(p: &PathBuf) -> Result<T> {
+    let bytes = std::fs::read(p).with_context(|| format!("read {}", p.display()))?;
+    Ok(serde_json::from_slice(&bytes).with_context(|| format!("parse {}", p.display()))?)
+}
+
+fn write_json<T: serde::Serialize>(p: &PathBuf, v: &T) -> Result<()> {
+    let bytes = serde_json::to_vec_pretty(v)?;
+    std::fs::write(p, bytes).with_context(|| format!("write {}", p.display()))?;
+    Ok(())
+}
+
+fn parse_domain(s: &str) -> Result<Domain> {
+    Ok(match s {
+        "lifestyle" => Domain::Lifestyle,
+        "edge" => Domain::Edge,
+        "enterprise" => Domain::Enterprise,
+        "dev" => Domain::Dev,
+        "supply-chain" => Domain::SupplyChain,
+        "healthcare" => Domain::Healthcare,
+        "financial" => Domain::Financial,
+        other => anyhow::bail!("unknown domain: {}", other),
+    })
+}
+
+fn parse_tier(s: &str) -> Result<autoinstinct::bridge::Tier> {
+    Ok(match s {
+        "edge" => autoinstinct::bridge::Tier::Edge,
+        "fog" => autoinstinct::bridge::Tier::Fog,
+        "cloud" => autoinstinct::bridge::Tier::Cloud,
+        other => anyhow::bail!("unknown tier: {}", other),
+    })
+}
+
+fn main() -> Result<()> {
+    let cli = Cli::parse();
+    match cli.cmd {
+        Cmd::GenerateOcel { spec, out } => {
+            let s: ScenarioSpec = read_json(&spec)?;
+            let log = generate_world(&s)?;
+            write_json(&out, &log)?;
+            println!("{} objects, {} events", log.objects.len(), log.events.len());
+        }
+        Cmd::ValidateOcel { path } => {
+            let log: OcelLog = read_json(&path)?;
+            validate(&log)?;
+            println!("OK: {} objects, {} events", log.objects.len(), log.events.len());
+        }
+        Cmd::IngestCorpus { path } => {
+            let c: TraceCorpus = read_json(&path)?;
+            println!("episodes={}", c.len());
+        }
+        Cmd::DiscoverMotifs {
+            corpus,
+            min_support,
+            out,
+        } => {
+            let c: TraceCorpus = read_json(&corpus)?;
+            let m = discover(&c, min_support);
+            write_json(&out, &m)?;
+            println!("motifs={}", m.motifs.len());
+        }
+        Cmd::ProposePolicy { motifs, out } => {
+            let m: autoinstinct::motifs::Motifs = read_json(&motifs)?;
+            let p = synthesize(&m);
+            write_json(&out, &p)?;
+            println!("rules={}", p.rules.len());
+        }
+        Cmd::GenerateJtbd { motifs, out } => {
+            let m: autoinstinct::motifs::Motifs = read_json(&motifs)?;
+            let scenarios = autoinstinct::counterfactual::generate(&m);
+            write_json(&out, &scenarios)?;
+            println!("scenarios={}", scenarios.len());
+        }
+        Cmd::RunGauntlet {
+            candidate,
+            scenarios,
+        } => {
+            let policy: autoinstinct::synth::CandidatePolicy = read_json(&candidate)?;
+            let s: Vec<autoinstinct::jtbd::JtbdScenario> = read_json(&scenarios)?;
+            let report = gauntlet::run(&policy, &s);
+            if report.admitted() {
+                println!("ADMITTED");
+            } else {
+                println!("REJECTED");
+                for c in &report.counterexamples {
+                    println!("  - {} :: {}", c.scenario, c.surface);
+                }
+                std::process::exit(1);
+            }
+        }
+        Cmd::CompilePack {
+            candidate,
+            name,
+            domain,
+            out,
+        } => {
+            let policy: autoinstinct::synth::CandidatePolicy = read_json(&candidate)?;
+            let dp = profile(parse_domain(&domain)?);
+            let pack = compile(CompileInputs {
+                name: &name,
+                ontology_profile: dp.ontology_profile,
+                admitted_breeds: dp.admitted_breeds,
+                policy: &policy,
+            });
+            write_json(&out, &pack)?;
+            println!("{}", pack.digest_urn);
+        }
+        Cmd::PublishPack { pack } => {
+            let p: autoinstinct::compile::FieldPackArtifact = read_json(&pack)?;
+            let manifest = build_manifest(&p);
+            let mut manifest_path = pack.clone();
+            let stem = manifest_path
+                .file_stem()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_else(|| "pack".into());
+            manifest_path.set_file_name(format!("{stem}.manifest.json"));
+            write_json(&manifest_path, &manifest)?;
+            println!("{}", manifest.manifest_digest_urn);
+        }
+        Cmd::DeployEdge {
+            pack,
+            tier,
+            region,
+        } => {
+            let p: autoinstinct::compile::FieldPackArtifact = read_json(&pack)?;
+            let descriptor = autoinstinct::bridge::deploy(
+                &p,
+                parse_tier(&tier)?,
+                &region,
+                "",
+                &[],
+            )?;
+            println!("{}", serde_json::to_string_pretty(&descriptor)?);
+        }
+        Cmd::VerifyReplay { manifest } => {
+            let m: autoinstinct::manifest::PackManifest = read_json(&manifest)?;
+            if verify(&m) {
+                println!("OK: {}", m.manifest_digest_urn);
+            } else {
+                println!("TAMPER");
+                std::process::exit(1);
+            }
+        }
+        Cmd::ExportBundle { pack, out } => {
+            let p: autoinstinct::compile::FieldPackArtifact = read_json(&pack)?;
+            let m = build_manifest(&p);
+            let bundle = serde_json::json!({
+                "pack": p,
+                "manifest": m,
+                "autoinstinct_version": AUTOINSTINCT_VERSION,
+            });
+            write_json(&out, &bundle)?;
+            println!("bundle: {}", m.manifest_digest_urn);
+        }
+    }
+    Ok(())
+}

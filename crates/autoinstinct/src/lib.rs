@@ -25,18 +25,23 @@
 //! → ccog deployment
 //! ```
 //!
-//! Modules map to README §"Suggested future modules":
+//! Module ladder maps to the 10-phase Vision-2030 plan
+//! ([`docs/phases.md`](../docs/phases.md)):
 //!
-//! - [`corpus`] — trace ingestion and indexing.
-//! - [`motifs`] — recurring response motifs over closed contexts.
-//! - [`synth`] — candidate μ policy synthesis.
-//! - [`ocel`] — Object-Centric Event Log generation + validation.
-//! - [`jtbd`] — generated JTBD scenario emission.
-//! - [`gauntlet`] — admit/deny gate (positive + negative + perturbation).
-//! - [`compile`] — field-pack compilation.
-//! - [`drift`] — outcome monitor / drift detection feedback.
-//! - [`registry`] — pack registry + version pinning.
+//! | Phase | Tier | Modules |
+//! |---:|---|---|
+//! | 1 | Foundation Compiler | [`corpus`], [`motifs`], [`synth`], [`jtbd`], [`gauntlet`], [`compile`], [`drift`], [`registry`], [`ocel`] |
+//! | 2 | Process Mining Substrate | [`petri`], [`align`] |
+//! | 3 | Causal & Counterfactual Engine | [`counterfactual`], [`causal`] |
+//! | 4 | Hardened Gauntlet | [`metamorphic`], [`receipt_audit`], [`powl64_audit`], [`mutation`] |
+//! | 5 | Pack Lifecycle & Registry | [`manifest`], [`lifecycle`] |
+//! | 6 | Distributed Runtime Bridge | [`bridge`] |
+//! | 7 | Domain Pack Library | [`domain`] |
+//! | 8 | LLM World Generation Loop | [`world_gen`] |
+//! | 9 | Compliance & Governance | [`compliance`] |
+//! | 10 | Continuous Learning at Scale | [`scale`], [`streaming`] |
 
+// Phase 1 — Foundation Compiler.
 pub mod corpus;
 pub mod motifs;
 pub mod synth;
@@ -46,6 +51,40 @@ pub mod gauntlet;
 pub mod compile;
 pub mod drift;
 pub mod registry;
+
+// Phase 2 — Process Mining Substrate.
+pub mod petri;
+pub mod align;
+
+// Phase 3 — Causal & Counterfactual Engine.
+pub mod counterfactual;
+pub mod causal;
+
+// Phase 4 — Hardened Gauntlet.
+pub mod metamorphic;
+pub mod receipt_audit;
+pub mod powl64_audit;
+pub mod mutation;
+
+// Phase 5 — Pack Lifecycle & Registry.
+pub mod manifest;
+pub mod lifecycle;
+
+// Phase 6 — Distributed Runtime Bridge.
+pub mod bridge;
+
+// Phase 7 — Domain Pack Library.
+pub mod domain;
+
+// Phase 8 — LLM World Generation Loop.
+pub mod world_gen;
+
+// Phase 9 — Compliance & Governance.
+pub mod compliance;
+
+// Phase 10 — Continuous Learning at Scale.
+pub mod scale;
+pub mod streaming;
 
 /// AutoInstinct semver string used in compiled field-pack metadata.
 pub const AUTOINSTINCT_VERSION: &str = "30.1.1";
