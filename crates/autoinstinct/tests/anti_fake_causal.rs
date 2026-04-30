@@ -25,6 +25,17 @@ fn assert_positive(s: &CausalScenario) {
     );
 }
 
+fn perturbation_tag(p: &autoinstinct::causal_harness::Perturbation) -> &'static str {
+    use autoinstinct::causal_harness::Perturbation::*;
+    match p {
+        DropTriple(_) => "drop_ntriple",
+        DropPostureBit(_) => "drop_posture",
+        DropExpectation(_) => "drop_expectation",
+        DropRisk(_) => "drop_risk",
+        DropAffordance(_) => "drop_affordance",
+    }
+}
+
 fn assert_every_perturbation_changes_response(s: &CausalScenario) {
     let baseline = {
         let (f, p, c) = build_inputs(s);
@@ -33,8 +44,17 @@ fn assert_every_perturbation_changes_response(s: &CausalScenario) {
     for pert in &s.perturbations {
         let (f, p, c) = perturb(s, pert);
         let after = respond(&f, &p, &c);
-        assert_ne!(
-            after, baseline,
+        let changed = after != baseline;
+        println!(
+            "scenario={} baseline={:?} perturb={} after={:?} changed={}",
+            s.name,
+            baseline,
+            perturbation_tag(pert),
+            after,
+            changed
+        );
+        assert!(
+            changed,
             "scenario `{}`: perturbation {:?} did NOT change response \
              (still {:?}) — input is not load-bearing",
             s.name, pert, after

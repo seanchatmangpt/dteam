@@ -79,18 +79,25 @@ fn closed_surface(s: &CausalScenario) -> (CompiledFieldSnapshot, PostureBundle, 
 #[test]
 fn performance_decide_zero_alloc_generated_snapshots() {
     for s in canonical_scenarios() {
-        let (snap, _, _) = closed_surface(&s);
+        let (snap, posture, ctx) = closed_surface(&s);
         // Warm up to dodge any first-call lazy init.
         let _ = decide(&snap);
         let _ = decide(&snap);
-        let (decision, bytes, count) = measure(|| decide(&snap));
+        let (decision, d_bytes, d_count) = measure(|| decide(&snap));
+        let _ = select_instinct_v0(&snap, &posture, &ctx);
+        let (_, s_bytes, s_count) = measure(|| select_instinct_v0(&snap, &posture, &ctx));
+        println!(
+            "scenario={} decide_allocations={} decide_bytes={} select_allocations={} select_bytes={}",
+            s.name, d_count, d_bytes, s_count, s_bytes
+        );
         assert_eq!(
-            bytes, 0,
-            "scenario `{}`: decide() allocated {bytes} bytes across {count} allocations",
+            d_bytes, 0,
+            "scenario `{}`: decide() allocated {d_bytes} bytes across {d_count} allocations",
             s.name
         );
-        assert_eq!(count, 0, "scenario `{}`: decide() ran {count} allocations", s.name);
-        // Sanity: decide is doing real work, not short-circuiting on empty.
+        assert_eq!(d_count, 0, "scenario `{}`: decide() ran {d_count} allocations", s.name);
+        assert_eq!(s_bytes, 0, "scenario `{}`: select_instinct_v0 alloc bytes={s_bytes}", s.name);
+        assert_eq!(s_count, 0);
         let _ = decision;
     }
 }
@@ -166,26 +173,32 @@ fn anti_fake_decide_is_zero_heap_and_input_dependent() {
     // (coincidence). It cannot pass both.
     let mut input_changed_count = 0;
     for s in canonical_scenarios() {
-        let baseline = {
+        let (baseline, alloc_before) = {
             let (f, p, c) = build_inputs(&s);
             let snap = CompiledFieldSnapshot::from_field(&f).expect("snap");
+            let _ = select_instinct_v0(&snap, &p, &c); // warm
             let (resp, bytes, _) = measure(|| select_instinct_v0(&snap, &p, &c));
             assert_eq!(bytes, 0, "baseline alloc != 0 for `{}`", s.name);
-            resp
+            (resp, bytes)
         };
         for pert in &s.perturbations {
             let (f, p, c) = perturb(&s, pert);
             let snap = CompiledFieldSnapshot::from_field(&f).expect("snap");
             let _ = select_instinct_v0(&snap, &p, &c); // warm
-            let (after, bytes, count) =
+            let (after, alloc_after, count) =
                 measure(|| select_instinct_v0(&snap, &p, &c));
+            let changed = after != baseline;
+            println!(
+                "cross_zone scenario={} alloc_before={} alloc_after={} count={} changed={}",
+                s.name, alloc_before, alloc_after, count, changed
+            );
             assert_eq!(
-                bytes, 0,
-                "scenario `{}` perturbation {:?}: alloc bytes={bytes} count={count}",
+                alloc_after, 0,
+                "scenario `{}` perturbation {:?}: alloc bytes={alloc_after} count={count}",
                 s.name, pert
             );
-            assert_ne!(
-                after, baseline,
+            assert!(
+                changed,
                 "scenario `{}` perturbation {:?}: response did not change \
                  (still {:?}) — input is not load-bearing",
                 s.name, pert, after
