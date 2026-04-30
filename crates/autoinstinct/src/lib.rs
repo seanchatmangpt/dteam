@@ -89,6 +89,13 @@ pub mod streaming;
 // Constitutional doctrine — programmatic invariants from `SPR.md`.
 pub mod doctrine;
 
+// Doctrine-to-code coverage table (Kill Zone 1 of the anti-fake gauntlet).
+pub mod doctrine_coverage;
+
+// LLM provider bridge (Gemini CLI; pluggable). Untrusted output goes
+// through strict admission before becoming corpus.
+pub mod llm;
+
 /// AutoInstinct semver string used in compiled field-pack metadata.
 pub const AUTOINSTINCT_VERSION: &str = "30.1.1";
 

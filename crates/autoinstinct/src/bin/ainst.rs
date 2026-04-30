@@ -36,6 +36,9 @@ use autoinstinct::AUTOINSTINCT_VERSION;
 #[command(name = "ainst", version = AUTOINSTINCT_VERSION,
           about = "AutoInstinct: trace-to-instinct compiler for ccog")]
 struct Cli {
+    /// Override the LLM model (priority: --model > AINST_LLM_MODEL > default).
+    #[arg(long, global = true, env = "AINST_LLM_MODEL")]
+    model: Option<String>,
     #[command(subcommand)]
     cmd: Verb,
 }
@@ -79,9 +82,19 @@ enum Verb {
 
 #[derive(Subcommand)]
 enum Generate {
-    /// Generate an OCEL world from a scenario spec JSON.
+    /// Generate an OCEL world. Either pass a deterministic spec JSON, or
+    /// pass `--profile` + `--scenario` to call the configured LLM
+    /// provider — the response is admitted through the strict shape +
+    /// ontology + privacy gates before being written.
     Ocel {
-        spec: PathBuf,
+        /// Deterministic scenario spec (mutually exclusive with --profile).
+        spec: Option<PathBuf>,
+        /// Pack profile (e.g. `supply-chain`). Triggers LLM path.
+        #[arg(long)]
+        profile: Option<String>,
+        /// Scenario name. Triggers LLM path.
+        #[arg(long)]
+        scenario: Option<String>,
         #[arg(long)]
         out: PathBuf,
     },
@@ -220,12 +233,43 @@ fn parse_tier(s: &str) -> Result<autoinstinct::bridge::Tier> {
 fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.cmd {
-        Verb::Generate(Generate::Ocel { spec, out }) => {
-            let s: ScenarioSpec = read_json(&spec)?;
-            let log = generate_world(&s)?;
-            write_json(&out, &log)?;
-            println!("{} objects, {} events", log.objects.len(), log.events.len());
-        }
+        Verb::Generate(Generate::Ocel {
+            spec,
+            profile,
+            scenario,
+            out,
+        }) => match (spec, profile, scenario) {
+            (Some(spec), None, None) => {
+                let s: ScenarioSpec = read_json(&spec)?;
+                let log = generate_world(&s)?;
+                write_json(&out, &log)?;
+                println!("{} objects, {} events", log.objects.len(), log.events.len());
+            }
+            (None, Some(profile), Some(scenario)) => {
+                let cfg = autoinstinct::llm::config::resolve_with(
+                    cli.model.clone(),
+                    std::env::var("AINST_LLM_MODEL").ok(),
+                );
+                let prompt_template = include_str!("../llm/prompts/ocel_world.md");
+                let prompt = prompt_template
+                    .replace("{{PROFILE}}", &profile)
+                    .replace("{{SCENARIO}}", &scenario);
+                let raw = autoinstinct::llm::gemini_cli::call_response(&cfg, &prompt, None)
+                    .with_context(|| format!("gemini call (model={})", cfg.model))?;
+                let world = autoinstinct::llm::admit(&raw, &profile)
+                    .with_context(|| "LLM admission rejected world")?;
+                write_json(&out, &world)?;
+                println!(
+                    "admitted: {} objects, {} events, {} counterfactuals",
+                    world.objects.len(),
+                    world.events.len(),
+                    world.counterfactuals.len(),
+                );
+            }
+            _ => anyhow::bail!(
+                "generate ocel: pass either <spec.json> or both --profile and --scenario"
+            ),
+        },
         Verb::Generate(Generate::Jtbd { motifs, out }) => {
             let m: autoinstinct::motifs::Motifs = read_json(&motifs)?;
             let scenarios = autoinstinct::counterfactual::generate(&m);

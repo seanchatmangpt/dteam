@@ -14,7 +14,7 @@ anyhow = "1.0"
 blake3 = "1.5"
 thiserror = "1"
 indexmap = { version = "2", features = ["serde"] }
-clap = { version = "4", features = ["derive"], optional = true }
+clap = { version = "4", features = ["derive", "env"], optional = true }
 
 [features]
 default = []
