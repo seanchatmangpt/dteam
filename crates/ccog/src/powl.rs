@@ -42,6 +42,17 @@ impl BinaryRelation {
         }
     }
 
+    /// Checked variant of [`Self::add_edge`]. Returns
+    /// [`BinaryRelationError::OutOfBounds`] if either index exceeds
+    /// [`MAX_NODES`].
+    pub fn try_add_edge(&mut self, src: usize, tgt: usize) -> Result<(), BinaryRelationError> {
+        if src >= MAX_NODES || tgt >= MAX_NODES {
+            return Err(BinaryRelationError::OutOfBounds);
+        }
+        self.words[src] |= 1u64 << tgt;
+        Ok(())
+    }
+
     /// Return `true` iff an edge from `src` to `tgt` is present.
     #[must_use]
     pub const fn is_edge(&self, src: usize, tgt: usize) -> bool {
@@ -51,6 +62,13 @@ impl BinaryRelation {
             false
         }
     }
+}
+
+/// Error type for [`BinaryRelation`] checked construction.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BinaryRelationError {
+    /// Source or target index exceeds [`MAX_NODES`].
+    OutOfBounds,
 }
 
 impl Default for BinaryRelation {
@@ -350,6 +368,203 @@ impl Powl8 {
         }
         preds
     }
+
+    /// Compile this authoring-time plan into a runtime-only [`CompiledPowl8`].
+    ///
+    /// The compile step:
+    /// 1. Validates the plan via [`Self::shape_match`]; any error is returned.
+    /// 2. Builds a directed dependency graph over the original node indices
+    ///    using `OperatorSequence` (a → b) and `PartialOrder` rel edges
+    ///    (mapped from local to global indices). `OperatorParallel` declares
+    ///    no edges (children are independent).
+    /// 3. Identifies the **executable** subset — every node except
+    ///    `OperatorSequence`, `OperatorParallel`, and `PartialOrder`, which
+    ///    are pure structural declarations.
+    /// 4. Runs Kahn's algorithm restricted to executable nodes; only edges
+    ///    whose endpoints are both executable contribute to indegree.
+    /// 5. Returns a [`CompiledPowl8`] whose `order` is the topological order
+    ///    of executable nodes (values are original `Powl8.nodes` indices),
+    ///    `kinds` is the per-runtime-index kind, and `preds[i]` is a bitmask
+    ///    over runtime indices (`0..order.len()`) of direct predecessors.
+    ///
+    /// Returns [`PlanAdmission::Malformed`] if the executable count exceeds
+    /// 64 (the predecessor mask is `u64`), or [`PlanAdmission::Cyclic`] on a
+    /// cycle defensively detected during compilation.
+    pub fn compile(&self) -> Result<CompiledPowl8, PlanAdmission> {
+        self.shape_match()?;
+
+        let n = self.nodes.len();
+
+        // Classify each original node: Some(kind) iff executable, None iff
+        // it's a pure structural operator declaration.
+        let mut kind_of: [Option<CompiledNodeKind>; MAX_NODES] = [None; MAX_NODES];
+        for (idx, node) in self.nodes.iter().enumerate() {
+            kind_of[idx] = match *node {
+                Powl8Node::StartNode | Powl8Node::EndNode => Some(CompiledNodeKind::Boundary),
+                Powl8Node::Silent => Some(CompiledNodeKind::Silent),
+                Powl8Node::Activity(_) => Some(CompiledNodeKind::HookSlot(idx as u16)),
+                Powl8Node::OperatorSequence { .. }
+                | Powl8Node::OperatorParallel { .. }
+                | Powl8Node::PartialOrder { .. } => None,
+            };
+        }
+
+        // Count executable nodes; bail early if we'd exceed the u64 mask.
+        let mut exec_count = 0usize;
+        for k in kind_of.iter().take(n) {
+            if k.is_some() {
+                exec_count += 1;
+            }
+        }
+        if exec_count > 64 {
+            return Err(PlanAdmission::Malformed);
+        }
+
+        // Outgoing adjacency over original indices, only retaining edges
+        // where both endpoints are executable.
+        let mut outgoing: [u64; MAX_NODES] = [0u64; MAX_NODES];
+        let mut indegree: [u32; MAX_NODES] = [0u32; MAX_NODES];
+
+        let try_add = |src: usize, tgt: usize, outgoing: &mut [u64; MAX_NODES], indegree: &mut [u32; MAX_NODES]| {
+            if src >= n || tgt >= n {
+                return;
+            }
+            if kind_of[src].is_none() || kind_of[tgt].is_none() {
+                return;
+            }
+            // Skip duplicate edges (idempotent set into the bitmask).
+            let bit = 1u64 << tgt;
+            if outgoing[src] & bit == 0 {
+                outgoing[src] |= bit;
+                indegree[tgt] = indegree[tgt].saturating_add(1);
+            }
+        };
+
+        for node in &self.nodes {
+            match *node {
+                Powl8Node::OperatorSequence { a, b } => {
+                    try_add(a as usize, b as usize, &mut outgoing, &mut indegree);
+                }
+                // OperatorParallel declares independence — contributes no edges.
+                Powl8Node::OperatorParallel { .. } => {}
+                Powl8Node::PartialOrder { start, count, rel } => {
+                    let s = start as usize;
+                    let c = count as usize;
+                    if s.saturating_add(c) > n {
+                        continue;
+                    }
+                    for i in 0..c {
+                        for j in 0..c {
+                            if i != j && rel.is_edge(i, j) {
+                                try_add(s + i, s + j, &mut outgoing, &mut indegree);
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        // Kahn's algorithm over executable nodes only.
+        let mut order: Vec<u16> = Vec::with_capacity(exec_count);
+        let mut queue: [usize; MAX_NODES] = [0usize; MAX_NODES];
+        let mut qhead = 0usize;
+        let mut qtail = 0usize;
+        for idx in 0..n {
+            if kind_of[idx].is_some() && indegree[idx] == 0 {
+                queue[qtail] = idx;
+                qtail += 1;
+            }
+        }
+        while qhead < qtail {
+            let u = queue[qhead];
+            qhead += 1;
+            order.push(u as u16);
+            // Iterate outgoing edges from u.
+            let mut row = outgoing[u];
+            while row != 0 {
+                let tgt = row.trailing_zeros() as usize;
+                row &= row - 1;
+                indegree[tgt] = indegree[tgt].saturating_sub(1);
+                if indegree[tgt] == 0 && kind_of[tgt].is_some() {
+                    queue[qtail] = tgt;
+                    qtail += 1;
+                }
+            }
+        }
+
+        if order.len() != exec_count {
+            // Defensive: shape_match should have caught any cycle.
+            return Err(PlanAdmission::Cyclic);
+        }
+
+        // Build inverse lookup: original index → runtime index.
+        let mut runtime_index: [Option<u8>; MAX_NODES] = [None; MAX_NODES];
+        for (rt, &orig) in order.iter().enumerate() {
+            runtime_index[orig as usize] = Some(rt as u8);
+        }
+
+        // Compute predecessor masks over runtime indices.
+        let mut preds: Vec<u64> = vec![0u64; order.len()];
+        let mut kinds: Vec<CompiledNodeKind> = Vec::with_capacity(order.len());
+        for (rt, &orig) in order.iter().enumerate() {
+            let kind = kind_of[orig as usize].expect("executable node must have a kind");
+            kinds.push(kind);
+            // For every executable predecessor src of orig, set bit at the
+            // runtime index of src.
+            for src in 0..n {
+                if outgoing[src] & (1u64 << (orig as usize)) != 0 {
+                    if let Some(src_rt) = runtime_index[src] {
+                        preds[rt] |= 1u64 << src_rt;
+                    }
+                }
+            }
+        }
+
+        Ok(CompiledPowl8 {
+            order,
+            preds,
+            kinds,
+        })
+    }
+}
+
+/// Runtime kind of a node in the compiled plan.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CompiledNodeKind {
+    /// Boundary marker (entry/exit of plan).
+    Boundary,
+    /// Silent / no-op runtime node — advanced on entry.
+    Silent,
+    /// Runtime activity node referencing an external slot index.
+    HookSlot(u16),
+}
+
+/// Compiled POWL8: topologically ordered executable nodes with predecessor masks.
+///
+/// `order[i]` is the original [`Powl8`] node index of the `i`th executable
+/// runtime node. Operator declarations (`OperatorSequence`, `OperatorParallel`,
+/// `PartialOrder`) are stripped — they only contribute edges to the dependency
+/// graph used to derive `preds`. `preds[i]` is a bitmask over runtime indices
+/// (`0..order.len()`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CompiledPowl8 {
+    /// Topological order of executable nodes — values are original
+    /// [`Powl8`] node indices.
+    pub order: Vec<u16>,
+    /// Per-runtime-index predecessor mask (over runtime indices, NOT original).
+    pub preds: Vec<u64>,
+    /// Per-runtime-index node kind.
+    pub kinds: Vec<CompiledNodeKind>,
+}
+
+/// Advance policy for runtime walks of a [`CompiledPowl8`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum AdvancePolicy {
+    /// A node is advanced once it has been evaluated (regardless of fire/skip).
+    OnEvaluation,
+    /// A node is advanced only if its hook fired.
+    OnFire,
 }
 
 impl Default for Powl8 {
@@ -475,5 +690,185 @@ mod tests {
         p.push(Powl8Node::OperatorSequence { a: 1, b: 2 }).unwrap();
         p.push(Powl8Node::OperatorSequence { a: 2, b: 0 }).unwrap();
         assert!(matches!(p.shape_match(), Err(PlanAdmission::Cyclic)));
+    }
+
+    #[test]
+    fn compile_linear_plan_yields_topological_order() {
+        // Plan: Start(0) → Eliza(1) → Mycin(2) → End(3)
+        // Connected via OperatorSequence edges (4: 0→1, 5: 1→2, 6: 2→3).
+        let mut p = Powl8::new();
+        let s = p.push(Powl8Node::StartNode).unwrap();
+        p.root = s;
+        let _e = p.push(Powl8Node::Activity(Breed::Eliza)).unwrap();
+        let _m = p.push(Powl8Node::Activity(Breed::Mycin)).unwrap();
+        let _x = p.push(Powl8Node::EndNode).unwrap();
+        p.push(Powl8Node::OperatorSequence { a: 0, b: 1 }).unwrap();
+        p.push(Powl8Node::OperatorSequence { a: 1, b: 2 }).unwrap();
+        p.push(Powl8Node::OperatorSequence { a: 2, b: 3 }).unwrap();
+
+        let compiled = p.compile().expect("compile must succeed");
+        assert_eq!(compiled.order, vec![0u16, 1, 2, 3]);
+        assert_eq!(compiled.preds, vec![0u64, 0b1, 0b10, 0b100]);
+        assert_eq!(
+            compiled.kinds,
+            vec![
+                CompiledNodeKind::Boundary,
+                CompiledNodeKind::HookSlot(1),
+                CompiledNodeKind::HookSlot(2),
+                CompiledNodeKind::Boundary,
+            ]
+        );
+    }
+
+    #[test]
+    fn compile_partial_order_respects_rel_edges() {
+        // 3 children with rel edges 0→1, 0→2.
+        let mut p = Powl8::new();
+        let s = p.push(Powl8Node::StartNode).unwrap();
+        p.root = s;
+        let _c0 = p.push(Powl8Node::Activity(Breed::Eliza)).unwrap();
+        let _c1 = p.push(Powl8Node::Activity(Breed::Mycin)).unwrap();
+        let _c2 = p.push(Powl8Node::Activity(Breed::Strips)).unwrap();
+        let mut rel = BinaryRelation::new();
+        rel.add_edge(0, 1);
+        rel.add_edge(0, 2);
+        p.push(Powl8Node::PartialOrder {
+            start: 1,
+            count: 3,
+            rel,
+        })
+        .unwrap();
+
+        let compiled = p.compile().expect("compile must succeed");
+
+        // Find runtime indices of original nodes 1, 2, 3.
+        let pos_of = |orig: u16| -> usize {
+            compiled
+                .order
+                .iter()
+                .position(|&v| v == orig)
+                .expect("must contain orig")
+        };
+        let r1 = pos_of(1);
+        let r2 = pos_of(2);
+        let r3 = pos_of(3);
+
+        // child0 (orig 1) precedes child1 (orig 2) and child2 (orig 3).
+        assert!(r1 < r2, "child0 must precede child1");
+        assert!(r1 < r3, "child0 must precede child2");
+
+        // Predecessor masks for child1 and child2 must include child0's runtime bit.
+        assert_ne!(
+            compiled.preds[r2] & (1u64 << r1),
+            0,
+            "child1 must list child0 as predecessor"
+        );
+        assert_ne!(
+            compiled.preds[r3] & (1u64 << r1),
+            0,
+            "child2 must list child0 as predecessor"
+        );
+
+        // child0 itself has no executable predecessors via the partial order.
+        assert_eq!(compiled.preds[r1] & ((1u64 << r2) | (1u64 << r3)), 0);
+
+        // PartialOrder declaration node is stripped: 4 executable nodes total
+        // (Start + 3 activities).
+        assert_eq!(compiled.order.len(), 4);
+        assert_eq!(compiled.kinds.len(), 4);
+        assert!(compiled.kinds.iter().all(|k| matches!(
+            k,
+            CompiledNodeKind::Boundary | CompiledNodeKind::HookSlot(_)
+        )));
+    }
+
+    #[test]
+    fn compile_strips_operator_nodes() {
+        // Plan with 1 OperatorSequence node mixed in — the operator node
+        // itself must not appear in compiled.order or compiled.kinds.
+        let mut p = Powl8::new();
+        let s = p.push(Powl8Node::StartNode).unwrap(); // 0
+        p.root = s;
+        p.push(Powl8Node::Activity(Breed::Eliza)).unwrap(); // 1
+        p.push(Powl8Node::Activity(Breed::Mycin)).unwrap(); // 2
+        let op = p.push(Powl8Node::OperatorSequence { a: 1, b: 2 }).unwrap(); // 3 — stripped
+        p.push(Powl8Node::EndNode).unwrap(); // 4
+
+        let compiled = p.compile().expect("compile must succeed");
+        assert_eq!(compiled.order.len(), 4);
+        assert!(
+            !compiled.order.contains(&op),
+            "operator declaration index must not appear in runtime order"
+        );
+        // All kinds must be Boundary or HookSlot — no leakage of operator semantics.
+        for k in &compiled.kinds {
+            assert!(matches!(
+                k,
+                CompiledNodeKind::Boundary | CompiledNodeKind::HookSlot(_)
+            ));
+        }
+    }
+
+    #[test]
+    fn compile_returns_malformed_on_excess_runtime_nodes() {
+        // The MAX_NODES cap is 64, so we cannot push a 65th executable node
+        // through the public `push` API. We construct a Powl8 whose
+        // `nodes` vec exceeds MAX_NODES via direct field access to model an
+        // externally-constructed (e.g., deserialized) plan; compile() must
+        // reject it because the predecessor mask is u64.
+        let mut p = Powl8::new();
+        for _ in 0..MAX_NODES {
+            p.push(Powl8Node::Silent).unwrap();
+        }
+        // Forcibly add a 65th executable node to exceed the runtime cap.
+        p.nodes.push(Powl8Node::Silent);
+        assert_eq!(p.nodes.len(), 65);
+        match p.compile() {
+            Err(PlanAdmission::Malformed) => {}
+            other => panic!("expected Malformed, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn compile_propagates_shape_match_errors() {
+        // Cyclic plan via OperatorSequence: 0 → 1 → 0.
+        let mut p = Powl8::new();
+        p.push(Powl8Node::Activity(Breed::Eliza)).unwrap(); // 0
+        p.push(Powl8Node::Activity(Breed::Mycin)).unwrap(); // 1
+        p.push(Powl8Node::OperatorSequence { a: 0, b: 1 }).unwrap();
+        p.push(Powl8Node::OperatorSequence { a: 1, b: 0 }).unwrap();
+        match p.compile() {
+            Err(PlanAdmission::Cyclic) => {}
+            other => panic!("expected Cyclic, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn try_add_edge_rejects_oob() {
+        let mut r = BinaryRelation::new();
+        assert_eq!(
+            r.try_add_edge(MAX_NODES, 0),
+            Err(BinaryRelationError::OutOfBounds)
+        );
+        assert_eq!(
+            r.try_add_edge(0, MAX_NODES),
+            Err(BinaryRelationError::OutOfBounds)
+        );
+        assert_eq!(
+            r.try_add_edge(MAX_NODES, MAX_NODES),
+            Err(BinaryRelationError::OutOfBounds)
+        );
+        // Out-of-bounds calls must not have set any edge.
+        assert!(!r.is_edge(0, 0));
+    }
+
+    #[test]
+    fn try_add_edge_accepts_valid() {
+        let mut r = BinaryRelation::new();
+        assert_eq!(r.try_add_edge(0, 1), Ok(()));
+        assert_eq!(r.try_add_edge(63, 63), Ok(()));
+        assert!(r.is_edge(0, 1));
+        assert!(r.is_edge(63, 63));
+        assert!(!r.is_edge(1, 0));
     }
 }

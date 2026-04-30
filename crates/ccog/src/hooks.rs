@@ -22,6 +22,18 @@
 //!     println!("{}: {} triples", outcome.hook_name, outcome.delta.len());
 //! }
 //! ```
+//!
+//! # Warm vs hot dispatch path
+//!
+//! `HookRegistry::fire_matching` is the **warm/reference** dispatch path:
+//! every call rebuilds a `CompiledFieldSnapshot` and walks heap-allocated
+//! hook lists. It is appropriate for tests, fixtures, and tools — NOT for
+//! the hot bark loop. For nanoscale dispatch use:
+//! - `crate::bark_kernel::BarkKernel` for plan-ordered POWL8 dispatch
+//! - `crate::bark_artifact::bark` for const-table dispatch
+//!
+//! Both expose `decide()` / `materialize()` / `seal()` stages with explicit
+//! cost tiers.
 
 use crate::compiled::CompiledFieldSnapshot;
 use crate::construct8::Construct8;
@@ -66,7 +78,20 @@ pub enum HookTrigger {
     /// Equivalent to `Pattern { predicate: rdf:type, object: class }` but cheaper.
     TypePresent(oxigraph::model::NamedNode),
 
-    /// Fire unconditionally (manual invocation only).
+    /// Always fires during `HookRegistry::fire_matching`. Replaces the old
+    /// `Manual` semantics (which always evaluated to true despite its name).
+    Always,
+
+    /// Fires only when invoked via `HookRegistry::fire_one(name)`. Skipped
+    /// during `fire_matching`. Use for hooks that must be explicitly named
+    /// at the call site (e.g. operator-driven receipts).
+    ManualOnly,
+
+    /// **Deprecated** — retained only for cross-crate compile compatibility
+    /// while the parallel `compiled_hook.rs` migration lands. New code must
+    /// use `Always` (for unconditional fire) or `ManualOnly` (for named
+    /// invocation). Behaves identically to `Always` in `evaluate_trigger`.
+    #[deprecated(note = "Use HookTrigger::Always or HookTrigger::ManualOnly instead")]
     Manual,
 }
 
@@ -98,6 +123,10 @@ pub enum HookCheck {
 
     /// Snapshot-driven check: O(1) HashMap lookups, no graph walks.
     SnapshotFn(fn(&CompiledFieldSnapshot) -> bool),
+
+    /// Denial-polarity admit over the compiled snapshot: 0 = admitted,
+    /// nonzero = denied. Snapshot-native version of `HookCheck::Admit`.
+    SnapshotAdmit(fn(&CompiledFieldSnapshot) -> u64),
 }
 
 impl std::fmt::Debug for HookCheck {
@@ -113,6 +142,7 @@ impl std::fmt::Debug for HookCheck {
                 .finish(),
             Self::Admit(_) => f.debug_tuple("Admit").field(&"<admit>").finish(),
             Self::SnapshotFn(_) => f.debug_tuple("SnapshotFn").field(&"<snap>").finish(),
+            Self::SnapshotAdmit(_) => f.debug_tuple("SnapshotAdmit").field(&"<snap-admit>").finish(),
         }
     }
 }
@@ -271,6 +301,10 @@ impl HookRegistry {
 /// Snapshot-aware variants short-circuit through the pre-built indices:
 /// - `TypePresent(class)` → snapshot.instances_of(class)
 /// - `Pattern { subject: None, predicate: Some(p), object: None }` → snapshot.has_any_with_predicate(p)
+/// - `Always` → unconditionally true
+/// - `ManualOnly` → unconditionally false (use `HookRegistry::fire_one` to invoke)
+/// - `Manual` (deprecated) → unconditionally true (alias for `Always`)
+///
 /// Other patterns fall back to the graph walk.
 fn evaluate_trigger(
     trigger: &HookTrigger,
@@ -290,6 +324,10 @@ fn evaluate_trigger(
             field.graph.pattern_exists(subject.as_ref(), predicate.as_ref(), object.as_ref())
         }
         HookTrigger::TypePresent(class) => Ok(!snapshot.instances_of(class).is_empty()),
+        HookTrigger::Always => Ok(true),
+        HookTrigger::ManualOnly => Ok(false),
+        // Deprecated alias — preserves prior semantics while compiled_hook.rs migrates.
+        #[allow(deprecated)]
         HookTrigger::Manual => Ok(true),
     }
 }
@@ -298,7 +336,10 @@ fn evaluate_trigger(
 ///
 /// - `Sparql(query)` → call field.graph.ask() with PREFIXES prepended
 /// - `Fn(f)` → call f(field)
+/// - `Pattern { ... }` → direct triple-pattern existence
+/// - `Admit(f)` → denial-polarity admit over `FieldContext` (0 = admitted)
 /// - `SnapshotFn(f)` → call f(snapshot) — O(1) HashMap path
+/// - `SnapshotAdmit(f)` → denial-polarity admit over `CompiledFieldSnapshot` (0 = admitted)
 fn evaluate_check(
     check: &HookCheck,
     field: &FieldContext,

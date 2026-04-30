@@ -1,4 +1,18 @@
 // Chatman Equation hot-path budget: ≤500µs warm. Validate via `cargo bench -p ccog`.
+//
+// Bench tier annotations (Phase 5 Track E):
+// eliza_bind_phrase             — Materialization
+// mycin_find_missing_evidence   — Materialization
+// strips_check_transition       — Materialization
+// construct8_from_sparql        — Materialization
+// process_full                  — FullProcess
+// process_with_hooks_full       — FullProcess
+// hook_registry_fire_matching   — FullProcess (warm/reference)
+// bark_const_artifact           — CompiledBark (decide+materialize+seal)
+// bark_with_snapshot_build      — FullProcess
+// compiled_hook_table_fire      — CompiledBark
+// bark_kernel_fire              — CompiledBark
+// trace_default_builtins        — KernelFloor (decide-only with trace, no act)
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
 use ccog::{
     bark, BarkKernel, CompiledFieldSnapshot, CompiledHookTable, Construct8, FieldContext,
@@ -7,6 +21,16 @@ use ccog::{
 use ccog::breeds::{eliza, mycin, strips};
 use ccog::graph::GraphIri;
 use ccog::hooks::{missing_evidence_hook, phrase_binding_hook, transition_admissibility_hook, receipt_hook};
+use ccog::trace::{trace_default_builtins, BenchmarkTier};
+
+const _ALL_TIERS: &[BenchmarkTier] = &[
+    BenchmarkTier::KernelFloor,
+    BenchmarkTier::CompiledBark,
+    BenchmarkTier::Materialization,
+    BenchmarkTier::ReceiptPath,
+    BenchmarkTier::FullProcess,
+    BenchmarkTier::ConformanceReplay,
+];
 
 const BENCH_NTRIPLES: &str = r#"
 <http://example.org/claim/1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/Claim> .
@@ -136,6 +160,22 @@ fn bench_bark_kernel(c: &mut Criterion) {
     });
 }
 
+fn bench_kernel_floor(c: &mut Criterion) {
+    let field = setup_field();
+    let snap = CompiledFieldSnapshot::from_field(&field).unwrap();
+    c.bench_function("kernel_floor_trace_default_builtins", |b| {
+        b.iter(|| trace_default_builtins(black_box(&snap)))
+    });
+}
+
+fn bench_present_mask_only(c: &mut Criterion) {
+    let field = setup_field();
+    let snap = CompiledFieldSnapshot::from_field(&field).unwrap();
+    c.bench_function("kernel_floor_present_mask_only", |b| {
+        b.iter(|| ccog::compute_present_mask(black_box(&snap)))
+    });
+}
+
 criterion_group!(benches,
     bench_eliza_bind,
     bench_mycin_evidence,
@@ -147,5 +187,7 @@ criterion_group!(benches,
     bench_bark_const,
     bench_bark_const_with_snapshot,
     bench_compiled_hook_table,
-    bench_bark_kernel);
+    bench_bark_kernel,
+    bench_kernel_floor,
+    bench_present_mask_only);
 criterion_main!(benches);

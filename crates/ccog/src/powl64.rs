@@ -1,8 +1,8 @@
 //! POWL64 geometric routing + BLAKE3 receipt chain.
 //!
 //! Sparse 64×64×64 cell universe addressed by GlobeCell-packed coordinates.
-//! Each [`Powl64Cell`] carries a BLAKE3 source receipt and links to its prior
-//! receipt to form a cryptographic chain through `Runtime::step`.
+//! Each [`Powl64Cell`] carries a BLAKE3 source-IRI hash and links to its
+//! prior chain hash to form a cryptographic chain through `Runtime::step`.
 //!
 //! # Geometry
 //!
@@ -16,13 +16,16 @@
 //!
 //! Storage is sparse: only cells touched by [`Powl64::extend`] are
 //! materialized. A program with two extends occupies two `HashMap` entries,
-//! never the full 262,144 slot grid.
+//! never the full 262,144 slot grid. Coord collisions are
+//! collision-preserving — multiple cells may share a coordinate (the
+//! coordinate is a routing label, not a primary key).
 //!
 //! # Chain receipts
 //!
-//! Genesis: `chain_hash = source_receipt = blake3(iri)`.
-//! Subsequent: `chain_hash = blake3(prior_chain_hash || source_receipt)`,
-//! folded through a 64-byte stack buffer (no heap allocation per step).
+//! Genesis: `chain_hash = blake3(source_hash || polarity)` (the polarity
+//! byte is folded in even at genesis).
+//! Subsequent: `chain_hash = blake3(prior_chain_hash || source_hash || polarity)`,
+//! folded through a 65-byte stack buffer (no heap allocation per step).
 
 use std::collections::HashMap;
 
@@ -34,6 +37,27 @@ use crate::graph::GraphIri;
 
 /// Bits per coordinate component (6 bits ⇒ 0..64).
 pub const COORD_BITS: u32 = 6;
+
+// =============================================================================
+// COORD ERROR
+// =============================================================================
+
+/// Errors returned by checked [`GlobeCell`] construction.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CoordError {
+    /// One of the coord components exceeded 6 bits (≥64).
+    OutOfRange,
+}
+
+impl std::fmt::Display for CoordError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::OutOfRange => f.write_str("coordinate component out of range (must be < 64)"),
+        }
+    }
+}
+
+impl std::error::Error for CoordError {}
 
 // =============================================================================
 // GLOBE CELL
@@ -69,7 +93,8 @@ impl GlobeCell {
     ///
     /// Values outside `0..64` are truncated to their low 6 bits. This is a
     /// const fn with no branches; callers on the hot path should validate
-    /// inputs upstream.
+    /// inputs upstream. For a checked variant that rejects out-of-range
+    /// inputs, see [`GlobeCell::try_new`].
     #[must_use]
     #[inline(always)]
     pub const fn new(domain: u8, cell: u8, place: u8) -> Self {
@@ -77,6 +102,23 @@ impl GlobeCell {
         let c = (cell as u64) & Self::COORD_MASK;
         let p = (place as u64) & Self::COORD_MASK;
         Self((d << Self::DOMAIN_SHIFT) | (c << Self::CELL_SHIFT) | (p << Self::PLACE_SHIFT))
+    }
+
+    /// Checked construction: returns [`CoordError::OutOfRange`] if any
+    /// component is `≥64`.
+    ///
+    /// Use this on any path where coords come from external input. The
+    /// branchless [`GlobeCell::new`] remains the fast path.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err(CoordError::OutOfRange)` when `domain >= 64`,
+    /// `cell >= 64`, or `place >= 64`.
+    pub fn try_new(domain: u8, cell: u8, place: u8) -> Result<Self, CoordError> {
+        if domain >= 64 || cell >= 64 || place >= 64 {
+            return Err(CoordError::OutOfRange);
+        }
+        Ok(Self::new(domain, cell, place))
     }
 
     /// Extract the domain component.
@@ -123,21 +165,45 @@ impl GlobeCell {
 /// Per-cell payload: source IRI hash, prior link, polarity, derived chain
 /// hash.
 ///
-/// `chain_hash` equals `source_receipt` at genesis (no prior). For every
-/// subsequent extend, `chain_hash = blake3(prior_chain_hash || source_receipt)`.
+/// `chain_hash` always folds polarity. At genesis it is
+/// `blake3(source_hash || polarity)`. For every subsequent extend it is
+/// `blake3(prior_chain_hash || source_hash || polarity)`.
 #[derive(Clone, Debug)]
 pub struct Powl64Cell {
     /// Packed coordinate where this cell lives in the 64³ universe.
+    ///
+    /// Note: multiple cells can share a coordinate after a low-18-bit hash
+    /// collision (see [`Powl64::cells_at`]).
     pub coord: GlobeCell,
     /// Receipt polarity tag (caller-defined: e.g., `1 = required`).
     pub receipt_polarity: u8,
-    /// BLAKE3 hash of the `breed_output_iri` string this cell witnesses.
+    /// BLAKE3 hash of the `breed_output_iri` string only.
+    ///
+    /// This is the hash of the IRI bytes — not a full semantic receipt.
+    /// For a semantic receipt, see [`Powl64Cell::semantic_receipt`].
+    pub source_hash: blake3::Hash,
+    /// Deprecated alias for [`Powl64Cell::source_hash`]. Always equals
+    /// `source_hash`.
+    ///
+    /// Retained as a public field for one release cycle so external
+    /// callers using struct-field syntax keep compiling. New code must use
+    /// [`Powl64Cell::source_hash`].
+    #[deprecated(
+        since = "0.1.0",
+        note = "renamed to `source_hash` (it is only an IRI hash, not a full semantic receipt). \
+                Use `source_hash` directly; this field will be removed."
+    )]
     pub source_receipt: blake3::Hash,
+    /// Optional full semantic receipt (e.g. derived from canonical material
+    /// in `receipt.rs`). `None` when the cell was created via plain
+    /// [`Powl64::extend`]; populated by
+    /// [`Powl64::extend_with_semantic_receipt`].
+    pub semantic_receipt: Option<blake3::Hash>,
     /// Prior chain hash if this cell extends an existing chain; `None` at
     /// genesis.
     pub prior_receipt: Option<blake3::Hash>,
-    /// Derived chain hash: `blake3(prior || source)` if prior exists,
-    /// else equals `source_receipt`.
+    /// Derived chain hash that folds prior chain hash, source hash, and
+    /// polarity. At genesis the prior is omitted.
     pub chain_hash: blake3::Hash,
 }
 
@@ -145,15 +211,26 @@ pub struct Powl64Cell {
 // POWL64 UNIVERSE
 // =============================================================================
 
-/// Sparse Powl64 universe + chain head cursor.
+/// Sparse Powl64 universe + chain head cursor + ordered replay path.
 ///
 /// Holds only the cells produced by [`Powl64::extend`]. The chain is
-/// linear in the current phase; full DAG fan-out is future work.
+/// linear in the current phase; full DAG fan-out is future work. Coord
+/// collisions are preserved: each coordinate maps to a `Vec<Powl64Cell>`,
+/// so two distinct chain hashes that hash to the same low-18-bit
+/// coordinate both survive in storage.
 #[derive(Debug, Default)]
 pub struct Powl64 {
-    cells: HashMap<GlobeCell, Powl64Cell>,
+    /// Collision-preserving cell storage indexed by routing coordinate.
+    cells: HashMap<GlobeCell, Vec<Powl64Cell>>,
+    /// Coordinate of the most-recently inserted cell.
     cursor: GlobeCell,
+    /// Most recent chain hash, or `None` before any extend.
     chain_head: Option<blake3::Hash>,
+    /// Append-only ordered list of chain hashes — deterministic replay.
+    path: Vec<blake3::Hash>,
+    /// Length of the chain — equals `path.len()` and may exceed the count
+    /// of distinct coordinates after collisions.
+    chain_len: u64,
 }
 
 impl Powl64 {
@@ -163,10 +240,38 @@ impl Powl64 {
         Self::default()
     }
 
-    /// Number of materialized cells (NOT 262,144 — only those extended).
+    /// Number of cells stored across all coordinates (sums collision
+    /// buckets).
+    ///
+    /// This is **not** the number of distinct coordinates — for that, use
+    /// [`Powl64::coord_count`].
     #[must_use]
     pub fn cell_count(&self) -> usize {
+        self.cells.values().map(Vec::len).sum()
+    }
+
+    /// Number of distinct [`GlobeCell`] coordinates currently materialized.
+    ///
+    /// Differs from [`Powl64::cell_count`] when coord collisions occurred.
+    #[must_use]
+    pub fn coord_count(&self) -> usize {
         self.cells.len()
+    }
+
+    /// Length of the chain — independent of cell count under coord
+    /// collisions. Equals `path().len()`.
+    #[must_use]
+    pub fn chain_len(&self) -> u64 {
+        self.chain_len
+    }
+
+    /// Ordered replay path of chain hashes, in insertion order.
+    ///
+    /// This is the canonical material for v1 strong-equivalence shape
+    /// matching. See [`Powl64::shape_match_v1_path`].
+    #[must_use]
+    pub fn path(&self) -> &[blake3::Hash] {
+        &self.path
     }
 
     /// Current chain head, or `None` before any extend.
@@ -181,69 +286,180 @@ impl Powl64 {
         self.cursor
     }
 
-    /// Borrow the cell at `coord`, if present.
+    /// Borrow the **first** cell at `coord`, if present.
+    ///
+    /// Retained for backward compatibility. After coord collisions multiple
+    /// cells may share a coordinate; use [`Powl64::cells_at`] to access all
+    /// of them.
     #[must_use]
     pub fn cell_at(&self, coord: GlobeCell) -> Option<&Powl64Cell> {
-        self.cells.get(&coord)
+        self.cells.get(&coord).and_then(|v| v.first())
+    }
+
+    /// Borrow all cells at `coord` (multiple if coord collisions occurred).
+    ///
+    /// Returns an empty slice if no cell has been extended at this
+    /// coordinate.
+    #[must_use]
+    pub fn cells_at(&self, coord: GlobeCell) -> &[Powl64Cell] {
+        self.cells
+            .get(&coord)
+            .map(Vec::as_slice)
+            .unwrap_or(&[])
+    }
+
+    /// Compute the chain hash for the next extend given the current head,
+    /// the new source hash, and polarity.
+    #[inline]
+    fn fold_chain(
+        prior: Option<blake3::Hash>,
+        source_hash: &blake3::Hash,
+        polarity: u8,
+    ) -> blake3::Hash {
+        if let Some(prior) = prior {
+            let mut buf = [0u8; 32 + 32 + 1];
+            buf[..32].copy_from_slice(prior.as_bytes());
+            buf[32..64].copy_from_slice(source_hash.as_bytes());
+            buf[64] = polarity;
+            blake3::hash(&buf)
+        } else {
+            // Genesis: hash source || polarity (still folds polarity in).
+            let mut buf = [0u8; 32 + 1];
+            buf[..32].copy_from_slice(source_hash.as_bytes());
+            buf[32] = polarity;
+            blake3::hash(&buf)
+        }
     }
 
     /// Append a new cell to the chain.
     ///
-    /// Hashes the IRI to produce `source_receipt`. If a chain head exists,
-    /// folds it with `source_receipt` through a stack buffer to derive
-    /// `chain_hash`. Coordinate is the low-18-bit projection of
-    /// `chain_hash`. Updates cursor and chain head, returns the new cell.
+    /// Hashes the IRI to produce `source_hash`. Folds prior chain head (if
+    /// any) with `source_hash` and `polarity` through a stack buffer to
+    /// derive `chain_hash`. Coordinate is the low-18-bit projection of
+    /// `chain_hash`. Updates cursor, chain head, and ordered replay path,
+    /// then returns a clone of the new cell.
+    ///
+    /// `semantic_receipt` is set to `None`; use
+    /// [`Powl64::extend_with_semantic_receipt`] to populate it.
     ///
     /// # Collision
     ///
     /// If two distinct chain hashes happen to project to the same 18-bit
-    /// coordinate, the second extend overwrites the first cell at that
-    /// coord. The chain hash itself remains globally distinct; only the
-    /// geometric address aliases. This matches the sparse-universe contract
-    /// — coords are routing labels, not identity.
+    /// coordinate, both cells survive in `cells_at(coord)`. The chain hash
+    /// itself remains globally distinct; only the geometric address aliases.
     pub fn extend(&mut self, breed_output_iri: &GraphIri, polarity: u8) -> Powl64Cell {
-        let source_receipt = blake3::hash(breed_output_iri.as_str().as_bytes());
-        let chain_hash = match self.chain_head {
-            None => source_receipt,
-            Some(prior) => {
-                let mut buf = [0u8; 64];
-                buf[..32].copy_from_slice(prior.as_bytes());
-                buf[32..].copy_from_slice(source_receipt.as_bytes());
-                blake3::hash(&buf)
-            }
-        };
+        self.extend_inner(breed_output_iri, polarity, None)
+    }
+
+    /// Append a new cell carrying a precomputed semantic receipt.
+    ///
+    /// Behaves exactly like [`Powl64::extend`] except that the resulting
+    /// cell stores `Some(semantic_receipt)`. The semantic receipt is **not**
+    /// folded into `chain_hash`; the chain folds only `prior || source_hash
+    /// || polarity` so existing receipt-chain semantics are preserved.
+    pub fn extend_with_semantic_receipt(
+        &mut self,
+        iri: &GraphIri,
+        polarity: u8,
+        semantic_receipt: blake3::Hash,
+    ) -> Powl64Cell {
+        self.extend_inner(iri, polarity, Some(semantic_receipt))
+    }
+
+    fn extend_inner(
+        &mut self,
+        breed_output_iri: &GraphIri,
+        polarity: u8,
+        semantic_receipt: Option<blake3::Hash>,
+    ) -> Powl64Cell {
+        let source_hash = blake3::hash(breed_output_iri.as_str().as_bytes());
+        let chain_hash = Self::fold_chain(self.chain_head, &source_hash, polarity);
         let coord = GlobeCell::from_hash_low18(&chain_hash);
+        #[allow(deprecated)]
         let cell = Powl64Cell {
             coord,
             receipt_polarity: polarity,
-            source_receipt,
+            source_hash,
+            // Deprecated alias mirrors `source_hash` for one release cycle.
+            source_receipt: source_hash,
+            semantic_receipt,
             prior_receipt: self.chain_head,
             chain_hash,
         };
-        self.cells.insert(coord, cell.clone());
+        self.cells.entry(coord).or_default().push(cell.clone());
+        self.path.push(chain_hash);
         self.cursor = coord;
         self.chain_head = Some(chain_hash);
+        self.chain_len += 1;
         cell
     }
 
-    /// Stub shape-match: cell-count parity.
+    /// Stub shape-match: cell-count parity (v0 invariant).
     ///
-    /// Full DAG isomorphism is a future phase — the chain is currently
-    /// linear, so cell count alone is a meaningful first invariant.
+    /// `v0_cell_count` denotes the original stub-level invariant: two
+    /// universes match iff they hold the same total cell count. Full DAG
+    /// isomorphism is a future phase. For ordered-replay strong equivalence
+    /// see [`Powl64::shape_match_v1_path`].
     ///
     /// # Errors
     ///
     /// Returns `Err(message)` describing the cell-count mismatch.
-    pub fn shape_match(&self, other: &Powl64) -> Result<(), String> {
-        if self.cells.len() == other.cells.len() {
+    pub fn shape_match_v0_cell_count(&self, other: &Powl64) -> Result<(), String> {
+        let a = self.cell_count();
+        let b = other.cell_count();
+        if a == b {
             Ok(())
         } else {
-            Err(format!(
-                "cell count mismatch: {} vs {}",
-                self.cells.len(),
-                other.cells.len()
-            ))
+            Err(format!("cell count mismatch: {} vs {}", a, b))
         }
+    }
+
+    /// Deprecated alias for [`Powl64::shape_match_v0_cell_count`].
+    ///
+    /// Retained for one release cycle so external callers can migrate.
+    ///
+    /// # Errors
+    ///
+    /// Same as [`Powl64::shape_match_v0_cell_count`].
+    #[deprecated(
+        since = "0.1.0",
+        note = "renamed to `shape_match_v0_cell_count` (this is the v0 stub-level invariant). \
+                Use `shape_match_v0_cell_count` (or `shape_match_v1_path` for ordered replay)."
+    )]
+    pub fn shape_match(&self, other: &Powl64) -> Result<(), String> {
+        self.shape_match_v0_cell_count(other)
+    }
+
+    /// Strong-equivalence shape match: ordered replay-path comparison.
+    ///
+    /// Returns `Ok(())` iff both universes have the same chain length and
+    /// every position of the [`path`](Powl64::path) matches byte-for-byte.
+    /// This is the v1 invariant — v0 cell-count parity is too weak under
+    /// coord collisions.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err(diagnostic)` describing the first divergence (length
+    /// mismatch, or the index at which the chain hashes diverged).
+    pub fn shape_match_v1_path(&self, other: &Powl64) -> Result<(), String> {
+        if self.path.len() != other.path.len() {
+            return Err(format!(
+                "path length mismatch: {} vs {}",
+                self.path.len(),
+                other.path.len()
+            ));
+        }
+        for (i, (a, b)) in self.path.iter().zip(other.path.iter()).enumerate() {
+            if a.as_bytes() != b.as_bytes() {
+                return Err(format!(
+                    "path divergence at index {}: {} vs {}",
+                    i,
+                    a.to_hex(),
+                    b.to_hex()
+                ));
+            }
+        }
+        Ok(())
     }
 }
 
