@@ -111,8 +111,57 @@ fn verify_unpacked(
         .entry("powl64-path.bin")
         .ok_or_else(|| ReplayError::MissingEntry("powl64-path.bin".into()))?;
     verdict.chain_match = chain_self_consistent(path_bytes, expected_chain_head);
-    verdict.decision_match = replay_decision_stub();
+    verdict.decision_match = replay_decision_from_trace(&trace_json);
     Ok(())
+}
+
+/// Phase 7 replay step (real).
+///
+/// Verifies the load-bearing bark invariant
+/// `(require_mask & present_mask) == require_mask`
+/// for every node where the trace claims `triggerFired = true`, AND the
+/// converse: every `triggerFired = false` node has `(require_mask &
+/// present_mask) != require_mask`.
+///
+/// This re-derives the decision from the trace's own evidence — a tampered
+/// trace cannot pass without simultaneously corrupting the manifest hash.
+fn replay_decision_from_trace(trace_json: &serde_json::Value) -> bool {
+    fn parse_hex_u64(s: &str) -> Option<u64> {
+        let s = s.strip_prefix("0x").unwrap_or(s);
+        u64::from_str_radix(s, 16).ok()
+    }
+    let present_mask_str = trace_json
+        .get("urn:ccog:vocab:presentMask")
+        .and_then(|v| v.as_str());
+    let Some(present_mask) = present_mask_str.and_then(parse_hex_u64) else {
+        return false;
+    };
+    let nodes = match trace_json.get("urn:ccog:vocab:nodes") {
+        Some(serde_json::Value::Array(a)) => a,
+        _ => return false,
+    };
+    if nodes.is_empty() {
+        return false;
+    }
+    for node in nodes {
+        let require_mask = match node
+            .get("urn:ccog:vocab:requireMask")
+            .and_then(|v| v.as_str())
+            .and_then(parse_hex_u64)
+        {
+            Some(m) => m,
+            None => return false,
+        };
+        let trigger_fired = match node.get("urn:ccog:vocab:triggerFired").and_then(|v| v.as_bool()) {
+            Some(b) => b,
+            None => return false,
+        };
+        let satisfied = (require_mask & present_mask) == require_mask;
+        if satisfied != trigger_fired {
+            return false;
+        }
+    }
+    true
 }
 
 fn chain_self_consistent(path_bytes: &[u8], expected_head: Option<[u8; 32]>) -> bool {
@@ -132,22 +181,3 @@ fn chain_self_consistent(path_bytes: &[u8], expected_head: Option<[u8; 32]>) -> 
     true
 }
 
-/// Phase 7 replay step.
-///
-/// Stub returning `true` until Writer-7 lands `decide_with_trace`. Once
-/// Phase 7 is in tree, swap this body with the real replay (see plan
-/// §11.4). Gated by `cfg(feature = "phase7")` so the swap is a one-line
-/// feature flip when the merge order resolves.
-///
-/// TODO(phase7-merge): wire `crate::trace::decide_with_trace_table`.
-#[cfg(not(feature = "phase7"))]
-pub(crate) fn replay_decision_stub() -> bool {
-    true
-}
-
-/// Phase 7 path: when feature `phase7` is enabled, perform the real replay.
-#[cfg(feature = "phase7")]
-pub(crate) fn replay_decision_stub() -> bool {
-    // TODO(phase7-merge): wire `crate::trace::decide_with_trace_table`.
-    true
-}

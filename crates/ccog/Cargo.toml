@@ -41,6 +41,7 @@ required-features = ["dendral-cli"]
 [dev-dependencies]
 criterion = "0.5"
 proptest = "1.2.0"
+fake = { version = "2.10", features = ["derive", "chrono"] }
 ed25519-dalek = { version = "2", default-features = false, features = ["std"] }
 rand = "0.8"
 

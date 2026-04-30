@@ -172,7 +172,7 @@ fn replay_verifier_accepts_genuine_bundle() {
     assert!(v.manifest_intact, "manifest must be intact for genuine bundle");
     assert!(v.ontology_intact, "ontology must be intact for genuine bundle");
     assert!(v.chain_match, "chain must be self-consistent for genuine bundle");
-    assert!(v.decision_match, "decision (Phase 7 stub) must be true");
+    assert!(v.decision_match, "decision invariant must hold for genuine bundle");
     assert!(v.all_intact());
 }
 

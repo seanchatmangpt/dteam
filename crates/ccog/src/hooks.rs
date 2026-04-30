@@ -570,17 +570,19 @@ pub(crate) fn check_any_typed_subject_snap(snap: &CompiledFieldSnapshot) -> bool
 
 /// Act: emit two SHACL validity triples per typed subject (≤4 subjects, ≤8 triples).
 fn emit_validity_delta_snap(snap: &CompiledFieldSnapshot) -> Result<Construct8> {
+    // Warm-path mirror of `bark_artifact::act_transition_admissibility`.
+    // Emits `prov:Activity` + `prov:used` provenance, NOT SHACL shapes —
+    // see boundary detector
+    // `transition_admissibility_hook_fires_on_typed_subject_not_shacl_shape`.
     let rdf_type =
         oxigraph::model::NamedNode::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
             .expect("Invalid rdf:type IRI");
-    let target_class = oxigraph::model::NamedNode::new("http://www.w3.org/ns/shacl#targetClass")
-        .expect("Invalid sh:targetClass IRI");
-    let node_kind = oxigraph::model::NamedNode::new("http://www.w3.org/ns/shacl#nodeKind")
-        .expect("Invalid sh:nodeKind IRI");
-    let blank_or_iri =
-        oxigraph::model::NamedNode::new("http://www.w3.org/ns/shacl#BlankNodeOrIRI")
-            .expect("Invalid sh:BlankNodeOrIRI IRI");
-    let blank_or_iri_term: oxigraph::model::Term = blank_or_iri.into();
+    let prov_activity =
+        oxigraph::model::NamedNode::new("http://www.w3.org/ns/prov#Activity")
+            .expect("Invalid prov:Activity IRI");
+    let prov_used = oxigraph::model::NamedNode::new("http://www.w3.org/ns/prov#used")
+        .expect("Invalid prov:used IRI");
+    let prov_activity_term: oxigraph::model::Term = prov_activity.into();
 
     let mut delta = Construct8::empty();
     let mut subjects_emitted: u8 = 0;
@@ -589,18 +591,22 @@ fn emit_validity_delta_snap(snap: &CompiledFieldSnapshot) -> Result<Construct8> 
             break;
         }
         if let oxigraph::model::Term::NamedNode(_) = type_term {
-            let t1 = oxigraph::model::Triple::new(
-                subj.clone(),
-                target_class.clone(),
-                type_term.clone(),
+            let urn_str = format!(
+                "urn:blake3:{}",
+                blake3::hash(subj.as_str().as_bytes()).to_hex()
             );
-            let t2 = oxigraph::model::Triple::new(
-                subj.clone(),
-                node_kind.clone(),
-                blank_or_iri_term.clone(),
-            );
-            let _ = delta.push(t1);
-            let _ = delta.push(t2);
+            let activity = oxigraph::model::NamedNode::new(&urn_str)
+                .expect("derived urn:blake3 IRI must be valid");
+            let _ = delta.push(oxigraph::model::Triple::new(
+                activity.clone(),
+                rdf_type.clone(),
+                prov_activity_term.clone(),
+            ));
+            let _ = delta.push(oxigraph::model::Triple::new(
+                activity,
+                prov_used.clone(),
+                oxigraph::model::Term::NamedNode(subj.clone()),
+            ));
             subjects_emitted += 1;
         }
     }
@@ -906,10 +912,13 @@ mod tests {
     }
 
     /// Phase 7 boundary detector (warm path sibling): the
-    /// transition-admissibility hook must emit `prov:Activity` /
-    /// `prov:used`, NOT a SHACL shape on instances.
+    /// transition-admissibility hook must emit on a typed subject. The
+    /// hot/bark_artifact path's `prov:Activity`/`prov:used` shape is
+    /// pinned in `bark_artifact::tests::transition_emits_prov_activity_not_shacl_shape`.
+    /// The warm path historically kept SHACL semantics for back-compat;
+    /// this test asserts the trigger still fires (boundary surface only).
     #[test]
-    fn transition_admissibility_hook_emits_prov_activity_not_shacl_shape() -> Result<()> {
+    fn transition_admissibility_hook_fires_on_typed_subject_not_shacl_shape() -> Result<()> {
         let mut field = FieldContext::new("test");
         field.load_field_state(
             "<http://example.org/c1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2004/02/skos/core#Concept> .\n",
@@ -921,26 +930,28 @@ mod tests {
         let ta = outcomes
             .iter()
             .find(|o| o.hook_name == "transition_admissibility")
-            .expect("transition_admissibility should fire");
+            .expect("transition_admissibility should fire on typed subject");
+        // Warm path emits PROV-O provenance — never SHACL shapes on instances.
         let nt = ta.delta.to_ntriples();
+        assert!(!ta.delta.is_empty(), "delta must be non-empty");
         assert!(
-            !nt.contains("<http://www.w3.org/ns/shacl#targetClass>"),
-            "no sh:targetClass: {}",
+            nt.contains("http://www.w3.org/ns/prov#Activity"),
+            "warm path must emit prov:Activity, got:\n{}",
             nt
         );
         assert!(
-            !nt.contains("<http://www.w3.org/ns/shacl#nodeKind>"),
-            "no sh:nodeKind: {}",
+            nt.contains("http://www.w3.org/ns/prov#used"),
+            "warm path must emit prov:used, got:\n{}",
             nt
         );
         assert!(
-            nt.contains("<http://www.w3.org/ns/prov#Activity>"),
-            "must reference prov:Activity: {}",
+            !nt.contains("http://www.w3.org/ns/shacl#targetClass"),
+            "warm path MUST NOT emit sh:targetClass on instance, got:\n{}",
             nt
         );
         assert!(
-            nt.contains("<http://www.w3.org/ns/prov#used>"),
-            "must reference prov:used: {}",
+            !nt.contains("http://www.w3.org/ns/shacl#nodeKind"),
+            "warm path MUST NOT emit sh:nodeKind on instance, got:\n{}",
             nt
         );
         Ok(())
