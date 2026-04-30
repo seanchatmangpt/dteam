@@ -5,6 +5,7 @@
 
 pub mod admit;
 pub mod compiled;
+pub mod compiled_hook;
 pub mod graph;
 pub mod field;
 pub mod operation;
