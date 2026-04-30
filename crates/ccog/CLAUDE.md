@@ -149,8 +149,27 @@ positive + negative admissibility tests.
 - system-reminder file-modification notes can be from running agents (content
   reverts as agents stash). Re-check, don't panic.
 
+## Do Not (Phase 12 field packs)
+
+1. Do not fork `AutonomicInstinct` per pack — packs bias the canonical
+   lattice; they never introduce new response classes. The lattice is
+   constitutional.
+2. Do not put PII in mask names or emitted IRIs. Pack act fns emit only
+   `urn:blake3:` URNs of interpreter-issued tokens (and other public
+   ontologies) — never visitor IDs, addresses, emails, or raw user text.
+3. Do not auto-merge dev pack actions. The dev pack clamps `Refuse` and
+   `Escalate` to `Ask`; it must always surface for human review.
+4. Do not allocate posture/context bits outside the pack's reserved range.
+   Bands are: 0–15 core, 16–31 lifestyle, 32–47 edge, 48–55 enterprise,
+   56–63 dev. Cross-band collisions are caught by `const_assert!` —
+   silencing them is a violation.
+5. Do not introduce new ontology namespaces beyond the public allowlist
+   (PROV / schema.org / SHACL / xsd / `urn:blake3:` / `urn:ccog:vocab:`).
+   New namespaces require an explicit constitutional amendment.
+
 ## See also
 
 - `/Users/sac/dteam/CLAUDE.md` — parent `dteam` crate
 - `/Users/sac/dteam/docs/COMPILED_COGNITION.md` — architecture paper
 - `/Users/sac/.claude/plans/yes-i-think-synchronous-squirrel.md` — current phase plan
+- `crates/ccog/AGENTS.md` — pack onboarding procedure

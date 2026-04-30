@@ -47,3 +47,19 @@ rand = "0.8"
 [[bench]]
 name = "ccog_hot_path_bench"
 harness = false
+
+[[bench]]
+name = "pack_lifestyle_bench"
+harness = false
+
+[[bench]]
+name = "pack_edge_bench"
+harness = false
+
+[[bench]]
+name = "pack_enterprise_bench"
+harness = false
+
+[[bench]]
+name = "pack_dev_bench"
+harness = false
