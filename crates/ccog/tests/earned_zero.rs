@@ -8,9 +8,9 @@
 //! a different lawful path.
 
 use ccog::bark_artifact::{
-    decide, decide_table, decide_with_trace_table, materialize, seal, BarkSlot, BUILTINS,
+    decide, decide_table, materialize, seal, BarkSlot, BUILTINS,
 };
-use ccog::trace::{decide_with_trace, BarkSkipReason};
+use ccog::trace::{decide_with_trace, decide_with_trace_table, BarkSkipReason};
 use ccog::{CompiledFieldSnapshot, FieldContext};
 
 fn empty_snap() -> CompiledFieldSnapshot {

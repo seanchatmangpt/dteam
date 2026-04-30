@@ -37,7 +37,6 @@ use crate::bark_artifact::{
     decide_table, BarkDecision, BarkSlot, BUILTINS, BUILTIN_HOOKS,
 };
 use crate::compiled::CompiledFieldSnapshot;
-use crate::compiled_hook::compute_present_mask;
 use crate::verdict::PackPosture;
 
 /// Reason a bark slot did not fire — typed enum for conformance review.
@@ -252,6 +251,7 @@ pub fn trace_default_builtins(snap: &CompiledFieldSnapshot) -> CcogTrace {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::compiled_hook::compute_present_mask;
     use crate::field::FieldContext;
 
     #[test]
