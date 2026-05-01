@@ -1,17 +1,12 @@
 use insa_instinct::{DendralByte, InstinctByte, KappaByte};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[repr(u8)]
 pub enum DendralStatus {
     Unique = 0,
     Ambiguous = 1,
+    #[default]
     Failed = 2,
-}
-
-impl Default for DendralStatus {
-    fn default() -> Self {
-        Self::Failed
-    }
 }
 
 #[repr(C)]

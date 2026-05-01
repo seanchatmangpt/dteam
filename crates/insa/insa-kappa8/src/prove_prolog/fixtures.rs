@@ -1,4 +1,4 @@
-use crate::prove_prolog::clause::{FactRow, HornClause, ProofGoal, RelationId, TermId};
+use crate::prove_prolog::clause::{FactRow, HornClause, RelationId, TermId};
 
 pub fn sample_facts() -> [FactRow; 2] {
     [

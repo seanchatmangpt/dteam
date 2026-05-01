@@ -2,17 +2,12 @@ use crate::fuse_hearsay::witness::FusionWitnessId;
 use insa_instinct::{HearsayByte, InstinctByte, KappaByte};
 use insa_types::FieldMask;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[repr(u8)]
 pub enum FusionStatus {
     Complete = 0,
+    #[default]
     Incomplete = 1,
-}
-
-impl Default for FusionStatus {
-    fn default() -> Self {
-        Self::Incomplete
-    }
 }
 
 #[repr(C)]

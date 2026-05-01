@@ -1,5 +1,5 @@
 use insa_instinct::{ElizaByte, InstinctByte};
-use insa_types::{CompletedMask, FieldMask};
+use insa_types::FieldMask;
 
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]

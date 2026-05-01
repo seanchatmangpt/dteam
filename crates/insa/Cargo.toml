@@ -3,6 +3,10 @@ members = [
     "insa-types",
     "insa-hotpath",
     "insa-proof",
-    "insa-truthforge"
-, "insa-security", "insa-instinct", "insa-kappa8"]
+    "insa-truthforge",
+    "insa-security",
+    "insa-instinct",
+    "insa-kappa8",
+    "xtask"
+]
 resolver = "2"
