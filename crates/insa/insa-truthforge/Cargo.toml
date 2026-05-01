@@ -11,7 +11,9 @@ insa-instinct = { path = "../insa-instinct" }
 insa-kappa8 = { path = "../insa-kappa8" }
 insa-hotpath = { path = "../insa-hotpath" }
 insa-proof = { path = "../insa-proof" }
+insa-security = { path = "../insa-security" }
 
 [dev-dependencies]
 proptest = "1.2.0"
 criterion = "0.5"
+memoffset = "0.9"

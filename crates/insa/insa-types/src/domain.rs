@@ -11,5 +11,7 @@ pub struct PolicyEpoch(pub u32);
 pub struct DictionaryDigest(pub [u8; 32]);
 
 impl Default for DictionaryDigest {
-    fn default() -> Self { Self([0; 32]) }
+    fn default() -> Self {
+        Self([0; 32])
+    }
 }

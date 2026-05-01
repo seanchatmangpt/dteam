@@ -1,5 +1,5 @@
-use crate::{CollapseEngine, ClosureCtx, CollapseResult, CollapseStatus, Cog8Support};
-use insa_instinct::{KappaByte, InstinctByte};
+use crate::{ClosureCtx, Cog8Support, CollapseEngine, CollapseResult, CollapseStatus};
+use insa_instinct::{InstinctByte, KappaByte};
 use insa_types::FieldMask;
 
 pub struct FuseHearsay;

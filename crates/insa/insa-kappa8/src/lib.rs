@@ -1,16 +1,16 @@
 #![no_std]
 
-pub mod reflect_eliza;
-pub mod precondition_strips;
-pub mod ground_shrdlu;
-pub mod prove_prolog;
-pub mod rule_mycin;
-pub mod reconstruct_dendral;
 pub mod fuse_hearsay;
+pub mod ground_shrdlu;
+pub mod precondition_strips;
+pub mod prove_prolog;
+pub mod reconstruct_dendral;
 pub mod reduce_gap_gps;
+pub mod reflect_eliza;
+pub mod rule_mycin;
 
-use insa_types::{FieldMask, CompletedMask, ObjectRef, PolicyEpoch, DictionaryDigest};
-use insa_instinct::{KappaByte, InstinctByte};
+use insa_instinct::{InstinctByte, KappaByte};
+use insa_types::{CompletedMask, DictionaryDigest, FieldMask, ObjectRef, PolicyEpoch};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Cog8Support {
@@ -18,7 +18,9 @@ pub struct Cog8Support {
 }
 
 impl Cog8Support {
-    pub fn new(support: FieldMask) -> Self { Self { support } }
+    pub fn new(support: FieldMask) -> Self {
+        Self { support }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
