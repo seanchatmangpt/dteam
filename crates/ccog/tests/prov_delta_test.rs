@@ -28,8 +28,11 @@ fn prov_delta_materializes_activity_triples() {
 
     let verdict = process("The photo evidence is missing", &mut field).expect("process() failed");
 
-    // Assert: graph contains prov:Activity
-    let has_activity = field.graph.ask("ASK { ?a a prov:Activity }").expect("ASK failed");
+    // Assert: graph contains prov:Activity (hashed URN)
+    let h_act = format!("urn:ccog:id:{:08x}", ccog::utils::dense::fnv1a_64("http://www.w3.org/ns/prov#Activity".as_bytes()) as u32);
+    let h_rt = format!("urn:ccog:p:{:04x}", ccog::utils::dense::fnv1a_64("http://www.w3.org/1999/02/22-rdf-syntax-ns#type".as_bytes()) as u16);
+    let query = format!("ASK {{ ?a <{}> <{}> }}", h_rt, h_act);
+    let has_activity = field.graph.ask(&query).expect("ASK failed");
     assert!(
         has_activity,
         "Graph must contain prov:Activity after process()"
@@ -66,9 +69,12 @@ fn prov_delta_is_idempotent() {
     process("The photo evidence is missing", &mut field).expect("Second process() failed");
 
     // Count activities — should be exactly 1 (Oxigraph set semantics)
+    let h_act = format!("urn:ccog:id:{:08x}", ccog::utils::dense::fnv1a_64("http://www.w3.org/ns/prov#Activity".as_bytes()) as u32);
+    let h_rt = format!("urn:ccog:p:{:04x}", ccog::utils::dense::fnv1a_64("http://www.w3.org/1999/02/22-rdf-syntax-ns#type".as_bytes()) as u16);
+    let query = format!("SELECT ?a WHERE {{ ?a <{}> <{}> }}", h_rt, h_act);
     let rows = field
         .graph
-        .select("SELECT ?a WHERE { ?a a prov:Activity }")
+        .select(&query)
         .expect("SELECT failed");
     assert_eq!(
         rows.len(),

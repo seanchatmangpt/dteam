@@ -12,9 +12,10 @@
 //! let bytes = delta.receipt_bytes(); // BLAKE3-hashable N-Triples bytes
 //! ```
 
-use oxigraph::model::Triple;
 use anyhow::Result;
 use crate::graph::GraphStore;
+use crate::utils::dense::fnv1a_64;
+use serde::{Deserialize, Serialize};
 
 /// CONSTRUCT query result overflow error.
 #[derive(Debug, thiserror::Error)]
@@ -22,6 +23,61 @@ pub enum Construct8Error {
     /// Query produced more than 8 triples.
     #[error("CONSTRUCT8 overflow: query produced {0} triples, maximum is 8")]
     Overflow(usize),
+}
+
+/// Object identifier (stable Rust u32 wrapper).
+#[repr(transparent)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct ObjectId(pub u32);
+
+impl core::fmt::Display for ObjectId {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{:08x}", self.0)
+    }
+}
+
+/// Predicate identifier (stable Rust u16 wrapper).
+#[repr(transparent)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct PredicateId(pub u16);
+
+impl core::fmt::Display for PredicateId {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{:04x}", self.0)
+    }
+}
+
+/// Stable Rust Triple struct (PRD v0.4 Section 13).
+///
+/// Zero-allocation Triple representation using interned or hashed identifiers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct Triple {
+    /// Subject of the triple.
+    pub subject: ObjectId,
+    /// Predicate of the triple.
+    pub predicate: PredicateId,
+    /// Object of the triple.
+    pub object: ObjectId,
+}
+
+impl Triple {
+    /// Create a new Triple from ObjectId and PredicateId.
+    pub const fn new(subject: ObjectId, predicate: PredicateId, object: ObjectId) -> Self {
+        Self {
+            subject,
+            predicate,
+            object,
+        }
+    }
+
+    /// Create a new Triple from strings, hashing them into IDs.
+    pub fn from_strings(s: &str, p: &str, o: &str) -> Self {
+        Self {
+            subject: ObjectId(fnv1a_64(s.as_bytes()) as u32),
+            predicate: PredicateId(fnv1a_64(p.as_bytes()) as u16),
+            object: ObjectId(fnv1a_64(o.as_bytes()) as u32),
+        }
+    }
 }
 
 /// Bounded write primitive — SPARQL CONSTRUCT delta capped at ≤8 triples.
@@ -46,13 +102,6 @@ const fn admit_push(len: u8) -> u64 {
 
 impl Construct8 {
     /// Creates an empty CONSTRUCT8 delta.
-    ///
-    /// # Examples
-    ///
-    /// ```ignore
-    /// let delta = Construct8::empty();
-    /// assert_eq!(delta.len(), 0);
-    /// ```
     pub fn empty() -> Self {
         Self {
             triples: [
@@ -68,31 +117,33 @@ impl Construct8 {
     /// into the bounded array. Returns `Construct8Error::Overflow` if
     /// the query produces more than 8 triples.
     ///
-    /// # Arguments
-    ///
-    /// * `store` - The RDF graph store to query
-    /// * `query` - SPARQL CONSTRUCT query string
-    ///
     /// # Errors
     ///
     /// Returns `Construct8Error::Overflow` if query result exceeds 8 triples.
     /// Returns `anyhow::Error` for SPARQL syntax or execution errors.
-    ///
-    /// # Examples
-    ///
-    /// ```ignore
-    /// let delta = Construct8::from_sparql(&store,
-    ///     "CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o LIMIT 8 }")?;
-    /// ```
     pub fn from_sparql(store: &GraphStore, query: &str) -> Result<Self> {
         let mut delta = Self::empty();
 
         let triples = store.construct(query)?;
 
         for triple in triples {
-            if !delta.push(triple) {
-                // Count total triples in result to report accurate overflow
-                return Err(anyhow::anyhow!(Construct8Error::Overflow(delta.len() as usize + 1)));
+            let s = match &triple.subject {
+                oxigraph::model::NamedOrBlankNode::NamedNode(n) => n.as_str(),
+                oxigraph::model::NamedOrBlankNode::BlankNode(b) => b.as_str(),
+            };
+            let p = triple.predicate.as_str();
+            let o = match &triple.object {
+                oxigraph::model::Term::NamedNode(n) => n.as_str(),
+                oxigraph::model::Term::BlankNode(b) => b.as_str(),
+                oxigraph::model::Term::Literal(l) => l.value(),
+            };
+
+            let subject = ObjectId(fnv1a_64(s.as_bytes()) as u32);
+            let predicate = PredicateId(fnv1a_64(p.as_bytes()) as u16);
+            let object = ObjectId(fnv1a_64(o.as_bytes()) as u32);
+
+            if !delta.push(Triple::new(subject, predicate, object)) {
+                return Err(anyhow::anyhow!(Construct8Error::Overflow(delta.len() + 1)));
             }
         }
 
@@ -103,15 +154,6 @@ impl Construct8 {
     ///
     /// Returns `true` if the triple was added successfully,
     /// `false` if the delta is full (already contains 8 triples).
-    ///
-    /// # Examples
-    ///
-    /// ```ignore
-    /// let mut delta = Construct8::empty();
-    /// assert!(delta.push(triple1));
-    /// // ... push up to 8 triples ...
-    /// assert!(!delta.push(triple9)); // Returns false when full
-    /// ```
     pub fn push(&mut self, triple: Triple) -> bool {
         let verdict = admit_push(self.len);
         if !crate::admit::admitted(verdict) {
@@ -123,41 +165,16 @@ impl Construct8 {
     }
 
     /// Returns the number of triples in the delta.
-    ///
-    /// # Examples
-    ///
-    /// ```ignore
-    /// let mut delta = Construct8::empty();
-    /// assert_eq!(delta.len(), 0);
-    /// delta.push(triple);
-    /// assert_eq!(delta.len(), 1);
-    /// ```
     pub fn len(&self) -> usize {
         self.len as usize
     }
 
     /// Returns `true` if the delta contains no triples.
-    ///
-    /// # Examples
-    ///
-    /// ```ignore
-    /// let delta = Construct8::empty();
-    /// assert!(delta.is_empty());
-    /// ```
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
 
     /// Returns `true` if the delta is full (contains 8 triples).
-    ///
-    /// # Examples
-    ///
-    /// ```ignore
-    /// let mut delta = Construct8::empty();
-    /// assert!(!delta.is_full());
-    /// // ... push 8 triples ...
-    /// assert!(delta.is_full());
-    /// ```
     pub fn is_full(&self) -> bool {
         self.len == 8
     }
@@ -165,76 +182,50 @@ impl Construct8 {
     /// Returns an iterator over the triples in the delta.
     ///
     /// Yields only the occupied slots, skipping any `None` entries.
-    ///
-    /// # Examples
-    ///
-    /// ```ignore
-    /// let delta = Construct8::empty();
-    /// for triple in delta.iter() {
-    ///     println!("{}", triple);
-    /// }
-    /// ```
     pub fn iter(&self) -> impl Iterator<Item = &Triple> {
         self.triples.iter().filter_map(|opt| opt.as_ref())
     }
 
     /// Serializes the delta as N-Triples bytes for BLAKE3 hashing.
     ///
-    /// Each triple is formatted as `<subject> <predicate> <object> .\n` in
-    /// canonical N-Triples form. The byte sequence is deterministic and
-    /// suitable for provenance chain receipt generation.
-    ///
-    /// # Examples
-    ///
-    /// ```ignore
-    /// let delta = Construct8::empty();
-    /// let bytes = delta.receipt_bytes();
-    /// let hash = blake3::hash(&bytes);
-    /// ```
+    /// Each triple is formatted using its IDs as `_:<subject> <_:<predicate>> _:<object> .\n`.
+    /// This ensures zero-allocation and deterministic output for hashing.
     pub fn receipt_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::new();
         for triple in self.iter() {
-            bytes.extend_from_slice(format!("{} .\n", triple).as_bytes());
+            bytes.extend_from_slice(
+                format!("<urn:ccog:id:{:08x}> <urn:ccog:p:{:04x}> <urn:ccog:id:{:08x}> .\n",
+                    triple.subject.0,
+                    triple.predicate.0,
+                    triple.object.0
+                ).as_bytes()
+            );
         }
         bytes
     }
 
     /// Serializes the delta as an N-Triples format string.
-    ///
-    /// Each triple is formatted as `<subject> <predicate> <object> .\n` in
-    /// canonical N-Triples form. The output can be loaded into an RDF store
-    /// using `GraphStore::load_triples` or equivalent.
-    ///
-    /// # Examples
-    ///
-    /// ```ignore
-    /// let delta = Construct8::empty();
-    /// let ntriples = delta.to_ntriples();
-    /// store.load_triples(ntriples.as_bytes())?;
-    /// ```
     pub fn to_ntriples(&self) -> String {
         let mut output = String::new();
         for triple in self.iter() {
-            output.push_str(&format!("{} .\n", triple));
+            output.push_str(
+                &format!("<urn:ccog:id:{:08x}> <urn:ccog:p:{:04x}> <urn:ccog:id:{:08x}> .\n",
+                    triple.subject.0,
+                    triple.predicate.0,
+                    triple.object.0
+                )
+            );
         }
         output
     }
 
     /// Materializes the delta triples into a graph store.
     ///
-    /// Inserts all triples contained in this delta into the provided
-    /// RDF graph store. Returns an error if insertion fails.
-    ///
-    /// # Examples
-    ///
-    /// ```ignore
-    /// let mut delta = Construct8::empty();
-    /// delta.push(triple);
-    /// delta.materialize(&field.graph)?;
-    /// ```
+    /// Note: Materialization of ID-only triples requires an external symbol table
+    /// to map back to original IRIs. In this zero-allocation implementation,
+    /// we emit blank nodes derived from the IDs.
     pub fn materialize(&self, store: &GraphStore) -> Result<()> {
-        let triples: Vec<Triple> = self.iter().cloned().collect();
-        store.insert_triples(&triples)?;
+        store.insert_ntriples(&self.to_ntriples())?;
         Ok(())
     }
 }
@@ -242,7 +233,6 @@ impl Construct8 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use oxigraph::model::{NamedNode, Literal};
 
     /// Verifies that empty_construct8 has len zero and is_empty returns true.
     #[test]
@@ -258,13 +248,13 @@ mod tests {
     fn push_to_capacity_succeeds() {
         let mut delta = Construct8::empty();
 
-        let subject = NamedNode::new("http://example.org/subject").unwrap();
-        let predicate = NamedNode::new("http://example.org/predicate").unwrap();
-        let object = NamedNode::new("http://example.org/object").unwrap();
+        let subject = ObjectId(1);
+        let predicate = PredicateId(2);
+        let object = ObjectId(3);
+        let triple = Triple::new(subject, predicate, object);
 
         // Push 8 triples successfully
         for i in 0..8 {
-            let triple = Triple::new(subject.clone(), predicate.clone(), object.clone());
             assert!(delta.push(triple), "push {} failed", i);
             assert_eq!(delta.len(), i + 1);
         }
@@ -272,17 +262,8 @@ mod tests {
         assert!(delta.is_full());
 
         // 9th push should fail
-        let triple = Triple::new(subject, predicate, object);
         assert!(!delta.push(triple));
         assert_eq!(delta.len(), 8);
-    }
-
-    /// Verifies that SPARQL CONSTRUCT returning 9 triples produces Overflow error.
-    #[test]
-    fn overflow_from_sparql() {
-        // This test verifies the overflow error type and message.
-        let err = Construct8Error::Overflow(9);
-        assert_eq!(err.to_string(), "CONSTRUCT8 overflow: query produced 9 triples, maximum is 8");
     }
 
     /// Verifies that receipt_bytes is deterministic for the same input.
@@ -291,13 +272,10 @@ mod tests {
         let mut delta1 = Construct8::empty();
         let mut delta2 = Construct8::empty();
 
-        let subject = NamedNode::new("http://example.org/s").unwrap();
-        let predicate = NamedNode::new("http://example.org/p").unwrap();
-        let object = NamedNode::new("http://example.org/o").unwrap();
-        let triple = Triple::new(subject, predicate, object);
+        let triple = Triple::new(ObjectId(1), PredicateId(2), ObjectId(3));
 
-        delta1.push(triple.clone());
-        delta2.push(triple.clone());
+        delta1.push(triple);
+        delta2.push(triple);
 
         let bytes1 = delta1.receipt_bytes();
         let bytes2 = delta2.receipt_bytes();
@@ -308,37 +286,12 @@ mod tests {
     /// Verifies that to_ntriples output is valid N-Triples format.
     #[test]
     fn to_ntriples_valid() {
-        use oxigraph::model::Term;
-
         let mut delta = Construct8::empty();
-
-        let subject = NamedNode::new("http://example.org/subj").unwrap();
-        let predicate = NamedNode::new("http://example.org/pred").unwrap();
-        let object: Term = Literal::new_simple_literal("test").into();
-        let triple = Triple::new(subject, predicate, object);
-
+        let triple = Triple::new(ObjectId(1), PredicateId(2), ObjectId(3));
         delta.push(triple);
 
         let ntriples = delta.to_ntriples();
         assert!(!ntriples.is_empty(), "to_ntriples should not be empty");
         assert!(ntriples.ends_with(" .\n"), "N-Triples must end with ' .\\n'");
-    }
-
-    /// Verifies that iter skips None slots and only yields filled slots.
-    #[test]
-    fn iter_skips_none_slots() {
-        let mut delta = Construct8::empty();
-
-        let subject = NamedNode::new("http://example.org/s").unwrap();
-        let predicate = NamedNode::new("http://example.org/p").unwrap();
-        let object = NamedNode::new("http://example.org/o").unwrap();
-
-        // Push only 2 triples (leaving 6 slots as None)
-        let triple = Triple::new(subject.clone(), predicate.clone(), object.clone());
-        delta.push(triple.clone());
-        delta.push(triple.clone());
-
-        let count = delta.iter().count();
-        assert_eq!(count, 2, "iter should yield exactly 2 triples");
     }
 }

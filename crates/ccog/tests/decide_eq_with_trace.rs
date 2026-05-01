@@ -3,16 +3,31 @@
 //! diagnostic — adding it must never change the canonical decision.
 
 use ccog::bark_artifact::decide;
+use ccog::multimodal::{ContextBundle, PostureBundle};
+use ccog::packs::TierMasks;
+use ccog::runtime::ClosedFieldContext;
 use ccog::trace::decide_with_trace;
 use ccog::{CompiledFieldSnapshot, FieldContext};
 use proptest::prelude::*;
+use std::sync::Arc;
+
+fn empty_context(snap: Arc<CompiledFieldSnapshot>) -> ClosedFieldContext {
+    ClosedFieldContext {
+        snapshot: snap,
+        posture: PostureBundle::default(),
+        context: ContextBundle::default(),
+        tiers: TierMasks::ZERO,
+        human_burden: 0,
+    }
+}
 
 #[test]
 fn decide_eq_decide_with_trace_on_empty_field() {
     let field = FieldContext::new("test");
-    let snap = CompiledFieldSnapshot::from_field(&field).unwrap();
-    let canonical = decide(&snap);
-    let (with_trace, _trace) = decide_with_trace(&snap);
+    let snap = Arc::new(CompiledFieldSnapshot::from_field(&field).unwrap());
+    let context = empty_context(snap);
+    let canonical = decide(&context);
+    let (with_trace, _trace) = decide_with_trace(&context);
     assert_eq!(canonical, with_trace);
 }
 
@@ -25,9 +40,10 @@ fn decide_eq_decide_with_trace_on_loaded_field() {
              <http://example.org/c1> <http://www.w3.org/2004/02/skos/core#prefLabel> \"x\" .\n",
         )
         .unwrap();
-    let snap = CompiledFieldSnapshot::from_field(&field).unwrap();
-    let canonical = decide(&snap);
-    let (with_trace, _trace) = decide_with_trace(&snap);
+    let snap = Arc::new(CompiledFieldSnapshot::from_field(&field).unwrap());
+    let context = empty_context(snap);
+    let canonical = decide(&context);
+    let (with_trace, _trace) = decide_with_trace(&context);
     assert_eq!(canonical, with_trace);
 }
 
@@ -70,9 +86,10 @@ proptest! {
     #[test]
     fn decide_eq_decide_with_trace_proptest(pred_bits in any::<u8>()) {
         let field = field_with_predicates(pred_bits);
-        let snap = CompiledFieldSnapshot::from_field(&field).unwrap();
-        let canonical = decide(&snap);
-        let (with_trace, _trace) = decide_with_trace(&snap);
+        let snap = Arc::new(CompiledFieldSnapshot::from_field(&field).unwrap());
+        let context = empty_context(snap);
+        let canonical = decide(&context);
+        let (with_trace, _trace) = decide_with_trace(&context);
         prop_assert_eq!(canonical, with_trace);
     }
 }

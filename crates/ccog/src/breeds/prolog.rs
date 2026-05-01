@@ -1,7 +1,8 @@
 //! Prolog-style relations breed: transitive proof via SPARQL property paths + bounded BFS.
 
 use anyhow::Result;
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashSet, VecDeque};
+use crate::utils::dense::{fnv1a_64, PackedKeyTable};
 use crate::field::FieldContext;
 use crate::graph::GraphIri;
 use crate::verdict::RelationProof;
@@ -26,7 +27,7 @@ pub fn prove_relation(
     }
     // Phase B: bounded BFS to extract path
     let mut visited: HashSet<String> = HashSet::new();
-    let mut parent: HashMap<String, GraphIri> = HashMap::new();
+    let mut parent: PackedKeyTable<String, GraphIri> = PackedKeyTable::new();
     let mut queue: VecDeque<(GraphIri, usize)> = VecDeque::new();
     queue.push_back((subject.clone(), 0));
     visited.insert(subject.as_str().to_string());
@@ -42,11 +43,11 @@ pub fn prove_relation(
                 let key = next.as_str().to_string();
                 if visited.contains(&key) { continue; }
                 visited.insert(key.clone());
-                parent.insert(key.clone(), current.clone());
+                parent.insert(fnv1a_64(key.as_bytes()), key.clone(), current.clone());
                 if next.as_str() == target.as_str() {
                     let mut path = vec![next.clone()];
                     let mut cur = next.as_str().to_string();
-                    while let Some(p) = parent.get(&cur) {
+                    while let Some(p) = parent.get(fnv1a_64(cur.as_bytes())) {
                         path.push(p.clone());
                         cur = p.as_str().to_string();
                     }

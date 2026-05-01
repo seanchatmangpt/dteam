@@ -13,17 +13,21 @@
 // compiled_hook_table_fire      — CompiledBark
 // bark_kernel_fire              — CompiledBark
 // trace_default_builtins        — KernelFloor (decide-only with trace, no act)
-use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
-use ccog::{
-    bark, BarkKernel, CompiledFieldSnapshot, CompiledHookTable, Construct8, FieldContext,
-    HookRegistry, compile_builtin, process, process_with_hooks,
-};
 use ccog::breeds::{eliza, mycin, strips};
-use ccog::graph::GraphIri;
-use ccog::hooks::{missing_evidence_hook, phrase_binding_hook, transition_admissibility_hook, receipt_hook};
-use ccog::trace::{decide_with_trace, trace_default_builtins, BenchmarkTier};
 use ccog::conformance::replay_trace;
-use ccog::BUILTINS;
+use ccog::graph::GraphIri;
+use ccog::hooks::{
+    missing_evidence_hook, phrase_binding_hook, receipt_hook, transition_admissibility_hook,
+};
+use ccog::multimodal::{ContextBundle, PostureBundle};
+use ccog::packs::TierMasks;
+use ccog::runtime::ClosedFieldContext;
+use ccog::trace::{decide_with_trace, trace_default_builtins, BenchmarkTier};
+use ccog::{
+    compile_builtin, process, process_with_hooks, BarkKernel, CompiledFieldSnapshot,
+    CompiledHookTable, Construct8, FieldContext, HookRegistry, BUILTINS,
+};
+use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
 
 const _ALL_TIERS: &[BenchmarkTier] = &[
     BenchmarkTier::KernelFloor,
@@ -38,16 +42,26 @@ const BENCH_NTRIPLES: &str = r#"
 <http://example.org/claim/1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/Claim> .
 <http://example.org/evidence/police_report> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://schema.org/DigitalDocument> .
 <http://example.org/evidence/police_report> <http://purl.org/dc/terms/type> <http://example.org/police_report_concept> .
-<http://example.org/police_report_concept> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2004/02/skos/core#Concept> .
-<http://example.org/police_report_concept> <http://www.w3.org/2004/02/skos/core#prefLabel> "police report" .
-<http://example.org/missing_concept> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2004/02/skos/core#Concept> .
-<http://example.org/missing_concept> <http://www.w3.org/2004/02/skos/core#prefLabel> "missing" .
+<http://example.org/police_report_concept> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2004/02/skos#Concept> .
+<http://example.org/police_report_concept> <http://www.w3.org/2004/02/skos#prefLabel> "police report" .
+<http://example.org/missing_concept> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2004/02/skos#Concept> .
+<http://example.org/missing_concept> <http://www.w3.org/2004/02/skos#prefLabel> "missing" .
 "#;
 
 fn setup_field() -> FieldContext {
     let field = FieldContext::new("bench");
     field.graph.load_ntriples(BENCH_NTRIPLES).unwrap();
     field
+}
+
+fn empty_context<'a>(snap: &'a CompiledFieldSnapshot) -> ClosedFieldContext<'a> {
+    ClosedFieldContext {
+        snapshot: snap,
+        posture: PostureBundle::default(),
+        context: ContextBundle::default(),
+        tiers: TierMasks::ZERO,
+        human_burden: 0,
+    }
 }
 
 fn bench_eliza_bind(c: &mut Criterion) {
@@ -76,7 +90,13 @@ fn bench_strips_transition(c: &mut Criterion) {
 fn bench_construct8_from_sparql(c: &mut Criterion) {
     let field = setup_field();
     c.bench_function("construct8_from_sparql", |b| {
-        b.iter(|| Construct8::from_sparql(&field.graph, black_box("CONSTRUCT { ?s a ?o } WHERE { ?s a ?o } LIMIT 8")).unwrap())
+        b.iter(|| {
+            Construct8::from_sparql(
+                &field.graph,
+                black_box("CONSTRUCT { ?s a ?o } WHERE { ?s a ?o } LIMIT 8"),
+            )
+            .unwrap()
+        })
     });
 }
 
@@ -84,7 +104,7 @@ fn bench_process(c: &mut Criterion) {
     c.bench_function("process_full", |b| {
         b.iter_batched(
             setup_field,
-            |mut field| { process(black_box("the police report is missing"), &mut field).unwrap() },
+            |mut field| process(black_box("the police report is missing"), &mut field).unwrap(),
             BatchSize::SmallInput,
         )
     });
@@ -100,7 +120,8 @@ fn bench_process_with_hooks(c: &mut Criterion) {
                 (setup_field(), reg)
             },
             |(mut field, reg)| {
-                process_with_hooks(black_box("the police report is missing"), &mut field, &reg).unwrap()
+                process_with_hooks(black_box("the police report is missing"), &mut field, &reg)
+                    .unwrap()
             },
             BatchSize::SmallInput,
         )
@@ -120,8 +141,9 @@ fn bench_hook_fire(c: &mut Criterion) {
 fn bench_bark_const(c: &mut Criterion) {
     let field = setup_field();
     let snap = CompiledFieldSnapshot::from_field(&field).unwrap();
+    let context = empty_context(&snap);
     c.bench_function("bark_const_artifact", |b| {
-        b.iter(|| bark(black_box(&snap)).unwrap())
+        b.iter(|| ccog::bark_artifact::bark(black_box(&context)).unwrap())
     });
 }
 
@@ -130,7 +152,8 @@ fn bench_bark_const_with_snapshot(c: &mut Criterion) {
     c.bench_function("bark_with_snapshot_build", |b| {
         b.iter(|| {
             let snap = CompiledFieldSnapshot::from_field(black_box(&field)).unwrap();
-            bark(&snap).unwrap()
+            let context = empty_context(&snap);
+            ccog::bark_artifact::bark(&context).unwrap()
         })
     });
 }
@@ -138,35 +161,39 @@ fn bench_bark_const_with_snapshot(c: &mut Criterion) {
 fn bench_compiled_hook_table(c: &mut Criterion) {
     let field = setup_field();
     let snap = CompiledFieldSnapshot::from_field(&field).unwrap();
+    let context = empty_context(&snap);
     let mut table = CompiledHookTable::new();
     table.register(compile_builtin(&missing_evidence_hook()).unwrap());
     table.register(compile_builtin(&phrase_binding_hook()).unwrap());
     table.register(compile_builtin(&transition_admissibility_hook()).unwrap());
     table.register(compile_builtin(&receipt_hook()).unwrap());
     c.bench_function("compiled_hook_table_fire", |b| {
-        b.iter(|| table.fire(black_box(&snap)).unwrap())
+        b.iter(|| table.fire(black_box(&context)).unwrap())
     });
 }
 
 fn bench_bark_kernel(c: &mut Criterion) {
     let field = setup_field();
     let snap = CompiledFieldSnapshot::from_field(&field).unwrap();
+    let context = empty_context(&snap);
     let kernel = BarkKernel::linear(vec![
         compile_builtin(&missing_evidence_hook()).unwrap(),
         compile_builtin(&phrase_binding_hook()).unwrap(),
         compile_builtin(&transition_admissibility_hook()).unwrap(),
         compile_builtin(&receipt_hook()).unwrap(),
-    ]).unwrap();
+    ])
+    .unwrap();
     c.bench_function("bark_kernel_fire", |b| {
-        b.iter(|| kernel.fire(black_box(&snap)).unwrap())
+        b.iter(|| kernel.fire(black_box(&context)).unwrap())
     });
 }
 
 fn bench_kernel_floor(c: &mut Criterion) {
     let field = setup_field();
     let snap = CompiledFieldSnapshot::from_field(&field).unwrap();
+    let context = empty_context(&snap);
     c.bench_function("kernel_floor_trace_default_builtins", |b| {
-        b.iter(|| trace_default_builtins(black_box(&snap)))
+        b.iter(|| trace_default_builtins(black_box(&context)))
     });
 }
 
@@ -185,13 +212,15 @@ fn bench_conformance_replay(c: &mut Criterion) {
     let _tier = BenchmarkTier::ConformanceReplay;
     let field = setup_field();
     let snap = CompiledFieldSnapshot::from_field(&field).unwrap();
-    let (_decision, trace) = decide_with_trace(&snap);
+    let context = empty_context(&snap);
+    let (_decision, trace) = decide_with_trace(&context);
     c.bench_function("conformance_replay_default_builtins", |b| {
-        b.iter(|| replay_trace(black_box(&trace), black_box(&snap), BUILTINS))
+        b.iter(|| replay_trace(black_box(&trace), black_box(&context), BUILTINS))
     });
 }
 
-criterion_group!(benches,
+criterion_group!(
+    benches,
     bench_eliza_bind,
     bench_mycin_evidence,
     bench_strips_transition,
@@ -205,5 +234,6 @@ criterion_group!(benches,
     bench_bark_kernel,
     bench_kernel_floor,
     bench_present_mask_only,
-    bench_conformance_replay);
+    bench_conformance_replay
+);
 criterion_main!(benches);

@@ -33,10 +33,11 @@
 //! with per-slot reasoning. They allocate (the trace) and invoke real hook
 //! check fns; do **not** put them on the hot path.
 
-use crate::bark_artifact::{
-    decide_table, BarkDecision, BarkSlot, BUILTINS, BUILTIN_HOOKS,
-};
-use crate::compiled::CompiledFieldSnapshot;
+use crate::bark_artifact::{decide_table, BarkDecision, BarkSlot, BUILTINS, BUILTIN_HOOKS};
+
+use crate::powl64::{PartnerId, Polarity, Powl64, Powl64RouteCell, ProjectionTarget};
+use crate::runtime::cog8::{CollapseFn, EdgeId, EdgeKind, NodeId, ToolId};
+use crate::runtime::ClosedFieldContext;
 use crate::verdict::PackPosture;
 
 /// Reason a bark slot did not fire — typed enum for conformance review.
@@ -85,6 +86,22 @@ pub struct BarkNodeTrace {
     pub skip_reason: Option<&'static str>,
     /// Typed skip reason for conformance review. `None` if the slot fired.
     pub skip: Option<BarkSkipReason>,
+    /// Cognitive function attributed to this slot.
+    pub collapse_fn: CollapseFn,
+    /// Selected node ID if this slot fired.
+    pub selected_node: Option<NodeId>,
+    /// MCP tool call projection for this node, if any.
+    pub mcp_projection: Option<String>,
+    /// Projection target.
+    pub projection_target: Option<ProjectionTarget>,
+    /// Collaborative partner identifier.
+    pub partner_id: PartnerId,
+    /// BLAKE3 digest of external call arguments.
+    pub args_digest: u64,
+    /// BLAKE3 digest of external call result.
+    pub result_digest: u64,
+    /// BLAKE3 digest of input field snapshot.
+    pub input_digest: u64,
 }
 
 /// Causal trace of a single bark dispatch — present mask, posture, per-slot detail.
@@ -96,6 +113,20 @@ pub struct CcogTrace {
     pub posture: PackPosture,
     /// Per-slot entries in plan-order.
     pub nodes: Vec<BarkNodeTrace>,
+    /// Nonlinear route proof (POWL64).
+    pub route_proof: Powl64,
+    /// Collapse function attributed to this trace.
+    pub collapse_fn: Option<CollapseFn>,
+    /// Selected node ID.
+    pub selected_node: Option<NodeId>,
+    /// Selected edge ID.
+    pub selected_edge: Option<EdgeId>,
+    /// Global MCP projection for this trace.
+    pub mcp_projection: Option<String>,
+    /// Global projection target.
+    pub projection_target: Option<ProjectionTarget>,
+    /// Global collaborative partner identifier.
+    pub partner_id: PartnerId,
 }
 
 // `impl Default for PackPosture` lives in `verdict.rs` (Phase 8 posture
@@ -141,7 +172,7 @@ pub enum BenchmarkTier {
 /// Returns `None` if the slot name is not in the built-in registry — for
 /// custom tables the trace records `trigger_fired == check_passed`
 /// (mask-encoded check), preserving the original stub semantics.
-fn lookup_check_fn(name: &'static str) -> Option<fn(&CompiledFieldSnapshot) -> bool> {
+fn lookup_check_fn(name: &'static str) -> Option<fn(&ClosedFieldContext) -> bool> {
     for (hook_name, check) in BUILTIN_HOOKS {
         if *hook_name == name {
             return Some(*check);
@@ -150,12 +181,19 @@ fn lookup_check_fn(name: &'static str) -> Option<fn(&CompiledFieldSnapshot) -> b
     None
 }
 
+/// Map a bark slot name to its canonical cognitive collapse function.
+fn slot_to_collapse_fn(name: &str) -> CollapseFn {
+    match name {
+        "missing_evidence" => CollapseFn::DifferenceReduction,
+        "phrase_binding" => CollapseFn::RelationalProof,
+        "transition_admissibility" => CollapseFn::Preconditions,
+        _ => CollapseFn::None,
+    }
+}
+
 /// Map a (trigger_fired, check_passed) pair to the canonical typed skip
 /// reason and its display string. Returns `None` if the slot fired.
-fn classify_skip(
-    trigger_fired: bool,
-    check_passed: bool,
-) -> Option<(BarkSkipReason, &'static str)> {
+fn classify_skip(trigger_fired: bool, check_passed: bool) -> Option<(BarkSkipReason, &'static str)> {
     if !trigger_fired {
         Some((
             BarkSkipReason::RequireMaskUnsatisfied,
@@ -168,6 +206,17 @@ fn classify_skip(
     }
 }
 
+/// Map a bark slot name to its canonical MCP tool projection.
+fn slot_to_mcp_info(name: &str) -> (Option<ToolId>, Option<String>) {
+    match name {
+        "missing_evidence" => (Some(ToolId(1)), Some("mcp:tool:ask_evidence".to_string())),
+        "phrase_binding" => (Some(ToolId(2)), Some("mcp:tool:resolve_phrase".to_string())),
+        "transition_admissibility" => (Some(ToolId(3)), Some("mcp:tool:validate_transition".to_string())),
+        "receipt" => (Some(ToolId(4)), Some("mcp:tool:emit_receipt".to_string())),
+        _ => (None, None),
+    }
+}
+
 /// Decide-with-trace over the default `BUILTINS` slot table.
 ///
 /// Phase 7 entry point: produces both the canonical [`BarkDecision`] (via
@@ -175,8 +224,8 @@ fn classify_skip(
 /// per-slot reasoning was computed by invoking the real hook check fns
 /// from `BUILTIN_HOOKS`. Decision-equivalence with
 /// [`crate::bark_artifact::decide`] is the load-bearing invariant.
-pub fn decide_with_trace(snap: &CompiledFieldSnapshot) -> (BarkDecision, CcogTrace) {
-    decide_with_trace_table(snap, BUILTINS)
+pub fn decide_with_trace(context: &ClosedFieldContext) -> (BarkDecision, CcogTrace) {
+    decide_with_trace_table(context, BUILTINS)
 }
 
 /// Decide-with-trace over an arbitrary const slot table.
@@ -186,21 +235,23 @@ pub fn decide_with_trace(snap: &CompiledFieldSnapshot) -> (BarkDecision, CcogTra
 /// (falling back to the mask-encoded check for unknown slots), and records
 /// a `BarkNodeTrace` per slot with a typed [`BarkSkipReason`].
 pub fn decide_with_trace_table(
-    snap: &CompiledFieldSnapshot,
+    context: &ClosedFieldContext,
     table: &'static [BarkSlot],
 ) -> (BarkDecision, CcogTrace) {
     // Pass 1 — canonical alloc-free decision.
-    let decision = decide_table(snap, table);
+    let decision = decide_table(context, table);
     let present_mask = decision.present_mask;
 
     // Pass 2 — per-slot reasoning with real check fns.
     let mut nodes = Vec::with_capacity(table.len());
+    let mut route_proof = Powl64::new();
+
     for (i, slot) in table.iter().enumerate() {
         let trigger_fired = (slot.require_mask & present_mask) == slot.require_mask;
         // Use real check fn when available; fall back to mask-encoded check.
         let check_passed = if trigger_fired {
             match lookup_check_fn(slot.name) {
-                Some(check) => check(snap),
+                Some(check) => check(context),
                 None => true,
             }
         } else {
@@ -210,6 +261,67 @@ pub fn decide_with_trace_table(
             Some((s, msg)) => (Some(s), Some(msg)),
             None => (None, None),
         };
+
+        let collapse_fn = slot_to_collapse_fn(slot.name);
+        let selected_node = if trigger_fired && check_passed {
+            Some(NodeId(i as u16))
+        } else {
+            None
+        };
+
+        let (mcp_id, mcp_projection) = if trigger_fired && check_passed {
+            slot_to_mcp_info(slot.name)
+        } else {
+            (None, None)
+        };
+
+        let (projection_target, partner_id) = if let Some(tid) = mcp_id {
+            (Some(ProjectionTarget::Mcp), PartnerId::tool(tid))
+        } else if trigger_fired && check_passed {
+            (Some(ProjectionTarget::NoOp), PartnerId::NONE)
+        } else {
+            (None, PartnerId::NONE)
+        };
+
+        if let Some(node_id) = selected_node {
+            let prior_chain = route_proof.chain_head().unwrap_or(0);
+            let mut hasher = blake3::Hasher::new();
+            hasher.update(&prior_chain.to_le_bytes());
+            hasher.update(&node_id.0.to_le_bytes());
+            hasher.update(&[collapse_fn as u8]);
+            hasher.update(&[Polarity::Positive as u8]);
+
+            // Phase 3.2: Incorporate collaborative proof fields into chain_head derivation.
+            let target_u8 = projection_target.map(|t| t as u8).unwrap_or(0);
+            hasher.update(&[target_u8]);
+            hasher.update(&[partner_id.tag]);
+            hasher.update(&partner_id.id.to_le_bytes());
+
+            hasher.update(&0u64.to_le_bytes()); // input_digest
+            hasher.update(&0u64.to_le_bytes()); // args_digest
+            hasher.update(&0u64.to_le_bytes()); // result_digest
+
+            let hash = hasher.finalize();
+            let chain_head = u64::from_le_bytes(hash.as_bytes()[0..8].try_into().unwrap());
+
+            route_proof.extend(Powl64RouteCell {
+                graph_id: 0,
+                from_node: NodeId(i as u16),
+                to_node: NodeId((i + 1) as u16),
+                edge_id: EdgeId(i as u16),
+                edge_kind: EdgeKind::Choice,
+                collapse_fn,
+                polarity: Polarity::Positive,
+                projection_target: projection_target.unwrap_or(ProjectionTarget::NoOp),
+                partner_id,
+                input_digest: 0,
+                args_digest: 0,
+                result_digest: 0,
+                prior_chain,
+                chain_head,
+            });
+        }
+
         nodes.push(BarkNodeTrace {
             slot_idx: i as u16,
             hook_id: slot.name,
@@ -221,13 +333,52 @@ pub fn decide_with_trace_table(
             receipt_urn: None,
             skip_reason,
             skip,
+            collapse_fn,
+            selected_node,
+            mcp_projection,
+            projection_target,
+            partner_id,
+            args_digest: 0,
+            result_digest: 0,
+            input_digest: 0,
         });
     }
+
+    // Global projection: pick the first firing node's projection if the
+    // canonical decision didn't specify a selected node (typical for bark).
+    let (global_mcp, global_target, global_partner) = decision
+        .selected_node
+        .and_then(|id| {
+            nodes.get(id.0 as usize).map(|n| {
+                (
+                    n.mcp_projection.clone(),
+                    n.projection_target,
+                    n.partner_id,
+                )
+            })
+        })
+        .or_else(|| {
+            nodes.iter().find(|n| n.trigger_fired && n.check_passed).map(|n| {
+                (
+                    n.mcp_projection.clone(),
+                    n.projection_target,
+                    n.partner_id,
+                )
+            })
+        })
+        .unwrap_or((None, None, PartnerId::NONE));
 
     let trace = CcogTrace {
         present_mask,
         posture: PackPosture::default(),
         nodes,
+        route_proof,
+        collapse_fn: decision.collapse_fn,
+        selected_node: decision.selected_node,
+        selected_edge: decision.selected_edge,
+        mcp_projection: global_mcp,
+        projection_target: global_target,
+        partner_id: global_partner,
     };
     (decision, trace)
 }
@@ -236,29 +387,43 @@ pub fn decide_with_trace_table(
 ///
 /// Phase 7: now delegates to [`decide_with_trace_table`]. Preserved as a
 /// public entry point for legacy callers that only want the trace.
-pub fn trace_bark(snap: &CompiledFieldSnapshot, table: &'static [BarkSlot]) -> CcogTrace {
-    let (_decision, trace) = decide_with_trace_table(snap, table);
+pub fn trace_bark(context: &ClosedFieldContext, table: &'static [BarkSlot]) -> CcogTrace {
+    let (_decision, trace) = decide_with_trace_table(context, table);
     trace
 }
 
 /// Convenience: decision-only trace over the default built-in bark slot table.
 ///
 /// Equivalent to `trace_bark(snap, ccog::BUILTINS)`.
-pub fn trace_default_builtins(snap: &CompiledFieldSnapshot) -> CcogTrace {
-    trace_bark(snap, BUILTINS)
+pub fn trace_default_builtins(context: &ClosedFieldContext) -> CcogTrace {
+    trace_bark(context, BUILTINS)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::compiled::CompiledFieldSnapshot;
     use crate::compiled_hook::compute_present_mask;
+    // use super::*;
+    use std::sync::Arc;
     use crate::field::FieldContext;
+    use crate::multimodal::{ContextBundle, PostureBundle};
+    use crate::packs::TierMasks;
 
+    fn empty_context(snap: Arc<CompiledFieldSnapshot>) -> ClosedFieldContext {
+        ClosedFieldContext {
+            snapshot: snap,
+            posture: PostureBundle::default(),
+            context: ContextBundle::default(),
+            tiers: TierMasks::ZERO,
+            human_burden: 0,
+        }
+    }
     #[test]
     fn trace_default_builtins_on_empty_field_skips_three() {
         let field = FieldContext::new("test");
-        let snap = CompiledFieldSnapshot::from_field(&field).expect("snapshot");
-        let trace = trace_default_builtins(&snap);
+        let snap = Arc::new(CompiledFieldSnapshot::from_field(&field).expect("snapshot"));
+        let context = empty_context(snap);
+        let trace = trace_default_builtins(&context);
         assert_eq!(trace.nodes.len(), 4);
         // missing_evidence, phrase_binding, transition_admissibility — skipped.
         assert_eq!(trace.skipped_count(), 3);
@@ -283,8 +448,9 @@ mod tests {
                  <http://example.org/c1> <http://www.w3.org/2004/02/skos/core#prefLabel> \"x\" .\n",
             )
             .expect("load field state");
-        let snap = CompiledFieldSnapshot::from_field(&field).expect("snapshot");
-        let trace = trace_default_builtins(&snap);
+        let snap = Arc::new(CompiledFieldSnapshot::from_field(&field).expect("snapshot"));
+        let context = empty_context(snap);
+        let trace = trace_default_builtins(&context);
         assert_eq!(trace.nodes.len(), 4);
         assert_eq!(trace.fired_count(), 4);
         assert_eq!(trace.skipped_count(), 0);
@@ -298,8 +464,9 @@ mod tests {
     #[test]
     fn skipped_count_matches_skip_reason_some() {
         let field = FieldContext::new("test");
-        let snap = CompiledFieldSnapshot::from_field(&field).expect("snapshot");
-        let trace = trace_default_builtins(&snap);
+        let snap = Arc::new(CompiledFieldSnapshot::from_field(&field).expect("snapshot"));
+        let context = empty_context(snap);
+        let trace = trace_default_builtins(&context);
         let manual: usize = trace
             .nodes
             .iter()
@@ -316,8 +483,9 @@ mod tests {
                 "<http://example.org/d1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://schema.org/DigitalDocument> .\n",
             )
             .expect("load field state");
-        let snap = CompiledFieldSnapshot::from_field(&field).expect("snapshot");
-        let trace = trace_default_builtins(&snap);
+        let snap = Arc::new(CompiledFieldSnapshot::from_field(&field).expect("snapshot"));
+        let context = empty_context(snap.clone());
+        let trace = trace_default_builtins(&context);
         assert_eq!(trace.present_mask, compute_present_mask(&snap));
     }
 }

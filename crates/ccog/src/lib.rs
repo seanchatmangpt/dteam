@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
+#![recursion_limit = "2048"]
 #![cfg_attr(
     feature = "nightly",
     feature(portable_simd, generic_const_exprs, const_trait_impl)
@@ -9,6 +10,7 @@
 //! Compiled Cognition core: field-cognition facade over RDF graph closure.
 
 pub mod admit;
+pub mod macros;
 pub mod mask;
 pub mod packs;
 pub mod bark_artifact;
@@ -25,6 +27,7 @@ pub mod receipt;
 pub mod facade;
 pub mod construct8;
 pub mod hooks;
+pub mod ids;
 pub mod powl;
 pub mod powl64;
 pub mod trace;
@@ -68,6 +71,7 @@ pub use bark_artifact::{bark, bark_table, BarkSlot, BUILTINS};
 pub use facade::process_with_hooks;
 pub use runtime::scheduler::{Scheduler, TickReport};
 pub use runtime::delta::{GraphSnapshot, GraphDelta};
+pub use runtime::event::{CaseId, Event, Lifecycle};
 pub use runtime::posture::PostureMachine;
 pub use runtime::step::{Runtime, StepReport};
 

@@ -10,7 +10,7 @@ const NT_CHAIN: &str = r#"
 
 #[test]
 fn prolog_proves_transitive_skos_broader() {
-    let mut field = FieldContext::new("relations");
+    let field = FieldContext::new("relations");
     field.graph.load_ntriples(NT_CHAIN).unwrap();
     let a = GraphIri::from_iri("http://example.org/a").unwrap();
     let c = GraphIri::from_iri("http://example.org/c").unwrap();
@@ -24,7 +24,7 @@ fn prolog_proves_transitive_skos_broader() {
 
 #[test]
 fn prolog_returns_none_when_no_path() {
-    let mut field = FieldContext::new("relations-none");
+    let field = FieldContext::new("relations-none");
     field.graph.load_ntriples(NT_CHAIN).unwrap();
     let a = GraphIri::from_iri("http://example.org/a").unwrap();
     let y = GraphIri::from_iri("http://example.org/y").unwrap();

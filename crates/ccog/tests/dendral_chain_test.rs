@@ -21,7 +21,8 @@ fn dendral_walks_back_one_step_from_process_output() {
     let chain = reconstruct_chain(&output_iri, &field).expect("walk");
     assert_eq!(chain.root_entity.as_str(), output_iri.as_str());
     assert!(!chain.steps.is_empty(), "expected at least one PROV step");
-    assert_eq!(chain.steps[0].activity.as_str(), verdict.receipt.activity_iri.as_str());
+    let expected_activity_hash = format!("urn:ccog:id:{:08x}", ccog::utils::dense::fnv1a_64(verdict.receipt.activity_iri.as_str().as_bytes()) as u32);
+    assert_eq!(chain.steps[0].activity.as_str(), expected_activity_hash);
 }
 
 #[test]

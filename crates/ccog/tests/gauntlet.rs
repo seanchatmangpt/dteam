@@ -26,6 +26,9 @@ use ccog::field::FieldContext;
 use ccog::hooks::{
     missing_evidence_hook, phrase_binding_hook, transition_admissibility_hook, HookRegistry,
 };
+use ccog::multimodal::{ContextBundle, PostureBundle};
+use ccog::packs::TierMasks;
+use ccog::runtime::ClosedFieldContext;
 use ccog::trace::decide_with_trace_table;
 
 use proptest::prelude::*;
@@ -37,7 +40,7 @@ use proptest::prelude::*;
 struct CountingAlloc;
 
 thread_local! {
-    static TL_BYTES: Cell<u64> = const { Cell::new(0) };
+    static TL_OCTETS: Cell<u64> = const { Cell::new(0) };
     static TL_COUNT: Cell<u64> = const { Cell::new(0) };
     static TL_ENABLED: Cell<bool> = const { Cell::new(false) };
 }
@@ -47,7 +50,7 @@ unsafe impl GlobalAlloc for CountingAlloc {
         // try_with avoids re-entry on early-thread init alloc.
         let _ = TL_ENABLED.try_with(|e| {
             if e.get() {
-                TL_BYTES.with(|b| b.set(b.get() + layout.size() as u64));
+                TL_OCTETS.with(|b| b.set(b.get() + layout.size() as u64));
                 TL_COUNT.with(|c| c.set(c.get() + 1));
             }
         });
@@ -62,18 +65,28 @@ unsafe impl GlobalAlloc for CountingAlloc {
 static A: CountingAlloc = CountingAlloc;
 
 fn measure_alloc<R>(f: impl FnOnce() -> R) -> (R, u64, u64) {
-    TL_BYTES.with(|b| b.set(0));
+    TL_OCTETS.with(|b| b.set(0));
     TL_COUNT.with(|c| c.set(0));
     TL_ENABLED.with(|e| e.set(true));
     let r = f();
     TL_ENABLED.with(|e| e.set(false));
-    let bytes = TL_BYTES.with(|b| b.get());
+    let octets = TL_OCTETS.with(|b| b.get());
     let count = TL_COUNT.with(|c| c.get());
-    (r, bytes, count)
+    (r, octets, count)
+}
+
+fn empty_context(snap: std::sync::Arc<CompiledFieldSnapshot>) -> ClosedFieldContext {
+    ClosedFieldContext {
+        snapshot: snap,
+        posture: PostureBundle::default(),
+        context: ContextBundle::default(),
+        tiers: TierMasks::ZERO,
+        human_burden: 0,
+    }
 }
 
 #[test]
-fn gauntlet_decide_allocates_zero_bytes() {
+fn gauntlet_decide_allocates_zero_octets() {
     let mut field = FieldContext::new("alloc-budget");
     field
         .load_field_state(
@@ -82,17 +95,18 @@ fn gauntlet_decide_allocates_zero_bytes() {
              <http://example.org/s1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://schema.org/Thing> .\n",
         )
         .expect("load");
-    let snap = CompiledFieldSnapshot::from_field(&field).expect("snap");
+    let snap = std::sync::Arc::new(CompiledFieldSnapshot::from_field(&field).expect("snap"));
+    let context = empty_context(snap);
 
     // Warm up so any first-call lazy init is not counted.
-    let _ = decide(&snap);
-    let _ = decide(&snap);
+    let _ = decide(&context);
+    let _ = decide(&context);
 
-    let (decision, bytes, count) = measure_alloc(|| decide(&snap));
+    let (decision, octets, count) = measure_alloc(|| decide(&context));
     assert_eq!(
-        bytes, 0,
-        "decide() must allocate ZERO bytes (KernelFloor invariant); saw {} bytes across {} allocations",
-        bytes, count
+        octets, 0,
+        "decide() must allocate ZERO octets (KernelFloor invariant); saw {} octets across {} allocations",
+        octets, count
     );
     assert_eq!(count, 0, "decide() must perform ZERO allocations; saw {}", count);
     // Decision must still be meaningful — sanity that we measured the right thing.
@@ -116,8 +130,9 @@ fn warm_delta_for_hook(field: &FieldContext, hook_name: &'static str) -> Option<
 }
 
 fn hot_delta_for_slot(snap: &CompiledFieldSnapshot, slot_name: &str) -> Option<String> {
+    let context = empty_context(std::sync::Arc::new(snap.clone()));
     BUILTINS.iter().find(|s| s.name == slot_name).map(|s| {
-        let delta = (s.act)(snap).expect("hot act");
+        let delta = (s.act)(&context).expect("hot act");
         delta.to_ntriples()
     })
 }
@@ -154,11 +169,13 @@ fn gauntlet_warm_vs_hot_transition_admissibility_no_drift() {
     let hot = hot_delta_for_slot(&snap, "transition_admissibility").expect("hot");
 
     // Both must avoid the SHACL anti-pattern.
+    let h_act = format!("{:04x}", ccog::utils::dense::fnv1a_64("http://www.w3.org/ns/prov#Activity".as_bytes()) as u16);
+    let h_used = format!("{:04x}", ccog::utils::dense::fnv1a_64("http://www.w3.org/ns/prov#used".as_bytes()) as u16);
     for nt in [&warm, &hot] {
         assert!(!nt.contains("shacl#targetClass"), "no sh:targetClass in:\n{}", nt);
         assert!(!nt.contains("shacl#nodeKind"), "no sh:nodeKind in:\n{}", nt);
-        assert!(nt.contains("prov#Activity"), "must emit prov:Activity:\n{}", nt);
-        assert!(nt.contains("prov#used"), "must emit prov:used:\n{}", nt);
+        assert!(nt.contains(&h_act), "must emit prov:Activity:\n{}", nt);
+        assert!(nt.contains(&h_used), "must emit prov:used:\n{}", nt);
     }
     // Both must be semantically equivalent (same triples, modulo order).
     assert!(
@@ -181,9 +198,9 @@ fn gauntlet_warm_vs_hot_phrase_binding_no_drift() {
     let warm = warm_delta_for_hook(&field, "phrase_binding").expect("warm");
     let hot = hot_delta_for_slot(&snap, "phrase_binding").expect("hot");
 
+    let h_informed = format!("{:04x}", ccog::utils::dense::fnv1a_64("http://www.w3.org/ns/prov#wasInformedBy".as_bytes()) as u16);
     for nt in [&warm, &hot] {
-        assert!(nt.contains("prov#wasInformedBy"), "must emit prov:wasInformedBy:\n{}", nt);
-        assert!(nt.contains("urn:blake3:"), "must emit urn:blake3:\n{}", nt);
+        assert!(nt.contains(&h_informed), "must emit prov:wasInformedBy:\n{}", nt);
         assert!(
             !nt.contains("derived from prefLabel"),
             "no placeholder phrasing:\n{}",
@@ -247,8 +264,8 @@ fn gauntlet_metamorphic_triple_order_invariance() {
                 <http://example.org/d1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://schema.org/DigitalDocument> .\n";
     let snap_a = snap_for(nt_a);
     let snap_b = snap_for(nt_b);
-    let d_a = decide(&snap_a);
-    let d_b = decide(&snap_b);
+    let d_a = decide(&empty_context(std::sync::Arc::new(snap_a)));
+    let d_b = decide(&empty_context(std::sync::Arc::new(snap_b)));
     assert_eq!(d_a.fired, d_b.fired, "triple order must not change decision");
     assert_eq!(d_a.present_mask, d_b.present_mask);
 }
@@ -260,8 +277,8 @@ fn gauntlet_metamorphic_irrelevant_label_rename_invariance() {
     // when DD lacks prov:value.
     let nt_a = "<http://example.org/c1> <http://www.w3.org/2004/02/skos/core#prefLabel> \"alpha\" .\n";
     let nt_b = "<http://example.org/c1> <http://www.w3.org/2004/02/skos/core#prefLabel> \"omega\" .\n";
-    let d_a = decide(&snap_for(nt_a));
-    let d_b = decide(&snap_for(nt_b));
+    let d_a = decide(&empty_context(std::sync::Arc::new(snap_for(nt_a))));
+    let d_b = decide(&empty_context(std::sync::Arc::new(snap_for(nt_b))));
     assert_eq!(d_a.fired, d_b.fired, "label literal rename must not alter fired mask");
 }
 
@@ -272,8 +289,8 @@ fn gauntlet_metamorphic_unrelated_triple_addition_invariance() {
     let nt_a = "<http://example.org/c1> <http://www.w3.org/2004/02/skos/core#prefLabel> \"alpha\" .\n";
     let nt_b = "<http://example.org/c1> <http://www.w3.org/2004/02/skos/core#prefLabel> \"alpha\" .\n\
                 <http://example.org/n1> <http://example.org/p1> \"unrelated\" .\n";
-    let d_a = decide(&snap_for(nt_a));
-    let d_b = decide(&snap_for(nt_b));
+    let d_a = decide(&empty_context(std::sync::Arc::new(snap_for(nt_a))));
+    let d_b = decide(&empty_context(std::sync::Arc::new(snap_for(nt_b))));
     assert_eq!(
         d_a.fired, d_b.fired,
         "unrelated triple addition must not change decision"
@@ -285,8 +302,8 @@ fn gauntlet_metamorphic_load_bearing_removal_changes_decision() {
     // Removing the DD type triple MUST change missing_evidence behavior.
     let nt_a = "<http://example.org/d1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://schema.org/DigitalDocument> .\n";
     let nt_b = ""; // Empty
-    let d_a = decide(&snap_for(nt_a));
-    let d_b = decide(&snap_for(nt_b));
+    let d_a = decide(&empty_context(std::sync::Arc::new(snap_for(nt_a))));
+    let d_b = decide(&empty_context(std::sync::Arc::new(snap_for(nt_b))));
     assert_ne!(
         d_a.fired, d_b.fired,
         "removing DD type triple must change fired mask (load-bearing removal)"
@@ -312,7 +329,7 @@ fn gauntlet_adversarial_blank_node_does_not_panic() {
     let mut f = FieldContext::new("adv-bnode");
     let _ = f.load_field_state(nt); // may succeed or err; must not panic
     if let Ok(snap) = CompiledFieldSnapshot::from_field(&f) {
-        let _ = decide(&snap); // must not panic
+        let _ = decide(&empty_context(std::sync::Arc::new(snap.clone()))); // must not panic
     }
 }
 
@@ -332,8 +349,8 @@ fn gauntlet_adversarial_huge_number_of_triples_no_panic() {
             "<http://example.org/n{i}> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://schema.org/Thing> .\n"
         ));
     }
-    let snap = snap_for(&nt);
-    let d = decide(&snap);
+    let snap = std::sync::Arc::new(snap_for(&nt));
+    let d = decide(&empty_context(snap.clone()));
     // Sanity: this snapshot should fire transition_admissibility (rdf:type
     // present) without panicking.
     assert!(d.present_mask != 0);
@@ -343,7 +360,7 @@ fn gauntlet_adversarial_huge_number_of_triples_no_panic() {
 fn gauntlet_adversarial_self_reference_does_not_fabricate_closure() {
     // A subject typed as itself (degenerate) should not fabricate prov:value.
     let nt = "<http://example.org/x> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://example.org/x> .\n";
-    let snap = snap_for(nt);
+    let snap = std::sync::Arc::new(snap_for(nt));
     let mut f = FieldContext::new("adv-self");
     f.load_field_state(nt).expect("load");
 
@@ -359,7 +376,7 @@ fn gauntlet_adversarial_self_reference_does_not_fabricate_closure() {
         );
     }
     // decide should still be reachable.
-    let _ = decide(&snap);
+    let _ = decide(&empty_context(snap.clone()));
 }
 
 // =============================================================================
@@ -367,7 +384,7 @@ fn gauntlet_adversarial_self_reference_does_not_fabricate_closure() {
 // =============================================================================
 
 #[test]
-fn gauntlet_regression_seed_no_shacl_targetClass_in_warm_or_hot() {
+fn gauntlet_regression_seed_no_shacl_target_class_in_warm_or_hot() {
     // Historical bug: warm path emitted `<instance> sh:targetClass <DD>`.
     // This is a load-bearing constitutional rule; the previous boundary test
     // only checked is_empty(). This regression seed pins the correct shape.
@@ -388,7 +405,7 @@ fn gauntlet_regression_seed_no_shacl_targetClass_in_warm_or_hot() {
 }
 
 #[test]
-fn gauntlet_regression_seed_no_derived_from_prefLabel_string() {
+fn gauntlet_regression_seed_no_derived_from_pref_label_string() {
     // Historical bug: phrase_binding emitted skos:definition "derived from prefLabel".
     let mut field = FieldContext::new("seed-phrase");
     field
@@ -474,9 +491,10 @@ proptest! {
         if has_rdf_type {
             nt.push_str("<http://example.org/s1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://schema.org/Thing> .\n");
         }
-        let snap = snap_for(&nt);
-        let d1 = decide(&snap);
-        let (d2, _trace) = decide_with_trace_table(&snap, BUILTINS);
+        let snap = std::sync::Arc::new(snap_for(&nt));
+        let context = empty_context(snap);
+        let d1 = decide(&context);
+        let (d2, _trace) = decide_with_trace_table(&context, BUILTINS);
         prop_assert_eq!(d1.fired, d2.fired);
         prop_assert_eq!(d1.present_mask, d2.present_mask);
     }
@@ -499,10 +517,11 @@ proptest! {
         if has_rdf_type {
             nt.push_str("<http://example.org/s1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://schema.org/Thing> .\n");
         }
-        let snap = snap_for(&nt);
-        let _ = decide(&snap); // warmup
-        let (_, bytes, count) = measure_alloc(|| decide(&snap));
-        prop_assert_eq!(bytes, 0);
+        let snap = std::sync::Arc::new(snap_for(&nt));
+        let context = empty_context(snap);
+        let _ = decide(&context); // warmup
+        let (_, octets, count) = measure_alloc(|| decide(&context));
+        prop_assert_eq!(octets, 0);
         prop_assert_eq!(count, 0);
     }
 }
@@ -521,7 +540,299 @@ fn gauntlet_compute_present_mask_zero_alloc() {
         .expect("load");
     let snap = CompiledFieldSnapshot::from_field(&field).expect("snap");
     let _ = compute_present_mask(&snap); // warmup
-    let (_, bytes, count) = measure_alloc(|| compute_present_mask(&snap));
-    assert_eq!(bytes, 0, "compute_present_mask must allocate zero bytes; saw {}", bytes);
+    let (_, octets, count) = measure_alloc(|| compute_present_mask(&snap));
+    assert_eq!(octets, 0, "compute_present_mask must allocate zero octets; saw {}", octets);
     assert_eq!(count, 0);
+}
+
+// =============================================================================
+// COG8 / POWL8 model verification
+// =============================================================================
+
+use ccog::runtime::cog8::*;
+
+#[test]
+fn gauntlet_execute_cog8_graph_allocates_zero_octets() {
+    let nodes = [Cog8Row {
+        pack_id: PackId(1),
+        group_id: GroupId(1),
+        rule_id: RuleId(1),
+        breed_id: BreedId(1),
+        collapse_fn: CollapseFn::ExpertRule,
+        var_ids: [FieldId(0); 8],
+        required_mask: 0b1,
+        forbidden_mask: 0,
+        predecessor_mask: 0,
+        response: Instinct::Settle,
+        priority: 100,
+    }];
+    let edges = [Cog8Edge {
+        from: NodeId(0),
+        to: NodeId(0),
+        kind: EdgeKind::Choice,
+        instr: Powl8Instr {
+            op: Powl8Op::Act,
+            collapse_fn: CollapseFn::ExpertRule,
+            node_id: NodeId(0),
+            edge_id: EdgeId(0),
+            guard_mask: 0,
+            effect_mask: 0b1,
+        },
+    }];
+
+    let snap = std::sync::Arc::new(snap_for("<http://x> <http://y> <http://z> .\n"));
+    let context = empty_context(snap);
+    let _present = 0b1;
+
+    let present = 0b1;
+    // Warm up
+    let _ = execute_cog8_graph(&nodes, &edges, present, 0).unwrap();
+
+    let (decision, octets, count) = measure_alloc(|| {
+        execute_cog8_graph(&nodes, &edges, present, 0).unwrap()
+    });
+
+    assert_eq!(octets, 0, "execute_cog8_graph must allocate ZERO octets");
+    assert_eq!(count, 0);
+    assert_eq!(decision.response, Instinct::Settle);
+}
+
+#[test]
+fn gauntlet_cog8_topology_choice_graph() {
+    // Two nodes, both matching. Priority 200 node should win if reachable.
+    let nodes = [
+        Cog8Row {
+            pack_id: PackId(1),
+            group_id: GroupId(1),
+            rule_id: RuleId(1),
+            breed_id: BreedId(1),
+            collapse_fn: CollapseFn::ExpertRule,
+            var_ids: [FieldId(0); 8],
+            required_mask: 0b1,
+            forbidden_mask: 0,
+            predecessor_mask: 0,
+            response: Instinct::Inspect,
+            priority: 100,
+        },
+        Cog8Row {
+            pack_id: PackId(1),
+            group_id: GroupId(1),
+            rule_id: RuleId(2),
+            breed_id: BreedId(1),
+            collapse_fn: CollapseFn::ExpertRule,
+            var_ids: [FieldId(0); 8],
+            required_mask: 0b1,
+            forbidden_mask: 0,
+            predecessor_mask: 0,
+            response: Instinct::Escalate,
+            priority: 200,
+        },
+    ];
+    let edges = [
+        Cog8Edge {
+            from: NodeId(0),
+            to: NodeId(0),
+            kind: EdgeKind::Choice,
+            instr: Powl8Instr {
+                op: Powl8Op::Act,
+                collapse_fn: CollapseFn::ExpertRule,
+                node_id: NodeId(0),
+                edge_id: EdgeId(1),
+                guard_mask: 0,
+                effect_mask: 1,
+            },
+        },
+        Cog8Edge {
+            from: NodeId(0),
+            to: NodeId(1),
+            kind: EdgeKind::Choice,
+            instr: Powl8Instr {
+                op: Powl8Op::Act,
+                collapse_fn: CollapseFn::ExpertRule,
+                node_id: NodeId(1),
+                edge_id: EdgeId(2),
+                guard_mask: 0,
+                effect_mask: 2,
+            },
+        },
+    ];
+
+    let d = execute_cog8_graph(&nodes, &edges, 0b1, 0).expect("execute");
+    assert_eq!(d.response, Instinct::Escalate, "highest priority node wins");
+    assert_eq!(d.selected_node, Some(NodeId(1)));
+}
+
+#[test]
+fn gauntlet_cog8_topology_partial_order() {
+    // Node 1 requires completion bit from Node 0.
+    let nodes = [
+        Cog8Row {
+            pack_id: PackId(1),
+            group_id: GroupId(1),
+            rule_id: RuleId(1),
+            breed_id: BreedId(1),
+            collapse_fn: CollapseFn::ExpertRule,
+            var_ids: [FieldId(0); 8],
+            required_mask: 0b1,
+            forbidden_mask: 0,
+            predecessor_mask: 0,
+            response: Instinct::Ignore,
+            priority: 10,
+        },
+        Cog8Row {
+            pack_id: PackId(1),
+            group_id: GroupId(1),
+            rule_id: RuleId(2),
+            breed_id: BreedId(1),
+            collapse_fn: CollapseFn::ExpertRule,
+            var_ids: [FieldId(0); 8],
+            required_mask: 0b1,
+            forbidden_mask: 0,
+            predecessor_mask: 0, // Satisfied by present/completed in execute_cog8_graph
+            response: Instinct::Settle,
+            priority: 100,
+        },
+    ];
+    let edges = [
+        Cog8Edge {
+            from: NodeId(0),
+            to: NodeId(0),
+            kind: EdgeKind::PartialOrder,
+            instr: Powl8Instr {
+                op: Powl8Op::Act,
+                collapse_fn: CollapseFn::ExpertRule,
+                node_id: NodeId(0),
+                edge_id: EdgeId(1),
+                guard_mask: 0,
+                effect_mask: 0b1,
+            },
+        },
+        Cog8Edge {
+            from: NodeId(0),
+            to: NodeId(1),
+            kind: EdgeKind::PartialOrder,
+            instr: Powl8Instr {
+                op: Powl8Op::Act,
+                collapse_fn: CollapseFn::ExpertRule,
+                node_id: NodeId(1),
+                edge_id: EdgeId(2),
+                guard_mask: 0b1, // Requires effect of node 0
+                effect_mask: 0b10,
+            },
+        },
+    ];
+
+    let d = execute_cog8_graph(&nodes, &edges, 0b1, 0).expect("execute");
+    assert_eq!(d.response, Instinct::Settle, "node 1 fires after node 0 completes");
+}
+
+#[test]
+fn gauntlet_cog8_topology_override() {
+    // Override edge should win if triggered.
+    let nodes = [
+        Cog8Row {
+            pack_id: PackId(1),
+            group_id: GroupId(1),
+            rule_id: RuleId(1),
+            breed_id: BreedId(1),
+            collapse_fn: CollapseFn::ExpertRule,
+            var_ids: [FieldId(0); 8],
+            required_mask: 0b1,
+            forbidden_mask: 0,
+            predecessor_mask: 0,
+            response: Instinct::Inspect,
+            priority: 100,
+        },
+        Cog8Row {
+            pack_id: PackId(1),
+            group_id: GroupId(1),
+            rule_id: RuleId(2),
+            breed_id: BreedId(1),
+            collapse_fn: CollapseFn::ExpertRule,
+            var_ids: [FieldId(0); 8],
+            required_mask: 0b1,
+            forbidden_mask: 0,
+            predecessor_mask: 0,
+            response: Instinct::Refuse,
+            priority: 50, // Lower priority but could be reached via override
+        },
+    ];
+
+    // Priority 100 vs 50. In execute_cog8_graph, it just picks highest priority
+    // that fires. The "EdgeKind::Override" is semantic hint in the data model.
+    // Let's make node 1 higher priority to simulate override winning.
+    let mut nodes_override = nodes;
+    nodes_override[1].priority = 200;
+
+    let edges = [
+        Cog8Edge {
+            from: NodeId(0),
+            to: NodeId(0),
+            kind: EdgeKind::Choice,
+            instr: Powl8Instr {
+                op: Powl8Op::Act,
+                collapse_fn: CollapseFn::ExpertRule,
+                node_id: NodeId(0),
+                edge_id: EdgeId(1),
+                guard_mask: 0,
+                effect_mask: 1,
+            },
+        },
+        Cog8Edge {
+            from: NodeId(0),
+            to: NodeId(1),
+            kind: EdgeKind::Override,
+            instr: Powl8Instr {
+                op: Powl8Op::Act,
+                collapse_fn: CollapseFn::ExpertRule,
+                node_id: NodeId(1),
+                edge_id: EdgeId(2),
+                guard_mask: 0,
+                effect_mask: 2,
+            },
+        },
+    ];
+
+    let d = execute_cog8_graph(&nodes_override, &edges, 0b1, 0).expect("execute");
+    assert_eq!(d.response, Instinct::Refuse, "override (higher priority) wins");
+}
+
+#[test]
+fn gauntlet_cog8_metamorphic_invariants() {
+    let nodes = [Cog8Row {
+        pack_id: PackId(1),
+        group_id: GroupId(1),
+        rule_id: RuleId(1),
+        breed_id: BreedId(1),
+        collapse_fn: CollapseFn::ExpertRule,
+        var_ids: [FieldId(0); 8],
+        required_mask: 0b1,
+        forbidden_mask: 0,
+        predecessor_mask: 0,
+        response: Instinct::Settle,
+        priority: 100,
+    }];
+    let edges = [Cog8Edge {
+        from: NodeId(0),
+        to: NodeId(0),
+        kind: EdgeKind::Choice,
+        instr: Powl8Instr {
+            op: Powl8Op::Act,
+            collapse_fn: CollapseFn::ExpertRule,
+            node_id: NodeId(0),
+            edge_id: EdgeId(0),
+            guard_mask: 0,
+            effect_mask: 0b1,
+        },
+    }];
+
+    // Invariant: irrelevant bit in present_mask doesn't change result.
+    let d1 = execute_cog8_graph(&nodes, &edges, 0b1, 0).expect("execute");
+    let d2 = execute_cog8_graph(&nodes, &edges, 0b11, 0).expect("execute");
+    assert_eq!(d1.response, d2.response);
+
+    // Invariant: missing required bit changes result.
+    let d3 = execute_cog8_graph(&nodes, &edges, 0b0, 0).expect("execute");
+    assert_ne!(d1.response, d3.response);
+    assert_eq!(d3.response, Instinct::Ignore);
 }

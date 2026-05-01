@@ -8,7 +8,8 @@ use ccog::field::FieldContext;
 use ccog::instinct::AutonomicInstinct;
 use ccog::multimodal::{ContextBit, ContextBundle, PostureBit, PostureBundle};
 use ccog::packs::lifestyle::{select_instinct, LifestyleBit, LifestylePack, BUILTINS};
-use ccog::packs::FieldPack;
+use ccog::packs::{FieldPack, TierMasks};
+use ccog::runtime::ClosedFieldContext;
 
 fn empty_snap() -> CompiledFieldSnapshot {
     let f = FieldContext::new("t");
@@ -27,7 +28,14 @@ fn pack_lifestyle_positive_fatigued_refuse_becomes_ask() {
         risk_mask: 1u64 << ContextBit::THEFT_RISK,
         affordance_mask: 0,
     };
-    assert_eq!(select_instinct(&snap, &posture, &ctx), AutonomicInstinct::Ask);
+    let context = ClosedFieldContext {
+        snapshot: std::sync::Arc::new(snap.clone()),
+        posture,
+        context: ctx,
+        tiers: TierMasks::ZERO,
+        human_burden: 0,
+    };
+    assert_eq!(select_instinct(&context), AutonomicInstinct::Ask);
 }
 
 #[test]
@@ -42,7 +50,14 @@ fn pack_lifestyle_negative_unfatigued_keeps_refuse() {
         risk_mask: 1u64 << ContextBit::THEFT_RISK,
         affordance_mask: 0,
     };
-    assert_eq!(select_instinct(&snap, &posture, &ctx), AutonomicInstinct::Refuse);
+    let context = ClosedFieldContext {
+        snapshot: std::sync::Arc::new(snap.clone()),
+        posture,
+        context: ctx,
+        tiers: TierMasks::ZERO,
+        human_burden: 0,
+    };
+    assert_eq!(select_instinct(&context), AutonomicInstinct::Refuse);
 }
 
 #[test]
@@ -57,7 +72,14 @@ fn pack_lifestyle_boundary_overstim_also_clamps() {
         risk_mask: 1u64 << ContextBit::THEFT_RISK,
         affordance_mask: 0,
     };
-    assert_eq!(select_instinct(&snap, &posture, &ctx), AutonomicInstinct::Ask);
+    let context = ClosedFieldContext {
+        snapshot: std::sync::Arc::new(snap.clone()),
+        posture,
+        context: ctx,
+        tiers: TierMasks::ZERO,
+        human_burden: 0,
+    };
+    assert_eq!(select_instinct(&context), AutonomicInstinct::Ask);
 }
 
 #[test]
@@ -74,7 +96,14 @@ fn pack_lifestyle_boundary_does_not_introduce_new_variants() {
     for (pm, em, rm, am) in inputs {
         let p = PostureBundle { posture_mask: pm, confidence: 200 };
         let c = ContextBundle { expectation_mask: em, risk_mask: rm, affordance_mask: am };
-        let v = select_instinct(&snap, &p, &c);
+        let context = ClosedFieldContext {
+            snapshot: std::sync::Arc::new(snap.clone()),
+            posture: p,
+            context: c,
+            tiers: TierMasks::ZERO,
+            human_burden: 0,
+        };
+        let v = select_instinct(&context);
         match v {
             AutonomicInstinct::Settle
             | AutonomicInstinct::Retrieve

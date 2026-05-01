@@ -206,10 +206,10 @@ mod tests {
     /// Verifies that `commit_masked_bool` selects correctly across both polarities.
     #[test]
     fn commit_masked_bool_selects_correctly() {
-        assert_eq!(commit_masked_bool(0, true, false), true);
-        assert_eq!(commit_masked_bool(0, false, true), false);
-        assert_eq!(commit_masked_bool(1, true, false), false);
-        assert_eq!(commit_masked_bool(u64::MAX, false, true), true);
+        assert!(commit_masked_bool(0, true, false));
+        assert!(!commit_masked_bool(0, false, true));
+        assert!(!commit_masked_bool(1, true, false));
+        assert!(commit_masked_bool(u64::MAX, false, true));
     }
 
     /// Verifies that the generic `commit_masked` selects correctly using a

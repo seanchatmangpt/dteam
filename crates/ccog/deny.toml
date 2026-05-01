@@ -1,0 +1,15 @@
+[licenses]
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "Unlicense",
+    "CC0-1.0",
+    "BUSL-1.1",
+    "Unicode-3.0",
+]
+exceptions = [
+    { allow = ["Apache-2.0 WITH LLVM-exception"], name = "blake3" },
+    { allow = ["Apache-2.0 WITH LLVM-exception"], name = "wit-bindgen" }
+]

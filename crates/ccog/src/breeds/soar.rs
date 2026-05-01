@@ -110,7 +110,7 @@ pub fn materialize(field: &FieldContext) -> Result<Option<MacroOperator>> {
         }
     }
     for (k, c) in &counts {
-        if best.as_ref().map_or(true, |(_, bc)| *c > *bc) {
+        if best.as_ref().is_none_or(|(_, bc)| *c > *bc) {
             best = Some((k.clone(), *c));
         }
     }

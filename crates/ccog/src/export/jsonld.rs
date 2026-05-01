@@ -1,4 +1,5 @@
 //! JSON-LD serializer for Phase 11 audit surface.
+#![allow(clippy::disallowed_types)]
 
 use std::collections::BTreeMap;
 
@@ -122,6 +123,9 @@ mod tests {
     use super::*;
     use crate::compiled::CompiledFieldSnapshot;
     use crate::field::FieldContext;
+    use crate::multimodal::{ContextBundle, PostureBundle};
+    use crate::packs::TierMasks;
+    use crate::runtime::ClosedFieldContext;
     use crate::trace::trace_default_builtins;
 
     #[test]
@@ -133,7 +137,14 @@ mod tests {
             )
             .expect("load");
         let snap = CompiledFieldSnapshot::from_field(&field).expect("snap");
-        let trace = trace_default_builtins(&snap);
+        let context = ClosedFieldContext {
+            snapshot: std::sync::Arc::new(snap.clone()),
+            posture: PostureBundle::default(),
+            context: ContextBundle::default(),
+            tiers: TierMasks::ZERO,
+            human_burden: 0,
+        };
+        let trace = trace_default_builtins(&context);
         let v1 = trace_to_jsonld(&trace);
         let v2 = trace_to_jsonld(&trace);
         assert_eq!(canonical_bytes(&v1), canonical_bytes(&v2));

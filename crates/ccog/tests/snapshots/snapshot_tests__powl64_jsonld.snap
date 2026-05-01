@@ -1,0 +1,19 @@
+---
+source: crates/ccog/tests/snapshot_tests.rs
+expression: pretty
+---
+{
+  "@context": {
+    "ccog": "urn:ccog:vocab:",
+    "prov": "http://www.w3.org/ns/prov#",
+    "schema": "https://schema.org/",
+    "sh": "http://www.w3.org/ns/shacl#",
+    "xsd": "http://www.w3.org/2001/XMLSchema#"
+  },
+  "@type": "ccog:Powl64Path",
+  "ccog:chain": [
+    "urn:blake3:0100000000000000000000000000000000000000000000000000000000000000",
+    "urn:blake3:0200000000000000000000000000000000000000000000000000000000000000",
+    "urn:blake3:0300000000000000000000000000000000000000000000000000000000000000"
+  ]
+}

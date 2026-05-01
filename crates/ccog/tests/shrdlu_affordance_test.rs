@@ -11,7 +11,7 @@ const NT_FIELD: &str = r#"
 
 #[test]
 fn shrdlu_returns_admissible_actions_for_object() {
-    let mut field = FieldContext::new("affordance");
+    let field = FieldContext::new("affordance");
     field.graph.load_ntriples(NT_FIELD).unwrap();
     let obj = GraphIri::from_iri("http://example.org/obj1").unwrap();
     let v = check_affordance(&obj, &field).expect("check_affordance");

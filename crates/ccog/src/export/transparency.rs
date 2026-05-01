@@ -7,6 +7,9 @@
 use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
 use serde::{Deserialize, Serialize};
 
+use crate::runtime::conformance::{EvidenceLedger, ConformanceReport};
+use crate::powl64::ProjectionTarget;
+
 /// Submission packet — `chain_head` + `bundle_hash` + Ed25519 signature.
 ///
 /// `signature` is split into two 32-byte halves (`signature_lo` /
@@ -24,6 +27,69 @@ pub struct SubmissionPacket {
     pub signature_hi: [u8; 32],
     /// 32-byte Ed25519 verifying key.
     pub pubkey: [u8; 32],
+}
+
+/// Final Process-Mining Scorecard (Wil van der Aalst Report).
+///
+/// Reports the performance, conformance, and ecology metrics for a cognitive run.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct VanDerAalstScorecard {
+    /// Case Throughput (total number of traces processed).
+    pub case_throughput: f64,
+    /// Fitness: Ratio of observed trace steps admissible in topology [0.0, 1.0].
+    pub fitness: f64,
+    /// Precision: Ratio of topology edges exercised by the ledger [0.0, 1.0].
+    pub precision: f64,
+    /// Alignment Cost: Aggregate penalty for fitness violations (moves-on-log).
+    pub alignment_cost: f64,
+    /// Unnecessary Externalization Rate: Ratio of steps requiring human-in-the-loop intervention.
+    pub externalization_rate: f64,
+    /// Drift Epoch: Cryptographic chain head where a significant policy or resource drift was detected.
+    pub drift_epoch: u64,
+}
+
+impl VanDerAalstScorecard {
+    /// Generate a scorecard from an evidence ledger and its conformance report.
+    #[must_use]
+    pub fn generate(ledger: &EvidenceLedger, report: &ConformanceReport) -> Self {
+        let mut total_steps = 0;
+        let mut hitl_steps = 0;
+        let mut latest_drift_epoch = 0;
+
+        for trace in &ledger.traces {
+            total_steps += trace.cells.len();
+            for cell in &trace.cells {
+                if cell.projection_target == ProjectionTarget::Hitl {
+                    hitl_steps += 1;
+                }
+                
+                // Heuristic drift detection: identify the latest point of divergence.
+                // We use chain_head as the epoch marker.
+                if cell.chain_head > latest_drift_epoch && (report.fitness < 1.0 || report.precision < 1.0) {
+                    latest_drift_epoch = cell.chain_head;
+                }
+            }
+        }
+
+        let case_throughput = ledger.traces.len() as f64;
+        let externalization_rate = if total_steps > 0 {
+            hitl_steps as f64 / total_steps as f64
+        } else {
+            0.0
+        };
+
+        // Alignment cost in van der Aalst terms is the count of non-fitting steps.
+        let alignment_cost = (1.0 - report.fitness) * total_steps as f64;
+
+        Self {
+            case_throughput,
+            fitness: report.fitness,
+            precision: report.precision,
+            alignment_cost,
+            externalization_rate,
+            drift_epoch: latest_drift_epoch,
+        }
+    }
 }
 
 impl SubmissionPacket {
@@ -64,6 +130,7 @@ impl SubmissionPacket {
     /// # Errors
     ///
     /// Returns `Err(())` when the public key is malformed or the signature fails.
+    #[allow(clippy::result_unit_err)]
     pub fn verify(&self) -> Result<(), ()> {
         let vk = VerifyingKey::from_bytes(&self.pubkey).map_err(|_| ())?;
         let sig = Signature::from_bytes(&self.signature_bytes());
@@ -105,5 +172,43 @@ mod tests {
         let mut p = SubmissionPacket::sign([1u8; 32], [2u8; 32], &k);
         p.signature_lo[0] ^= 0x01;
         assert!(p.verify().is_err(), "tampered signature must fail verify");
+    }
+
+    #[test]
+    fn scorecard_generation_metrics() {
+        let mut ledger = EvidenceLedger::new();
+        let mut trace = crate::powl64::Powl64::new();
+        
+        // Add a step with HITL projection
+        trace.extend(crate::powl64::Powl64RouteCell {
+            projection_target: ProjectionTarget::Hitl,
+            chain_head: 1234,
+            ..Default::default()
+        });
+        // Add a normal step
+        trace.extend(crate::powl64::Powl64RouteCell {
+            projection_target: ProjectionTarget::NoOp,
+            chain_head: 5678,
+            ..Default::default()
+        });
+        
+        ledger.record(trace);
+        
+        let report = ConformanceReport {
+            fitness: 0.5,
+            precision: 0.8,
+            false_closures: vec![],
+            generalization: 0.0,
+            simplicity: 0.0,
+        };
+        
+        let scorecard = VanDerAalstScorecard::generate(&ledger, &report);
+        
+        assert_eq!(scorecard.case_throughput, 1.0);
+        assert_eq!(scorecard.fitness, 0.5);
+        assert_eq!(scorecard.precision, 0.8);
+        assert_eq!(scorecard.externalization_rate, 0.5); // 1 Hitl out of 2 steps
+        assert_eq!(scorecard.alignment_cost, 1.0); // (1.0 - 0.5) * 2 steps = 1.0
+        assert_eq!(scorecard.drift_epoch, 5678); // Latest chain_head with fitness < 1.0
     }
 }

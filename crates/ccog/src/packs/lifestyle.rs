@@ -10,19 +10,25 @@
 
 use crate::bark_artifact::BarkSlot;
 use crate::ccog_const_assert;
-use crate::compiled::CompiledFieldSnapshot;
-use crate::construct8::Construct8;
+use crate::construct8::{Construct8, ObjectId, PredicateId, Triple};
 use crate::instinct::AutonomicInstinct;
-use crate::multimodal::{ContextBundle, PostureBundle};
 use crate::packs::bits::LIFESTYLE_RANGE;
 use crate::packs::FieldPack;
+use crate::runtime::ClosedFieldContext;
+use crate::runtime::cog8::{
+    Cog8Edge, Cog8Row, CollapseFn, EdgeKind, Instinct, Powl8Instr, Powl8Op,
+};
+use crate::ids::{BreedId, EdgeId, FieldId, GroupId, NodeId, PackId, RuleId};
+use crate::utils::dense::fnv1a_64;
 use crate::verdict::Breed;
 use anyhow::Result;
-use oxigraph::model::{NamedNode, Term, Triple};
+
+/// Lifestyle / OT pack numeric ID.
+pub const PACK_ID: PackId = PackId(1);
 
 /// Lifestyle pack posture bits — local within the [`LIFESTYLE_RANGE`] band.
 #[allow(non_snake_case)]
-pub mod LifestyleBit {
+pub mod Bit {
     /// Routine cadence is currently due.
     pub const ROUTINE_DUE: u32 = 16;
     /// Subject is fatigued.
@@ -35,8 +41,188 @@ pub mod LifestyleBit {
     pub const AFFORDANCE_OFFERED: u32 = 20;
 }
 
-ccog_const_assert!(LifestyleBit::ROUTINE_DUE >= LIFESTYLE_RANGE.start);
-ccog_const_assert!(LifestyleBit::AFFORDANCE_OFFERED < LIFESTYLE_RANGE.end);
+/// Alias for [`Bit`] to match standard naming conventions.
+pub use Bit as LifestyleBit;
+
+ccog_const_assert!(Bit::ROUTINE_DUE >= LIFESTYLE_RANGE.start);
+ccog_const_assert!(Bit::AFFORDANCE_OFFERED < LIFESTYLE_RANGE.end);
+
+/// COG8 rows for the Lifestyle pack.
+pub static COG8_NODES: &[Cog8Row] = &[
+    // Node 0: Start marker (Silent)
+    Cog8Row {
+        pack_id: PACK_ID,
+        group_id: GroupId(0),
+        rule_id: RuleId(0),
+        breed_id: BreedId(Breed::CompiledHook as u8),
+        collapse_fn: CollapseFn::None,
+        var_ids: [FieldId(0); 8],
+        required_mask: 0,
+        forbidden_mask: 0,
+        predecessor_mask: 0,
+        response: Instinct::Ignore,
+        priority: 0,
+    },
+    // Node 1: routine_due_check
+    Cog8Row {
+        pack_id: PACK_ID,
+        group_id: GroupId(1),
+        rule_id: RuleId(1),
+        breed_id: BreedId(Breed::Mycin as u8),
+        collapse_fn: CollapseFn::ExpertRule,
+        var_ids: [
+            FieldId(Bit::ROUTINE_DUE as u16),
+            FieldId(0), FieldId(0), FieldId(0),
+            FieldId(0), FieldId(0), FieldId(0), FieldId(0),
+        ],
+        required_mask: 1u64 << Bit::ROUTINE_DUE,
+        forbidden_mask: 0,
+        predecessor_mask: 0,
+        response: Instinct::Ask,
+        priority: 10,
+    },
+    // Node 2: fatigue_acknowledge
+    Cog8Row {
+        pack_id: PACK_ID,
+        group_id: GroupId(2),
+        rule_id: RuleId(2),
+        breed_id: BreedId(Breed::Eliza as u8),
+        collapse_fn: CollapseFn::ReflectivePosture,
+        var_ids: [
+            FieldId(Bit::FATIGUED as u16),
+            FieldId(0), FieldId(0), FieldId(0),
+            FieldId(0), FieldId(0), FieldId(0), FieldId(0),
+        ],
+        required_mask: 1u64 << Bit::FATIGUED,
+        forbidden_mask: 0,
+        predecessor_mask: 0,
+        response: Instinct::Settle,
+        priority: 20,
+    },
+    // Node 3: transition_smooth
+    Cog8Row {
+        pack_id: PACK_ID,
+        group_id: GroupId(3),
+        rule_id: RuleId(3),
+        breed_id: BreedId(Breed::Strips as u8),
+        collapse_fn: CollapseFn::Preconditions,
+        var_ids: [
+            FieldId(Bit::TRANSITION_OPEN as u16),
+            FieldId(0), FieldId(0), FieldId(0),
+            FieldId(0), FieldId(0), FieldId(0), FieldId(0),
+        ],
+        required_mask: 1u64 << Bit::TRANSITION_OPEN,
+        forbidden_mask: 0,
+        predecessor_mask: 0,
+        response: Instinct::Settle,
+        priority: 30,
+    },
+    // Node 4: affordance_offer
+    Cog8Row {
+        pack_id: PACK_ID,
+        group_id: GroupId(4),
+        rule_id: RuleId(4),
+        breed_id: BreedId(Breed::Shrdlu as u8),
+        collapse_fn: CollapseFn::Grounding,
+        var_ids: [
+            FieldId(Bit::AFFORDANCE_OFFERED as u16),
+            FieldId(0), FieldId(0), FieldId(0),
+            FieldId(0), FieldId(0), FieldId(0), FieldId(0),
+        ],
+        required_mask: 1u64 << Bit::AFFORDANCE_OFFERED,
+        forbidden_mask: 0,
+        predecessor_mask: 0,
+        response: Instinct::Inspect,
+        priority: 40,
+    },
+    // Node 5: overstim_settle
+    Cog8Row {
+        pack_id: PACK_ID,
+        group_id: GroupId(5),
+        rule_id: RuleId(5),
+        breed_id: BreedId(Breed::Eliza as u8),
+        collapse_fn: CollapseFn::ReflectivePosture,
+        var_ids: [
+            FieldId(Bit::OVERSTIMULATED as u16),
+            FieldId(0), FieldId(0), FieldId(0),
+            FieldId(0), FieldId(0), FieldId(0), FieldId(0),
+        ],
+        required_mask: 1u64 << Bit::OVERSTIMULATED,
+        forbidden_mask: 0,
+        predecessor_mask: 0,
+        response: Instinct::Settle,
+        priority: 50,
+    },
+];
+
+/// POWL8 topology edges for the Lifestyle pack.
+pub static COG8_EDGES: &[Cog8Edge] = &[
+    Cog8Edge {
+        from: NodeId(0),
+        to: NodeId(1),
+        kind: EdgeKind::Choice,
+        instr: Powl8Instr {
+            op: Powl8Op::Act,
+            collapse_fn: CollapseFn::ExpertRule,
+            node_id: NodeId(1),
+            edge_id: EdgeId(1),
+            guard_mask: 1u64 << 0,
+            effect_mask: 1u64 << 1,
+        },
+    },
+    Cog8Edge {
+        from: NodeId(0),
+        to: NodeId(2),
+        kind: EdgeKind::Choice,
+        instr: Powl8Instr {
+            op: Powl8Op::Act,
+            collapse_fn: CollapseFn::ReflectivePosture,
+            node_id: NodeId(2),
+            edge_id: EdgeId(2),
+            guard_mask: 1u64 << 0,
+            effect_mask: 1u64 << 2,
+        },
+    },
+    Cog8Edge {
+        from: NodeId(0),
+        to: NodeId(3),
+        kind: EdgeKind::Choice,
+        instr: Powl8Instr {
+            op: Powl8Op::Act,
+            collapse_fn: CollapseFn::Preconditions,
+            node_id: NodeId(3),
+            edge_id: EdgeId(3),
+            guard_mask: 1u64 << 0,
+            effect_mask: 1u64 << 3,
+        },
+    },
+    Cog8Edge {
+        from: NodeId(0),
+        to: NodeId(4),
+        kind: EdgeKind::Choice,
+        instr: Powl8Instr {
+            op: Powl8Op::Act,
+            collapse_fn: CollapseFn::Grounding,
+            node_id: NodeId(4),
+            edge_id: EdgeId(4),
+            guard_mask: 1u64 << 0,
+            effect_mask: 1u64 << 4,
+        },
+    },
+    Cog8Edge {
+        from: NodeId(0),
+        to: NodeId(5),
+        kind: EdgeKind::Choice,
+        instr: Powl8Instr {
+            op: Powl8Op::Act,
+            collapse_fn: CollapseFn::ReflectivePosture,
+            node_id: NodeId(5),
+            edge_id: EdgeId(5),
+            guard_mask: 1u64 << 0,
+            effect_mask: 1u64 << 5,
+        },
+    },
+];
 
 /// Lifestyle / OT pack handle (zero-sized).
 pub struct LifestylePack;
@@ -99,32 +285,36 @@ pub static BUILTINS: &[BarkSlot] = &[
 
 fn pack_activity(tag: &[u8]) -> Result<Construct8> {
     let h = blake3::hash(tag);
-    let activity = NamedNode::new(format!("urn:blake3:{}", h.to_hex()))?;
-    let rt = NamedNode::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")?;
-    let prov_activity = NamedNode::new("http://www.w3.org/ns/prov#Activity")?;
-    let act_term: Term = prov_activity.into();
+    let activity_uri = format!("urn:blake3:{}", h.to_hex());
+    let rt_uri = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
+    let prov_activity_uri = "http://www.w3.org/ns/prov#Activity";
+
+    let subject = ObjectId(fnv1a_64(activity_uri.as_bytes()) as u32);
+    let predicate = PredicateId(fnv1a_64(rt_uri.as_bytes()) as u16);
+    let object = ObjectId(fnv1a_64(prov_activity_uri.as_bytes()) as u32);
+
     let mut delta = Construct8::empty();
-    let _ = delta.push(Triple::new(activity, rt, act_term));
+    let _ = delta.push(Triple::new(subject, predicate, object));
     Ok(delta)
 }
 
-fn act_routine_due_check(_snap: &CompiledFieldSnapshot) -> Result<Construct8> {
+fn act_routine_due_check(_context: &ClosedFieldContext) -> Result<Construct8> {
     pack_activity(b"lifestyle/routine_due_check")
 }
 
-fn act_fatigue_acknowledge(_snap: &CompiledFieldSnapshot) -> Result<Construct8> {
+fn act_fatigue_acknowledge(_context: &ClosedFieldContext) -> Result<Construct8> {
     pack_activity(b"lifestyle/fatigue_acknowledge")
 }
 
-fn act_transition_smooth(_snap: &CompiledFieldSnapshot) -> Result<Construct8> {
+fn act_transition_smooth(_context: &ClosedFieldContext) -> Result<Construct8> {
     pack_activity(b"lifestyle/transition_smooth")
 }
 
-fn act_affordance_offer(_snap: &CompiledFieldSnapshot) -> Result<Construct8> {
+fn act_affordance_offer(_context: &ClosedFieldContext) -> Result<Construct8> {
     pack_activity(b"lifestyle/affordance_offer")
 }
 
-fn act_overstim_settle(_snap: &CompiledFieldSnapshot) -> Result<Construct8> {
+fn act_overstim_settle(_context: &ClosedFieldContext) -> Result<Construct8> {
     pack_activity(b"lifestyle/overstim_settle")
 }
 
@@ -132,13 +322,10 @@ fn act_overstim_settle(_snap: &CompiledFieldSnapshot) -> Result<Construct8> {
 /// not cooperative; rewrite `Refuse` to `Ask`. All other classes pass through
 /// unchanged. Never introduces new variants.
 #[must_use]
-pub fn select_instinct(
-    snap: &CompiledFieldSnapshot,
-    posture: &PostureBundle,
-    ctx: &ContextBundle,
-) -> AutonomicInstinct {
-    let base = crate::instinct::select_instinct_v0(snap, posture, ctx);
-    let fatigued = posture.has(LifestyleBit::FATIGUED) || posture.has(LifestyleBit::OVERSTIMULATED);
+pub fn select_instinct(context: &ClosedFieldContext) -> AutonomicInstinct {
+    let base = crate::instinct::select_instinct_v0(context);
+    let fatigued = context.posture.has(Bit::FATIGUED)
+        || context.posture.has(Bit::OVERSTIMULATED);
     if fatigued && matches!(base, AutonomicInstinct::Refuse) {
         return AutonomicInstinct::Ask;
     }
@@ -148,8 +335,10 @@ pub fn select_instinct(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::compiled::CompiledFieldSnapshot;
     use crate::field::FieldContext;
-    use crate::multimodal::PostureBit;
+    use crate::multimodal::{ContextBundle, PostureBit, PostureBundle};
+    use crate::packs::TierMasks;
 
     fn empty_snap() -> CompiledFieldSnapshot {
         let f = FieldContext::new("t");
@@ -160,7 +349,7 @@ mod tests {
     fn fatigued_rewrites_refuse_to_ask() {
         let snap = empty_snap();
         let posture = PostureBundle {
-            posture_mask: (1u64 << PostureBit::ALERT) | (1u64 << LifestyleBit::FATIGUED),
+            posture_mask: (1u64 << PostureBit::ALERT) | (1u64 << Bit::FATIGUED),
             confidence: 200,
         };
         let ctx = ContextBundle {
@@ -168,8 +357,14 @@ mod tests {
             risk_mask: 1u64 << crate::multimodal::ContextBit::THEFT_RISK,
             affordance_mask: 0,
         };
+        let context = ClosedFieldContext { human_burden: 0,
+            snapshot: std::sync::Arc::new(snap.clone()),
+            posture,
+            context: ctx,
+            tiers: TierMasks::ZERO,
+        };
         // Base lattice would be Refuse; Lifestyle bias turns it into Ask.
-        assert_eq!(select_instinct(&snap, &posture, &ctx), AutonomicInstinct::Ask);
+        assert_eq!(select_instinct(&context), AutonomicInstinct::Ask);
     }
 
     #[test]
@@ -184,6 +379,29 @@ mod tests {
             risk_mask: 1u64 << crate::multimodal::ContextBit::THEFT_RISK,
             affordance_mask: 0,
         };
-        assert_eq!(select_instinct(&snap, &posture, &ctx), AutonomicInstinct::Refuse);
+        let context = ClosedFieldContext { human_burden: 0,
+            snapshot: std::sync::Arc::new(snap.clone()),
+            posture,
+            context: ctx,
+            tiers: TierMasks::ZERO,
+        };
+        assert_eq!(select_instinct(&context), AutonomicInstinct::Refuse);
+    }
+
+    #[test]
+    fn all_acts_emit_one_triple() {
+        let f = FieldContext::new("t");
+        let snap = CompiledFieldSnapshot::from_field(&f).expect("snap");
+        let context = ClosedFieldContext {
+            snapshot: std::sync::Arc::new(snap.clone()),
+            posture: PostureBundle::default(),
+            context: ContextBundle::default(),
+            tiers: TierMasks::ZERO,
+            human_burden: 0,
+        };
+        for slot in BUILTINS {
+            let delta = (slot.act)(&context).expect("act");
+            assert_eq!(delta.len(), 1, "lifestyle act {} must emit exactly one triple", slot.name);
+        }
     }
 }

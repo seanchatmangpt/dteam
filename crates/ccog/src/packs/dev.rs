@@ -11,19 +11,25 @@
 
 use crate::bark_artifact::BarkSlot;
 use crate::ccog_const_assert;
-use crate::compiled::CompiledFieldSnapshot;
-use crate::construct8::Construct8;
+use crate::construct8::{Construct8, ObjectId, PredicateId, Triple};
 use crate::instinct::AutonomicInstinct;
-use crate::multimodal::{ContextBundle, PostureBundle};
 use crate::packs::bits::DEV_RANGE;
 use crate::packs::FieldPack;
+use crate::runtime::cog8::{
+    BreedId, Cog8Edge, Cog8Row, CollapseFn, EdgeId, EdgeKind, FieldId, GroupId, Instinct, NodeId,
+    PackId, Powl8Instr, Powl8Op, RuleId,
+};
+use crate::runtime::ClosedFieldContext;
+use crate::utils::dense::fnv1a_64;
 use crate::verdict::Breed;
 use anyhow::Result;
-use oxigraph::model::{NamedNode, Term, Triple};
+
+/// Dev / Agent Governance pack numeric ID.
+pub const PACK_ID: PackId = PackId(4);
 
 /// Dev pack bits — local within the [`DEV_RANGE`] band.
 #[allow(non_snake_case)]
-pub mod DevBit {
+pub mod Bit {
     /// A boundary test failed.
     pub const BOUNDARY_FAILED: u32 = 56;
     /// A nightly feature is in use.
@@ -34,8 +40,154 @@ pub mod DevBit {
     pub const CLAUDE_MD_STALE: u32 = 59;
 }
 
-ccog_const_assert!(DevBit::BOUNDARY_FAILED >= DEV_RANGE.start);
-ccog_const_assert!(DevBit::CLAUDE_MD_STALE < DEV_RANGE.end);
+ccog_const_assert!(Bit::BOUNDARY_FAILED >= DEV_RANGE.start);
+ccog_const_assert!(Bit::CLAUDE_MD_STALE < DEV_RANGE.end);
+
+/// COG8 closure nodes for Dev / Agent Governance (PRD v0.5).
+pub static COG8_NODES: &[Cog8Row] = &[
+    // Node 0: Start marker (Silent entry)
+    Cog8Row {
+        pack_id: PACK_ID,
+        group_id: GroupId(0),
+        rule_id: RuleId(0),
+        breed_id: BreedId(Breed::CompiledHook as u8),
+        collapse_fn: CollapseFn::None,
+        var_ids: [FieldId(0); 8],
+        required_mask: 0,
+        forbidden_mask: 0,
+        predecessor_mask: 0,
+        response: Instinct::Ignore,
+        priority: 0,
+    },
+    // Node 1: boundary_test_guard
+    Cog8Row {
+        pack_id: PACK_ID,
+        group_id: GroupId(4),
+        rule_id: RuleId(Bit::BOUNDARY_FAILED as u16),
+        breed_id: BreedId(Breed::Mycin as u8),
+        collapse_fn: CollapseFn::ExpertRule,
+        var_ids: [
+            FieldId(Bit::BOUNDARY_FAILED as u16),
+            FieldId(0), FieldId(0), FieldId(0),
+            FieldId(0), FieldId(0), FieldId(0), FieldId(0),
+        ],
+        required_mask: 1u64 << Bit::BOUNDARY_FAILED,
+        forbidden_mask: 0,
+        predecessor_mask: 0,
+        response: Instinct::Ask,
+        priority: 10,
+    },
+    // Node 2: nightly_feature_check
+    Cog8Row {
+        pack_id: PACK_ID,
+        group_id: GroupId(4),
+        rule_id: RuleId(Bit::NIGHTLY_FEATURE as u16),
+        breed_id: BreedId(Breed::Dendral as u8),
+        collapse_fn: CollapseFn::Reconstruction,
+        var_ids: [
+            FieldId(Bit::NIGHTLY_FEATURE as u16),
+            FieldId(0), FieldId(0), FieldId(0),
+            FieldId(0), FieldId(0), FieldId(0), FieldId(0),
+        ],
+        required_mask: 1u64 << Bit::NIGHTLY_FEATURE,
+        forbidden_mask: 0,
+        predecessor_mask: 0,
+        response: Instinct::Ask,
+        priority: 10,
+    },
+    // Node 3: mask_domain_audit
+    Cog8Row {
+        pack_id: PACK_ID,
+        group_id: GroupId(4),
+        rule_id: RuleId(Bit::MASK_DOMAIN_UNCLEAR as u16),
+        breed_id: BreedId(Breed::Prolog as u8),
+        collapse_fn: CollapseFn::RelationalProof,
+        var_ids: [
+            FieldId(Bit::MASK_DOMAIN_UNCLEAR as u16),
+            FieldId(0), FieldId(0), FieldId(0),
+            FieldId(0), FieldId(0), FieldId(0), FieldId(0),
+        ],
+        required_mask: 1u64 << Bit::MASK_DOMAIN_UNCLEAR,
+        forbidden_mask: 0,
+        predecessor_mask: 0,
+        response: Instinct::Ask,
+        priority: 10,
+    },
+    // Node 4: claude_md_revise_request
+    Cog8Row {
+        pack_id: PACK_ID,
+        group_id: GroupId(4),
+        rule_id: RuleId(Bit::CLAUDE_MD_STALE as u16),
+        breed_id: BreedId(Breed::Mycin as u8),
+        collapse_fn: CollapseFn::ExpertRule,
+        var_ids: [
+            FieldId(Bit::CLAUDE_MD_STALE as u16),
+            FieldId(0), FieldId(0), FieldId(0),
+            FieldId(0), FieldId(0), FieldId(0), FieldId(0),
+        ],
+        required_mask: 1u64 << Bit::CLAUDE_MD_STALE,
+        forbidden_mask: 0,
+        predecessor_mask: 0,
+        response: Instinct::Ask,
+        priority: 10,
+    },
+];
+
+/// POWL8 topology edges for Dev / Agent Governance (PRD v0.5).
+pub static COG8_EDGES: &[Cog8Edge] = &[
+    Cog8Edge {
+        from: NodeId(0),
+        to: NodeId(1),
+        kind: EdgeKind::Choice,
+        instr: Powl8Instr {
+            op: Powl8Op::Act,
+            collapse_fn: CollapseFn::ExpertRule,
+            node_id: NodeId(1),
+            edge_id: EdgeId(1),
+            guard_mask: 0,
+            effect_mask: 1u64 << 1,
+        },
+    },
+    Cog8Edge {
+        from: NodeId(0),
+        to: NodeId(2),
+        kind: EdgeKind::Choice,
+        instr: Powl8Instr {
+            op: Powl8Op::Act,
+            collapse_fn: CollapseFn::Reconstruction,
+            node_id: NodeId(2),
+            edge_id: EdgeId(2),
+            guard_mask: 0,
+            effect_mask: 1u64 << 2,
+        },
+    },
+    Cog8Edge {
+        from: NodeId(0),
+        to: NodeId(3),
+        kind: EdgeKind::Choice,
+        instr: Powl8Instr {
+            op: Powl8Op::Act,
+            collapse_fn: CollapseFn::RelationalProof,
+            node_id: NodeId(3),
+            edge_id: EdgeId(3),
+            guard_mask: 0,
+            effect_mask: 1u64 << 3,
+        },
+    },
+    Cog8Edge {
+        from: NodeId(0),
+        to: NodeId(4),
+        kind: EdgeKind::Choice,
+        instr: Powl8Instr {
+            op: Powl8Op::Act,
+            collapse_fn: CollapseFn::ExpertRule,
+            node_id: NodeId(4),
+            edge_id: EdgeId(4),
+            guard_mask: 0,
+            effect_mask: 1u64 << 4,
+        },
+    },
+];
 
 /// Dev / Agent Governance pack handle (zero-sized).
 pub struct DevPack;
@@ -94,44 +246,43 @@ pub static BUILTINS: &[BarkSlot] = &[
 /// impossible at the artifact level.
 fn ask_action(tag: &[u8]) -> Result<Construct8> {
     let h = blake3::hash(tag);
-    let activity = NamedNode::new(format!("urn:blake3:{}", h.to_hex()))?;
-    let rt = NamedNode::new("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")?;
-    let prov_activity = NamedNode::new("http://www.w3.org/ns/prov#Activity")?;
-    let ask_action_iri = NamedNode::new("https://schema.org/AskAction")?;
-    let activity_term: Term = prov_activity.into();
-    let ask_term: Term = ask_action_iri.into();
+    let activity_uri = format!("urn:blake3:{}", h.to_hex());
+    let rt_uri = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
+    let prov_activity_uri = "http://www.w3.org/ns/prov#Activity";
+    let ask_action_uri = "https://schema.org/AskAction";
+
+    let subject = ObjectId(fnv1a_64(activity_uri.as_bytes()) as u32);
+    let rt_predicate = PredicateId(fnv1a_64(rt_uri.as_bytes()) as u16);
+    let prov_activity_obj = ObjectId(fnv1a_64(prov_activity_uri.as_bytes()) as u32);
+    let ask_action_obj = ObjectId(fnv1a_64(ask_action_uri.as_bytes()) as u32);
 
     let mut delta = Construct8::empty();
-    let _ = delta.push(Triple::new(activity.clone(), rt.clone(), activity_term));
-    let _ = delta.push(Triple::new(activity, rt, ask_term));
+    let _ = delta.push(Triple::new(subject, rt_predicate, prov_activity_obj));
+    let _ = delta.push(Triple::new(subject, rt_predicate, ask_action_obj));
     Ok(delta)
 }
 
-fn act_boundary_test_guard(_snap: &CompiledFieldSnapshot) -> Result<Construct8> {
+fn act_boundary_test_guard(_context: &ClosedFieldContext) -> Result<Construct8> {
     ask_action(b"dev/boundary_test_guard")
 }
 
-fn act_nightly_feature_check(_snap: &CompiledFieldSnapshot) -> Result<Construct8> {
+fn act_nightly_feature_check(_context: &ClosedFieldContext) -> Result<Construct8> {
     ask_action(b"dev/nightly_feature_check")
 }
 
-fn act_mask_domain_audit(_snap: &CompiledFieldSnapshot) -> Result<Construct8> {
+fn act_mask_domain_audit(_context: &ClosedFieldContext) -> Result<Construct8> {
     ask_action(b"dev/mask_domain_audit")
 }
 
-fn act_claude_md_revise_request(_snap: &CompiledFieldSnapshot) -> Result<Construct8> {
+fn act_claude_md_revise_request(_context: &ClosedFieldContext) -> Result<Construct8> {
     ask_action(b"dev/claude_md_revise_request")
 }
 
 /// Bias wrapper: clamp `Refuse` and `Escalate` to `Ask` — dev pack actions
 /// must always surface for human review, never auto-merge or auto-block.
 #[must_use]
-pub fn select_instinct(
-    snap: &CompiledFieldSnapshot,
-    posture: &PostureBundle,
-    ctx: &ContextBundle,
-) -> AutonomicInstinct {
-    let base = crate::instinct::select_instinct_v0(snap, posture, ctx);
+pub fn select_instinct(context: &ClosedFieldContext) -> AutonomicInstinct {
+    let base = crate::instinct::select_instinct_v0(context);
     match base {
         AutonomicInstinct::Refuse | AutonomicInstinct::Escalate => AutonomicInstinct::Ask,
         other => other,
@@ -141,8 +292,10 @@ pub fn select_instinct(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::compiled::CompiledFieldSnapshot;
     use crate::field::FieldContext;
-    use crate::multimodal::{ContextBit, PostureBit};
+    use crate::multimodal::{ContextBit, ContextBundle, PostureBit, PostureBundle};
+    use crate::packs::TierMasks;
 
     fn empty_snap() -> CompiledFieldSnapshot {
         let f = FieldContext::new("t");
@@ -161,7 +314,14 @@ mod tests {
             risk_mask: 1u64 << ContextBit::THEFT_RISK,
             affordance_mask: 0,
         };
-        assert_eq!(select_instinct(&snap, &posture, &ctx), AutonomicInstinct::Ask);
+        let context = ClosedFieldContext {
+            snapshot: std::sync::Arc::new(snap.clone()),
+            posture,
+            context: ctx,
+            tiers: TierMasks::ZERO,
+            human_burden: 0,
+        };
+        assert_eq!(select_instinct(&context), AutonomicInstinct::Ask);
     }
 
     #[test]
@@ -176,7 +336,14 @@ mod tests {
             risk_mask: 1u64 << ContextBit::MUST_ESCALATE,
             affordance_mask: 0,
         };
-        assert_eq!(select_instinct(&snap, &posture, &ctx), AutonomicInstinct::Ask);
+        let context = ClosedFieldContext {
+            snapshot: std::sync::Arc::new(snap.clone()),
+            posture,
+            context: ctx,
+            tiers: TierMasks::ZERO,
+            human_burden: 0,
+        };
+        assert_eq!(select_instinct(&context), AutonomicInstinct::Ask);
     }
 
     #[test]
@@ -186,9 +353,13 @@ mod tests {
             posture_mask: 1u64 << PostureBit::SETTLED,
             confidence: 200,
         };
-        assert_eq!(
-            select_instinct(&snap, &posture, &ContextBundle::default()),
-            AutonomicInstinct::Settle
-        );
+        let context = ClosedFieldContext {
+            snapshot: std::sync::Arc::new(snap.clone()),
+            posture,
+            context: ContextBundle::default(),
+            tiers: TierMasks::ZERO,
+            human_burden: 0,
+        };
+        assert_eq!(select_instinct(&context), AutonomicInstinct::Settle);
     }
 }

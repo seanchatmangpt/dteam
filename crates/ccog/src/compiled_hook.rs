@@ -15,6 +15,7 @@ use crate::compiled::CompiledFieldSnapshot;
 use crate::construct8::Construct8;
 use crate::hooks::{HookCheck, HookOutcome, HookTrigger, KnowledgeHook};
 use crate::receipt::Receipt;
+use crate::runtime::ClosedFieldContext;
 use anyhow::Result;
 use chrono::Utc;
 use oxigraph::model::NamedNode;
@@ -96,7 +97,7 @@ pub struct CompiledHook {
     /// AND-mask of canonical predicate bits this hook requires to fire.
     pub require_mask: u64,
     /// Snapshot-driven action emitted when the mask matches.
-    pub act: fn(&CompiledFieldSnapshot) -> Result<Construct8>,
+    pub act: fn(&ClosedFieldContext) -> Result<Construct8>,
     /// Whether to emit a PROV receipt with the outcome.
     pub emit_receipt: bool,
 }
@@ -134,14 +135,14 @@ impl CompiledHookTable {
     /// 1. Compute `present_mask` once from the snapshot.
     /// 2. For each hook, fire iff `(require_mask & present_mask) == require_mask`.
     /// 3. Receipts are emitted from the action's `Construct8` BLAKE3.
-    pub fn fire(&self, snap: &CompiledFieldSnapshot) -> Result<Vec<HookOutcome>> {
-        let present = compute_present_mask(snap);
+    pub fn fire(&self, context: &ClosedFieldContext) -> Result<Vec<HookOutcome>> {
+        let present = compute_present_mask(&context.snapshot);
         let mut out = Vec::new();
         for hook in &self.hooks {
             if (hook.require_mask & present) != hook.require_mask {
                 continue;
             }
-            let delta = (hook.act)(snap)?;
+            let delta = (hook.act)(context)?;
             let receipt = if hook.emit_receipt {
                 let activity = crate::graph::GraphIri::from_iri(&format!(
                     "http://example.org/hook/{}#{}",
@@ -153,7 +154,11 @@ impl CompiledHookTable {
             } else {
                 None
             };
-            out.push(HookOutcome { hook_name: hook.name, delta, receipt });
+            out.push(HookOutcome {
+                hook_name: hook.name,
+                delta,
+                receipt,
+            });
         }
         Ok(out)
     }
@@ -197,6 +202,18 @@ mod tests {
     use crate::hooks::{
         missing_evidence_hook, phrase_binding_hook, receipt_hook, transition_admissibility_hook,
     };
+    use crate::multimodal::{ContextBundle, PostureBundle};
+    use crate::packs::TierMasks;
+
+    fn empty_context(snap: std::sync::Arc<CompiledFieldSnapshot>) -> ClosedFieldContext {
+        ClosedFieldContext {
+            snapshot: snap,
+            posture: PostureBundle::default(),
+            context: ContextBundle::default(),
+            tiers: TierMasks::ZERO,
+            human_burden: 0,
+        }
+    }
 
     #[test]
     fn present_mask_detects_dd_and_gap() -> Result<()> {
@@ -219,10 +236,11 @@ mod tests {
         field.load_field_state(
             "<http://example.org/d1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://schema.org/DigitalDocument> .\n",
         )?;
-        let snap = CompiledFieldSnapshot::from_field(&field)?;
+        let snap = std::sync::Arc::new(CompiledFieldSnapshot::from_field(&field)?);
+        let context = empty_context(snap);
         let mut table = CompiledHookTable::new();
         table.register(compile_builtin(&missing_evidence_hook()).expect("compile"));
-        let outcomes = table.fire(&snap)?;
+        let outcomes = table.fire(&context)?;
         assert_eq!(outcomes.len(), 1);
         assert_eq!(outcomes[0].hook_name, "missing_evidence");
         Ok(())
@@ -231,12 +249,13 @@ mod tests {
     #[test]
     fn compiled_table_skips_when_mask_unmet() -> Result<()> {
         let field = FieldContext::new("test");
-        let snap = CompiledFieldSnapshot::from_field(&field)?;
+        let snap = std::sync::Arc::new(CompiledFieldSnapshot::from_field(&field)?);
+        let context = empty_context(snap);
         let mut table = CompiledHookTable::new();
         table.register(compile_builtin(&missing_evidence_hook()).expect("compile"));
         table.register(compile_builtin(&phrase_binding_hook()).expect("compile"));
         table.register(compile_builtin(&transition_admissibility_hook()).expect("compile"));
-        let outcomes = table.fire(&snap)?;
+        let outcomes = table.fire(&context)?;
         assert!(outcomes.is_empty());
         Ok(())
     }
@@ -244,10 +263,11 @@ mod tests {
     #[test]
     fn compiled_table_fires_receipt_unconditionally() -> Result<()> {
         let field = FieldContext::new("test");
-        let snap = CompiledFieldSnapshot::from_field(&field)?;
+        let snap = std::sync::Arc::new(CompiledFieldSnapshot::from_field(&field)?);
+        let context = empty_context(snap);
         let mut table = CompiledHookTable::new();
         table.register(compile_builtin(&receipt_hook()).expect("compile"));
-        let outcomes = table.fire(&snap)?;
+        let outcomes = table.fire(&context)?;
         assert_eq!(outcomes.len(), 1);
         assert_eq!(outcomes[0].hook_name, "receipt");
         Ok(())

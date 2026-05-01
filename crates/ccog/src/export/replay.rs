@@ -165,7 +165,7 @@ fn replay_decision_from_trace(trace_json: &serde_json::Value) -> bool {
 }
 
 fn chain_self_consistent(path_bytes: &[u8], expected_head: Option<[u8; 32]>) -> bool {
-    if path_bytes.is_empty() || path_bytes.len() % 32 != 0 {
+    if path_bytes.is_empty() || !path_bytes.len().is_multiple_of(32) {
         return false;
     }
     if let Some(head) = expected_head {

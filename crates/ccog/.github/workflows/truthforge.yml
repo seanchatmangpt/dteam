@@ -1,0 +1,55 @@
+name: truthforge
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
+
+env:
+  CARGO_TERM_COLOR: always
+  # Standardize on the nightly toolchain specified in rust-toolchain.toml
+  RUST_TOOLCHAIN: nightly-2026-04-15
+
+jobs:
+  forge:
+    name: Truthforge Gate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: crates/ccog
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          components: rustfmt, clippy
+
+      - name: Check Formatting
+        # Ensures all source units adhere to formatting invariants.
+        run: cargo fmt --all -- --check
+
+      - name: Lint with Clippy
+        # Enforces strict architectural lints and safety guards.
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Core Unit & Integration Tests
+        # Validates core implementation logic across library and integration surfaces.
+        run: cargo test --lib --tests
+
+      - name: Proptest & Fuzz Smoke Run
+        # Executes property-based and fuzz tests with a reduced octet-count of cases
+        # for rapid smoke verification of the cognitive kernel.
+        run: |
+          PROPTEST_CASES=32 cargo test --test proptest_construct8
+          PROPTEST_CASES=32 cargo test --test fuzz_hooks
+          PROPTEST_CASES=32 cargo test --test fuzz_kernel
+
+      - name: Binary Size Analysis
+        # Monitors binary footprint in octets to ensure nanoscale performance targets.
+        run: |
+          cargo install cargo-bloat --locked
+          cargo bloat --release --bin dendral --features dendral-cli -n 20

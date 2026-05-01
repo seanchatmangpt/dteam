@@ -6,7 +6,7 @@ const NT_DOC2: &str = "<http://example.org/doc2> <http://www.w3.org/1999/02/22-r
 
 #[test]
 fn scheduler_first_tick_fires_then_idempotent_then_refires() {
-    let mut field = FieldContext::new("scheduler-test");
+    let field = FieldContext::new("scheduler-test");
     let mut registry = HookRegistry::new();
     registry.register(missing_evidence_hook());
     let mut sched = Scheduler::new(registry);

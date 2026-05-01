@@ -13,7 +13,8 @@ use ccog::packs::dev::DevPack;
 use ccog::packs::edge::EdgePack;
 use ccog::packs::enterprise::EnterprisePack;
 use ccog::packs::lifestyle::LifestylePack;
-use ccog::packs::FieldPack;
+use ccog::packs::{FieldPack, TierMasks};
+use ccog::runtime::ClosedFieldContext;
 
 fn empty_snap() -> CompiledFieldSnapshot {
     let f = FieldContext::new("t");
@@ -57,11 +58,18 @@ fn pack_response_class_canonical_only() {
     };
     let ctx = ContextBundle::default();
 
+    let context = ClosedFieldContext { human_burden: 0,
+        snapshot: std::sync::Arc::new(snap.clone()),
+        posture,
+        context: ctx,
+        tiers: TierMasks::ZERO,
+    };
+
     let outputs = [
-        ccog::packs::lifestyle::select_instinct(&snap, &posture, &ctx),
-        ccog::packs::edge::select_instinct(&snap, &posture, &ctx),
-        ccog::packs::enterprise::select_instinct(&snap, &posture, &ctx),
-        ccog::packs::dev::select_instinct(&snap, &posture, &ctx),
+        ccog::packs::lifestyle::select_instinct(&context),
+        ccog::packs::edge::select_instinct(&context),
+        ccog::packs::enterprise::select_instinct(&context),
+        ccog::packs::dev::select_instinct(&context),
     ];
 
     for v in outputs {

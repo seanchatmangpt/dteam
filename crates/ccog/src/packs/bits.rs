@@ -140,7 +140,7 @@ mod tests {
                 let (nb, rb) = (ranges[j].0, ranges[j].1.clone());
                 assert!(
                     ra.end <= rb.start || rb.end <= ra.start,
-                    "{na} and {nb} overlap"
+                    "{} and {} overlap", na, nb
                 );
             }
         }

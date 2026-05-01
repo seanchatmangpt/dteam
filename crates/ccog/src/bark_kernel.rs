@@ -25,12 +25,16 @@
 //! [`BarkKernel::fire`] is preserved as a warm-path convenience that calls
 //! all three stages in sequence and returns `Vec<HookOutcome>`.
 
-use crate::compiled::CompiledFieldSnapshot;
 use crate::compiled_hook::{compute_present_mask, CompiledHook};
 use crate::construct8::Construct8;
 use crate::hooks::HookOutcome;
 use crate::powl::{Powl8, Powl8Node, MAX_NODES};
 use crate::receipt::Receipt;
+use crate::runtime::cog8::{
+    execute_cog8, Cog8Edge, Cog8Row, CollapseFn, EdgeId, Instinct, NodeId, Powl8Instr,
+    Powl8Op, BreedId, GroupId, PackId, RuleId,
+};
+use crate::runtime::ClosedFieldContext;
 use anyhow::Result;
 use chrono::Utc;
 
@@ -44,6 +48,10 @@ pub struct BarkKernel {
     pub plan: Powl8,
     /// Optional compiled hook for each plan node.
     pub slots: Vec<Option<CompiledHook>>,
+    /// COG8 nodes for nonlinear execution.
+    pub nodes: Vec<Cog8Row>,
+    /// COG8 edges for nonlinear execution.
+    pub edges: Vec<Cog8Edge>,
 }
 
 /// Outcome of [`BarkKernel::decide`] — bit-packed slot status, no allocations.
@@ -77,6 +85,12 @@ pub struct BarkDecision {
     pub advanced_mask: u64,
     /// Snapshot's `present_mask`, computed once at the start of decide.
     pub present_mask: u64,
+    /// Collapse function attributed to this decision.
+    pub collapse_fn: Option<CollapseFn>,
+    /// Selected node ID.
+    pub selected_node: Option<NodeId>,
+    /// Selected edge ID.
+    pub selected_edge: Option<EdgeId>,
 }
 
 impl BarkKernel {
@@ -90,86 +104,164 @@ impl BarkKernel {
         use crate::verdict::Breed;
         let mut plan = Powl8::new();
         let mut slots = Vec::new();
+        let mut nodes = Vec::new();
+        let mut edges = Vec::new();
 
-        let start = plan
+        let start_idx = plan
             .push(Powl8Node::StartNode)
-            .map_err(|e| anyhow::anyhow!("plan push failed: {:?}", e))?;
-        plan.root = start;
+            .map_err(|e| anyhow::anyhow!("plan push failed: {:?}. Hint: a POWL8 plan is limited to 64 nodes. Simplify your hook sequence or split it into multiple kernels.", e))?;
+        plan.root = start_idx;
         slots.push(None);
+        nodes.push(Cog8Row {
+            pack_id: PackId(0),
+            group_id: GroupId(0),
+            rule_id: RuleId(0),
+            breed_id: BreedId(Breed::CompiledHook as u8),
+            collapse_fn: CollapseFn::ExpertRule,
+            var_ids: [crate::runtime::cog8::FieldId(0); 8],
+            required_mask: 0,
+            forbidden_mask: 0,
+            predecessor_mask: 0,
+            response: Instinct::Ignore,
+            priority: 0,
+        });
 
-        let mut prev = start;
-        for hook in hooks {
+        let mut prev_idx = start_idx;
+        for (i, hook) in hooks.into_iter().enumerate() {
             let idx = plan
                 .push(Powl8Node::Activity(Breed::CompiledHook))
-                .map_err(|e| anyhow::anyhow!("plan push failed: {:?}", e))?;
-            slots.push(Some(hook));
-            plan.push(Powl8Node::OperatorSequence { a: prev, b: idx })
-                .map_err(|e| anyhow::anyhow!("plan push failed: {:?}", e))?;
+                .map_err(|e| anyhow::anyhow!("plan push failed: {:?}. Hint: a POWL8 plan is limited to 64 nodes. Simplify your hook sequence or split it into multiple kernels.", e))?;
+            slots.push(Some(hook.clone()));
+            nodes.push(Cog8Row {
+                pack_id: PackId(0),
+                group_id: GroupId(0),
+                rule_id: RuleId(i as u16 + 1),
+                breed_id: BreedId(Breed::CompiledHook as u8),
+                collapse_fn: CollapseFn::ExpertRule,
+                var_ids: [crate::runtime::cog8::FieldId(0); 8],
+                required_mask: hook.require_mask,
+                forbidden_mask: 0,
+                predecessor_mask: 1u64 << prev_idx,
+                response: Instinct::Settle,
+                priority: (i + 1) as u16,
+            });
+
+            let edge_idx = plan
+                .push(Powl8Node::OperatorSequence { a: prev_idx, b: idx })
+                .map_err(|e| anyhow::anyhow!("plan push failed: {:?}. Hint: a POWL8 plan is limited to 64 nodes. Simplify your hook sequence or split it into multiple kernels.", e))?;
             slots.push(None);
-            prev = idx;
+            nodes.push(Cog8Row {
+                pack_id: PackId(0),
+                group_id: GroupId(0),
+                rule_id: RuleId(0),
+                breed_id: BreedId(Breed::CompiledHook as u8),
+                collapse_fn: CollapseFn::ExpertRule,
+                var_ids: [crate::runtime::cog8::FieldId(0); 8],
+                required_mask: 0,
+                forbidden_mask: 0,
+                predecessor_mask: 0,
+                response: Instinct::Ignore,
+                priority: 0,
+            });
+
+            edges.push(Cog8Edge {
+                from: NodeId(prev_idx),
+                to: NodeId(idx),
+                kind: crate::runtime::cog8::EdgeKind::Choice,
+                instr: Powl8Instr {
+                    op: Powl8Op::Act,
+                    collapse_fn: CollapseFn::ExpertRule,
+                    node_id: NodeId(idx),
+                    edge_id: EdgeId(edge_idx),
+                    guard_mask: 1u64 << prev_idx,
+                    effect_mask: 1u64 << idx,
+                },
+            });
+
+            prev_idx = idx;
         }
 
-        let end = plan
+        let end_idx = plan
             .push(Powl8Node::EndNode)
-            .map_err(|e| anyhow::anyhow!("plan push failed: {:?}", e))?;
+            .map_err(|e| anyhow::anyhow!("plan push failed: {:?}. Hint: a POWL8 plan is limited to 64 nodes. Simplify your hook sequence or split it into multiple kernels.", e))?;
         slots.push(None);
-        plan.push(Powl8Node::OperatorSequence { a: prev, b: end })
-            .map_err(|e| anyhow::anyhow!("plan push failed: {:?}", e))?;
-        slots.push(None);
+        nodes.push(Cog8Row {
+            pack_id: PackId(0),
+            group_id: GroupId(0),
+            rule_id: RuleId(0),
+            breed_id: BreedId(Breed::CompiledHook as u8),
+            collapse_fn: CollapseFn::ExpertRule,
+            var_ids: [crate::runtime::cog8::FieldId(0); 8],
+            required_mask: 0,
+            forbidden_mask: 0,
+            predecessor_mask: 1u64 << prev_idx,
+            response: Instinct::Ignore,
+            priority: 0,
+        });
 
-        Ok(Self { plan, slots })
+        let end_edge_idx = plan
+            .push(Powl8Node::OperatorSequence { a: prev_idx, b: end_idx })
+            .map_err(|e| anyhow::anyhow!("plan push failed: {:?}. Hint: a POWL8 plan is limited to 64 nodes. Simplify your hook sequence or split it into multiple kernels.", e))?;
+        slots.push(None);
+        nodes.push(Cog8Row {
+            pack_id: PackId(0),
+            group_id: GroupId(0),
+            rule_id: RuleId(0),
+            breed_id: BreedId(Breed::CompiledHook as u8),
+            collapse_fn: CollapseFn::ExpertRule,
+            var_ids: [crate::runtime::cog8::FieldId(0); 8],
+            required_mask: 0,
+            forbidden_mask: 0,
+            predecessor_mask: 0,
+            response: Instinct::Ignore,
+            priority: 0,
+        });
+
+        edges.push(Cog8Edge {
+            from: NodeId(prev_idx),
+            to: NodeId(end_idx),
+            kind: crate::runtime::cog8::EdgeKind::Choice,
+            instr: Powl8Instr {
+                op: Powl8Op::Act,
+                collapse_fn: CollapseFn::ExpertRule,
+                node_id: NodeId(end_idx),
+                edge_id: EdgeId(end_edge_idx),
+                guard_mask: 1u64 << prev_idx,
+                effect_mask: 1u64 << end_idx,
+            },
+        });
+
+        Ok(Self {
+            plan,
+            slots,
+            nodes,
+            edges,
+        })
     }
 
     /// Stage 1 (nanoscale, allocation-free): compute fire/deny/advance masks.
     ///
-    /// Walks the plan once in raw node order. For each node `i`:
-    ///
-    /// - If `predecessor_masks[i] & advanced_mask != predecessor_masks[i]`, the
-    ///   node is skipped entirely (predecessors not yet ready).
-    /// - Otherwise, if there is a compiled hook in slot `i`, set the
-    ///   `fired_mask`/`denied_mask` bit based on whether `(require_mask &
-    ///   present_mask) == require_mask`; advance unconditionally so downstream
-    ///   nodes are not gated by an unfiring hook.
-    /// - Otherwise (structural marker), advance unconditionally.
-    ///
-    /// Performs NO heap allocations beyond the returned [`BarkDecision`].
-    /// No `Vec`, no `format!`, no `Utc::now`, no `Construct8`, no fn-ptr act calls.
+    /// Refactored to use [`execute_cog8_graph`] for nonlinear traversal.
     #[inline]
-    pub fn decide(&self, snap: &CompiledFieldSnapshot) -> BarkDecision {
-        let present = compute_present_mask(snap);
-        let preds = self.plan.predecessor_masks();
-        let n = self.plan.nodes.len().min(MAX_NODES);
+    pub fn decide(&self, context: &ClosedFieldContext) -> BarkDecision {
+        let present = compute_present_mask(&context.snapshot);
 
-        let mut fired_mask: u64 = 0;
-        let mut denied_mask: u64 = 0;
-        let mut advanced_mask: u64 = 0;
-
-        for i in 0..n {
-            let need = preds[i];
-            if (need & advanced_mask) != need {
-                continue;
-            }
-            let bit = 1u64 << i;
-            match self.slots.get(i) {
-                Some(Some(hook)) => {
-                    if (hook.require_mask & present) == hook.require_mask {
-                        fired_mask |= bit;
-                    } else {
-                        denied_mask |= bit;
-                    }
-                    advanced_mask |= bit;
-                }
-                _ => {
-                    advanced_mask |= bit;
-                }
-            }
-        }
+        // Execute the nonlinear COG8 graph.
+        let cog8_dec = execute_cog8(
+            &self.nodes,
+            &self.edges,
+            context,
+            1u64 << self.plan.root
+        ).unwrap_or_default();
 
         BarkDecision {
-            fired_mask,
-            denied_mask,
-            advanced_mask,
+            fired_mask: cog8_dec.fired_mask,
+            denied_mask: cog8_dec.denied_mask,
+            advanced_mask: cog8_dec.completed_mask,
             present_mask: present,
+            collapse_fn: cog8_dec.collapse_fn,
+            selected_node: cog8_dec.selected_node,
+            selected_edge: cog8_dec.selected_edge,
         }
     }
 
@@ -182,7 +274,7 @@ impl BarkKernel {
     pub fn materialize(
         &self,
         decision: &BarkDecision,
-        snap: &CompiledFieldSnapshot,
+        context: &ClosedFieldContext,
     ) -> Result<Vec<Option<Construct8>>> {
         let mut out: Vec<Option<Construct8>> = Vec::with_capacity(self.slots.len());
         for (i, slot) in self.slots.iter().enumerate() {
@@ -192,7 +284,7 @@ impl BarkKernel {
             }
             let bit = 1u64 << i;
             match (slot, decision.fired_mask & bit != 0) {
-                (Some(hook), true) => out.push(Some((hook.act)(snap)?)),
+                (Some(hook), true) => out.push(Some((hook.act)(context)?)),
                 _ => out.push(None),
             }
         }
@@ -251,9 +343,9 @@ impl BarkKernel {
     ///
     /// Returns `Vec<HookOutcome>` (one per fired slot) for backward compat with
     /// pre-Phase-5 callers. For nanoscale dispatch, call the staged API directly.
-    pub fn fire(&self, snap: &CompiledFieldSnapshot) -> Result<Vec<HookOutcome>> {
-        let decision = self.decide(snap);
-        let deltas = self.materialize(&decision, snap)?;
+    pub fn fire(&self, context: &ClosedFieldContext) -> Result<Vec<HookOutcome>> {
+        let decision = self.decide(context);
+        let deltas = self.materialize(&decision, context)?;
         let receipts = self.seal(&decision, &deltas, "fire", None);
         let mut out = Vec::new();
         for (i, slot) in self.slots.iter().enumerate() {
@@ -282,11 +374,25 @@ impl BarkKernel {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Arc;
+    use crate::compiled::CompiledFieldSnapshot;
     use crate::compiled_hook::compile_builtin;
     use crate::field::FieldContext;
     use crate::hooks::{
         missing_evidence_hook, phrase_binding_hook, receipt_hook, transition_admissibility_hook,
     };
+    use crate::multimodal::{ContextBundle, PostureBundle};
+    use crate::packs::TierMasks;
+
+    fn empty_context(snap: Arc<CompiledFieldSnapshot>) -> ClosedFieldContext {
+        ClosedFieldContext {
+            snapshot: snap,
+            posture: PostureBundle::default(),
+            context: ContextBundle::default(),
+            tiers: TierMasks::ZERO,
+            human_burden: 0,
+        }
+    }
 
     #[test]
     fn linear_kernel_fires_in_plan_order() -> Result<()> {
@@ -295,7 +401,8 @@ mod tests {
             "<http://example.org/c1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2004/02/skos/core#Concept> .\n\
              <http://example.org/c1> <http://www.w3.org/2004/02/skos/core#prefLabel> \"Test\" .\n",
         )?;
-        let snap = CompiledFieldSnapshot::from_field(&field)?;
+        let snap = Arc::new(CompiledFieldSnapshot::from_field(&field)?);
+        let context = empty_context(snap);
 
         let hooks = vec![
             compile_builtin(&phrase_binding_hook()).expect("compile"),
@@ -303,7 +410,7 @@ mod tests {
             compile_builtin(&receipt_hook()).expect("compile"),
         ];
         let kernel = BarkKernel::linear(hooks)?;
-        let outcomes = kernel.fire(&snap)?;
+        let outcomes = kernel.fire(&context)?;
         let names: Vec<_> = outcomes.iter().map(|o| o.hook_name).collect();
         assert_eq!(names, vec!["phrase_binding", "transition_admissibility", "receipt"]);
         Ok(())
@@ -312,13 +419,14 @@ mod tests {
     #[test]
     fn kernel_skips_unsatisfied_masks() -> Result<()> {
         let field = FieldContext::new("test");
-        let snap = CompiledFieldSnapshot::from_field(&field)?;
+        let snap = Arc::new(CompiledFieldSnapshot::from_field(&field)?);
+        let context = empty_context(snap);
         let hooks = vec![
             compile_builtin(&missing_evidence_hook()).expect("compile"),
             compile_builtin(&receipt_hook()).expect("compile"),
         ];
         let kernel = BarkKernel::linear(hooks)?;
-        let outcomes = kernel.fire(&snap)?;
+        let outcomes = kernel.fire(&context)?;
         let names: Vec<_> = outcomes.iter().map(|o| o.hook_name).collect();
         assert_eq!(names, vec!["receipt"]);
         Ok(())
@@ -327,9 +435,10 @@ mod tests {
     #[test]
     fn empty_kernel_yields_no_outcomes() -> Result<()> {
         let field = FieldContext::new("test");
-        let snap = CompiledFieldSnapshot::from_field(&field)?;
+        let snap = Arc::new(CompiledFieldSnapshot::from_field(&field)?);
+        let context = empty_context(snap);
         let kernel = BarkKernel::linear(Vec::new())?;
-        let outcomes = kernel.fire(&snap)?;
+        let outcomes = kernel.fire(&context)?;
         assert!(outcomes.is_empty());
         Ok(())
     }
@@ -340,12 +449,13 @@ mod tests {
         field.load_field_state(
             "<http://example.org/d1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://schema.org/DigitalDocument> .\n",
         )?;
-        let snap = CompiledFieldSnapshot::from_field(&field)?;
+        let snap = Arc::new(CompiledFieldSnapshot::from_field(&field)?);
+        let context = empty_context(snap);
         let kernel = BarkKernel::linear(vec![
             compile_builtin(&missing_evidence_hook()).expect("compile"),
             compile_builtin(&receipt_hook()).expect("compile"),
         ])?;
-        let decision = kernel.decide(&snap);
+        let decision = kernel.decide(&context);
         assert_ne!(decision.advanced_mask, 0);
         assert_ne!(decision.fired_mask, 0);
         Ok(())
@@ -358,16 +468,17 @@ mod tests {
             "<http://example.org/d1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://schema.org/DigitalDocument> .\n\
              <http://example.org/c1> <http://www.w3.org/2004/02/skos/core#prefLabel> \"x\" .\n",
         )?;
-        let snap = CompiledFieldSnapshot::from_field(&field)?;
+        let snap = Arc::new(CompiledFieldSnapshot::from_field(&field)?);
+        let context = empty_context(snap);
         let kernel = BarkKernel::linear(vec![
             compile_builtin(&missing_evidence_hook()).expect("compile"),
             compile_builtin(&phrase_binding_hook()).expect("compile"),
             compile_builtin(&receipt_hook()).expect("compile"),
         ])?;
 
-        let fire_outcomes = kernel.fire(&snap)?;
-        let decision = kernel.decide(&snap);
-        let deltas = kernel.materialize(&decision, &snap)?;
+        let fire_outcomes = kernel.fire(&context)?;
+        let decision = kernel.decide(&context);
+        let deltas = kernel.materialize(&decision, &context)?;
         let _receipts = kernel.seal(&decision, &deltas, "fire", None);
 
         let fire_names: Vec<_> = fire_outcomes.iter().map(|o| o.hook_name).collect();
@@ -395,12 +506,13 @@ mod tests {
         field.load_field_state(
             "<http://example.org/d1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://schema.org/DigitalDocument> .\n",
         )?;
-        let snap = CompiledFieldSnapshot::from_field(&field)?;
+        let snap = Arc::new(CompiledFieldSnapshot::from_field(&field)?);
+        let context = empty_context(snap);
         let kernel = BarkKernel::linear(vec![
             compile_builtin(&missing_evidence_hook()).expect("compile"),
             compile_builtin(&receipt_hook()).expect("compile"),
         ])?;
-        let outcomes = kernel.fire(&snap)?;
+        let outcomes = kernel.fire(&context)?;
         for o in &outcomes {
             if let Some(r) = &o.receipt {
                 assert!(
@@ -417,12 +529,13 @@ mod tests {
     #[test]
     fn decide_skips_unsatisfied_mask() -> Result<()> {
         let field = FieldContext::new("test");
-        let snap = CompiledFieldSnapshot::from_field(&field)?;
+        let snap = Arc::new(CompiledFieldSnapshot::from_field(&field)?);
+        let context = empty_context(snap);
         let kernel = BarkKernel::linear(vec![
             compile_builtin(&missing_evidence_hook()).expect("compile"),
             compile_builtin(&receipt_hook()).expect("compile"),
         ])?;
-        let decision = kernel.decide(&snap);
+        let decision = kernel.decide(&context);
         // missing_evidence should be denied; receipt should fire.
         assert_ne!(decision.denied_mask, 0);
         assert_ne!(decision.fired_mask, 0);

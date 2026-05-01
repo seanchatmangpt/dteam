@@ -10,7 +10,7 @@ use crate::verdict::{Breed, PlanAdmission, PlanVerdict, TransitionVerdict};
 /// STRIPS: Transition admissibility checking.
 /// Evaluates whether a candidate operation can lawfully move the field from one graph state to another.
 /// Preconditions: each `schema:DigitalDocument` must have a `prov:value`.
-
+///
 /// Check whether the candidate operation's transition is admissible.
 /// Direct triple-pattern walk — no SPARQL parsing.
 pub fn check_transition(

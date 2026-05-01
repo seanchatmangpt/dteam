@@ -211,8 +211,8 @@ mod tests {
         assert_eq!(mat[7], b'f');
         assert_eq!(mat[8], 0x00);
         // 32 zero bytes for None prior_chain
-        for i in 9..9 + 32 {
-            assert_eq!(mat[i], 0x00, "expected zero byte at offset {}", i);
+        for (i, &byte) in mat.iter().enumerate().skip(9).take(32) {
+            assert_eq!(byte, 0x00, "expected zero byte at offset {}", i);
         }
         assert_eq!(mat[9 + 32], 0x00);
         assert_eq!(mat[9 + 32 + 1], 0x01);

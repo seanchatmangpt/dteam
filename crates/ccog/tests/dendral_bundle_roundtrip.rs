@@ -13,7 +13,10 @@ use ccog::export::jsonld::{canonical_bytes, receipt_to_jsonld, trace_to_jsonld};
 use ccog::export::ontology::{audit_iris, NonPublicOntology};
 use ccog::export::replay::{verify_bundle, verify_bundle_bytes};
 use ccog::field::FieldContext;
+use ccog::multimodal::{ContextBundle, PostureBundle};
+use ccog::packs::TierMasks;
 use ccog::receipt::Receipt;
+use ccog::runtime::ClosedFieldContext;
 use ccog::trace::{trace_default_builtins, BenchmarkTier};
 
 // =============================================================================
@@ -53,7 +56,13 @@ fn fixture_path_3_entries() -> Vec<u8> {
 fn build_genuine_bundle() -> ProofBundle {
     let field = fixture_field();
     let snap = CompiledFieldSnapshot::from_field(&field).expect("snap");
-    let trace = trace_default_builtins(&snap);
+    let context = ClosedFieldContext { human_burden: 0,
+        snapshot: std::sync::Arc::new(snap.clone()),
+        posture: PostureBundle::default(),
+        context: ContextBundle::default(),
+        tiers: TierMasks::ZERO,
+    };
+    let trace = trace_default_builtins(&context);
     let trace_bytes = canonical_bytes(&trace_to_jsonld(&trace));
     let receipt = fixture_receipt();
     let receipt_bytes = canonical_bytes(&receipt_to_jsonld(&receipt));
@@ -130,7 +139,13 @@ fn read_back_entries(bytes: &[u8]) -> BTreeMap<String, Vec<u8>> {
 fn jsonld_trace_roundtrip_stable_bytes() {
     let field = fixture_field();
     let snap = CompiledFieldSnapshot::from_field(&field).expect("snap");
-    let trace = trace_default_builtins(&snap);
+    let context = ClosedFieldContext { human_burden: 0,
+        snapshot: std::sync::Arc::new(snap.clone()),
+        posture: PostureBundle::default(),
+        context: ContextBundle::default(),
+        tiers: TierMasks::ZERO,
+    };
+    let trace = trace_default_builtins(&context);
     let b1 = canonical_bytes(&trace_to_jsonld(&trace));
     let b2 = canonical_bytes(&trace_to_jsonld(&trace));
     assert_eq!(b1, b2, "trace JSON-LD must be byte-stable");
@@ -140,7 +155,13 @@ fn jsonld_trace_roundtrip_stable_bytes() {
 fn jsonld_context_only_public_iris() {
     let field = fixture_field();
     let snap = CompiledFieldSnapshot::from_field(&field).expect("snap");
-    let trace = trace_default_builtins(&snap);
+    let context = ClosedFieldContext { human_burden: 0,
+        snapshot: std::sync::Arc::new(snap.clone()),
+        posture: PostureBundle::default(),
+        context: ContextBundle::default(),
+        tiers: TierMasks::ZERO,
+    };
+    let trace = trace_default_builtins(&context);
     let v = trace_to_jsonld(&trace);
     audit_iris(&v, &[]).expect("trace JSON-LD must contain only public IRIs");
 

@@ -30,7 +30,7 @@ use oxigraph::model::{NamedNode, Term};
 ///
 /// All four indices are [`PackedKeyTable`]s keyed by `fnv1a_64` of the
 /// IRI bytes — no `std::collections::HashMap` on the hot path.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct CompiledFieldSnapshot {
     instances_by_class: PackedKeyTable<(), Vec<NamedNode>>,
     subject_predicate_present: PackedKeyTable<(), ()>,

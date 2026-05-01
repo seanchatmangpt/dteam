@@ -2,8 +2,10 @@
 
 use ccog::compiled::CompiledFieldSnapshot;
 use ccog::field::FieldContext;
+use ccog::multimodal::{ContextBundle, PostureBundle};
 use ccog::packs::edge::{select_instinct, EdgePack, BUILTINS};
-use ccog::packs::FieldPack;
+use ccog::packs::{FieldPack, TierMasks};
+use ccog::runtime::ClosedFieldContext;
 
 fn empty_snap() -> CompiledFieldSnapshot {
     let f = FieldContext::new("t");
@@ -13,14 +15,20 @@ fn empty_snap() -> CompiledFieldSnapshot {
 #[test]
 fn pack_edge_positive_passes_canonical_lattice_through() {
     use ccog::instinct::AutonomicInstinct;
-    use ccog::multimodal::{ContextBundle, PostureBit, PostureBundle};
+    use ccog::multimodal::PostureBit;
     let snap = empty_snap();
     let posture = PostureBundle {
         posture_mask: 1u64 << PostureBit::SETTLED,
         confidence: 200,
     };
+    let context = ClosedFieldContext { human_burden: 0,
+        snapshot: std::sync::Arc::new(snap.clone()),
+        posture,
+        context: ContextBundle::default(),
+        tiers: TierMasks::ZERO,
+    };
     assert_eq!(
-        select_instinct(&snap, &posture, &ContextBundle::default()),
+        select_instinct(&context),
         AutonomicInstinct::Settle
     );
 }
@@ -28,7 +36,7 @@ fn pack_edge_positive_passes_canonical_lattice_through() {
 #[test]
 fn pack_edge_negative_no_response_class_invented() {
     use ccog::instinct::AutonomicInstinct;
-    use ccog::multimodal::{ContextBit, ContextBundle, PostureBit, PostureBundle};
+    use ccog::multimodal::{ContextBit, PostureBit};
     let snap = empty_snap();
     let posture = PostureBundle {
         posture_mask: 1u64 << PostureBit::ALERT,
@@ -39,18 +47,31 @@ fn pack_edge_negative_no_response_class_invented() {
         risk_mask: 1u64 << ContextBit::THEFT_RISK,
         affordance_mask: 0,
     };
-    let v = select_instinct(&snap, &posture, &ctx);
+    let context = ClosedFieldContext { human_burden: 0,
+        snapshot: std::sync::Arc::new(snap.clone()),
+        posture,
+        context: ctx,
+        tiers: TierMasks::ZERO,
+    };
+    let v = select_instinct(&context);
     // Edge passes through — should still be one of the canonical variants.
     let _: AutonomicInstinct = v;
 }
 
 #[test]
 fn pack_edge_boundary_no_pii_in_iri() {
-    // Every emitted triple's subject IRI must be a `urn:blake3:` URN. No
-    // visitor names, no addresses, no email-shaped tokens.
+    // Every emitted triple's subject IRI must be a hashed deterministic URN.
+    // No visitor names, no addresses, no email-shaped tokens.
     let snap = empty_snap();
+    let context = ClosedFieldContext {
+        snapshot: std::sync::Arc::new(snap.clone()),
+        posture: PostureBundle::default(),
+        context: ContextBundle::default(),
+        tiers: TierMasks::ZERO,
+        human_burden: 0,
+    };
     for slot in BUILTINS {
-        let delta = (slot.act)(&snap).expect("act");
+        let delta = (slot.act)(&context).expect("act");
         let nt = delta.to_ntriples();
         assert!(
             !nt.contains('@'),
@@ -58,8 +79,8 @@ fn pack_edge_boundary_no_pii_in_iri() {
             slot.name
         );
         assert!(
-            nt.contains("urn:blake3:"),
-            "edge slot {} did not emit a urn:blake3 subject",
+            nt.contains("urn:ccog:id:"),
+            "edge slot {} did not emit a hashed URN subject",
             slot.name
         );
     }

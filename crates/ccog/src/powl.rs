@@ -1,4 +1,5 @@
 //! POWL8 kinetic partial-order workflow primitive.
+#![allow(clippy::large_enum_variant, clippy::needless_range_loop, clippy::collapsible_match)]
 //!
 //! Minimal subset adapted from `unibit-powl`. Supports up to [`MAX_NODES`]
 //! nodes with a [`BinaryRelation`] bit-matrix expressing partial orders.
@@ -353,14 +354,13 @@ impl Powl8 {
         // overall for shape_match, which is fine at MAX_NODES = 64.
         for (idx, node) in self.nodes.iter().enumerate() {
             match *node {
-                Powl8Node::OperatorSequence { a, b } => {
-                    if (a as usize) == u {
-                        if counter == k {
-                            return Some(b as usize);
-                        }
-                        counter += 1;
+                Powl8Node::OperatorSequence { a, b } if (a as usize) == u => {
+                    if counter == k {
+                        return Some(b as usize);
                     }
+                    counter += 1;
                 }
+                Powl8Node::OperatorSequence { .. } => {}
                 Powl8Node::PartialOrder { start, count, rel } => {
                     let s = start as usize;
                     let c = count as usize;

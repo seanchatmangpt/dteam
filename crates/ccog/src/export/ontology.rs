@@ -24,7 +24,7 @@ pub struct NonPublicOntology(pub String);
 
 impl std::fmt::Display for NonPublicOntology {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "non-public ontology IRI: {}", self.0)
+        write!(f, "non-public ontology IRI: {}. Hint: only standard ontologies (PROV, schema.org, etc.) and 'urn:blake3:' are permitted in exported artifacts. Check ALLOWED_PREFIXES in src/export/ontology.rs.", self.0)
     }
 }
 

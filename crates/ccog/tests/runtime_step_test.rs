@@ -25,7 +25,9 @@ fn runtime_step_chains_receipts_across_cycles() {
     let r3 = rt.step().expect("step3");
 
     if r3.chain_extended {
-        let has_chain = rt.field().graph.ask("ASK { ?n <http://www.w3.org/ns/prov#wasInformedBy> ?o }").expect("ask");
+        let h_informed = format!("urn:ccog:p:{:04x}", ccog::utils::dense::fnv1a_64("http://www.w3.org/ns/prov#wasInformedBy".as_bytes()) as u16);
+        let query = format!("ASK {{ ?n <{}> ?o }}", h_informed);
+        let has_chain = rt.field().graph.ask(&query).expect("ask");
         assert!(has_chain, "graph must contain prov:wasInformedBy after chained step");
     }
     // posture should have advanced past Calm at least once

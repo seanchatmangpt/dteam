@@ -97,9 +97,10 @@ pub struct RelationProof {
 /// Pack-level operational posture fused from blackboard outcomes by Hearsay-II.
 ///
 /// Variants escalate left-to-right by signal density.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum PackPosture {
     /// Zero confirmed signals — no fused evidence.
+    #[default]
     Calm,
     /// Exactly one confirmed signal — single-source observation.
     Alert,
@@ -107,12 +108,6 @@ pub enum PackPosture {
     Engaged,
     /// Four or more confirmed signals — saturated blackboard.
     Settled,
-}
-
-impl Default for PackPosture {
-    fn default() -> Self {
-        PackPosture::Calm
-    }
 }
 
 impl std::fmt::Display for PackPosture {

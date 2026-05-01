@@ -5,7 +5,8 @@ use ccog::field::FieldContext;
 use ccog::instinct::AutonomicInstinct;
 use ccog::multimodal::{ContextBit, ContextBundle, PostureBit, PostureBundle};
 use ccog::packs::dev::{select_instinct, DevPack, BUILTINS};
-use ccog::packs::FieldPack;
+use ccog::packs::{FieldPack, TierMasks};
+use ccog::runtime::ClosedFieldContext;
 
 fn empty_snap() -> CompiledFieldSnapshot {
     let f = FieldContext::new("t");
@@ -24,7 +25,13 @@ fn pack_dev_positive_clamps_refuse_to_ask() {
         risk_mask: 1u64 << ContextBit::THEFT_RISK,
         affordance_mask: 0,
     };
-    assert_eq!(select_instinct(&snap, &posture, &ctx), AutonomicInstinct::Ask);
+    let context = ClosedFieldContext { human_burden: 0,
+        snapshot: std::sync::Arc::new(snap.clone()),
+        posture,
+        context: ctx,
+        tiers: TierMasks::ZERO,
+    };
+    assert_eq!(select_instinct(&context), AutonomicInstinct::Ask);
 }
 
 #[test]
@@ -34,8 +41,14 @@ fn pack_dev_negative_settle_passes_through() {
         posture_mask: 1u64 << PostureBit::SETTLED,
         confidence: 200,
     };
+    let context = ClosedFieldContext { human_burden: 0,
+        snapshot: std::sync::Arc::new(snap.clone()),
+        posture,
+        context: ContextBundle::default(),
+        tiers: TierMasks::ZERO,
+    };
     assert_eq!(
-        select_instinct(&snap, &posture, &ContextBundle::default()),
+        select_instinct(&context),
         AutonomicInstinct::Settle
     );
 }
@@ -72,7 +85,13 @@ fn pack_dev_boundary_does_not_auto_merge() {
     for (pm, em, rm, am) in high_pressure {
         let p = PostureBundle { posture_mask: pm, confidence: 200 };
         let c = ContextBundle { expectation_mask: em, risk_mask: rm, affordance_mask: am };
-        let v = select_instinct(&snap, &p, &c);
+        let context = ClosedFieldContext { human_burden: 0,
+            snapshot: std::sync::Arc::new(snap.clone()),
+            posture: p,
+            context: c,
+            tiers: TierMasks::ZERO,
+        };
+        let v = select_instinct(&context);
         assert_eq!(
             v,
             AutonomicInstinct::Ask,
@@ -87,11 +106,18 @@ fn pack_dev_boundary_does_not_auto_merge() {
 #[test]
 fn pack_dev_acts_emit_ask_action() {
     let snap = empty_snap();
+    let context = ClosedFieldContext { human_burden: 0,
+        snapshot: std::sync::Arc::new(snap.clone()),
+        posture: PostureBundle::default(),
+        context: ContextBundle::default(),
+        tiers: TierMasks::ZERO,
+    };
+    let h_ask = format!("{:04x}", ccog::utils::dense::fnv1a_64("https://schema.org/AskAction".as_bytes()) as u16);
     for slot in BUILTINS {
-        let delta = (slot.act)(&snap).expect("act");
+        let delta = (slot.act)(&context).expect("act");
         let nt = delta.to_ntriples();
         assert!(
-            nt.contains("schema.org/AskAction"),
+            nt.contains(&h_ask),
             "dev slot {} missing schema:AskAction",
             slot.name
         );

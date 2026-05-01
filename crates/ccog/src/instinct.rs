@@ -6,9 +6,9 @@
 //! bits from the trusted local interpreter, and local context (expectation,
 //! risk, affordance) from the surrounding cognition space.
 
-use crate::compiled::CompiledFieldSnapshot;
 use crate::compiled_hook::{compute_present_mask, Predicate};
-use crate::multimodal::{ContextBit, ContextBundle, PostureBit, PostureBundle};
+use crate::multimodal::{ContextBit, PostureBit};
+use crate::runtime::ClosedFieldContext;
 
 /// Right-sized response class — the action the cognition surface admits.
 #[derive(
@@ -46,11 +46,11 @@ pub enum AutonomicInstinct {
 /// is stable for `v0` consumers.
 #[inline]
 pub fn select_instinct_v0_with_reason(
-    snap: &CompiledFieldSnapshot,
-    posture: &PostureBundle,
-    ctx: &ContextBundle,
+    context: &ClosedFieldContext,
 ) -> (AutonomicInstinct, &'static str) {
-    let present = compute_present_mask(snap);
+    let present = compute_present_mask(&context.snapshot);
+    let posture = &context.posture;
+    let ctx = &context.context;
 
     if posture.has(PostureBit::SETTLED) {
         return (AutonomicInstinct::Settle, "settled posture");
@@ -89,18 +89,17 @@ pub fn select_instinct_v0_with_reason(
 
 /// Wrapper over `select_instinct_v0_with_reason` returning only the `AutonomicInstinct`.
 #[inline]
-pub fn select_instinct_v0(
-    snap: &CompiledFieldSnapshot,
-    posture: &PostureBundle,
-    ctx: &ContextBundle,
-) -> AutonomicInstinct {
-    select_instinct_v0_with_reason(snap, posture, ctx).0
+pub fn select_instinct_v0(context: &ClosedFieldContext) -> AutonomicInstinct {
+    select_instinct_v0_with_reason(context).0
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::compiled::CompiledFieldSnapshot;
     use crate::field::FieldContext;
+    use crate::multimodal::{ContextBundle, PostureBundle};
+    use crate::packs::TierMasks;
 
     fn empty_snap() -> CompiledFieldSnapshot {
         let f = FieldContext::new("t");
@@ -123,10 +122,13 @@ mod tests {
             posture_mask: 1u64 << PostureBit::SETTLED,
             confidence: 200,
         };
-        assert_eq!(
-            select_instinct_v0(&snap, &posture, &ContextBundle::default()),
-            AutonomicInstinct::Settle
-        );
+        let context = ClosedFieldContext { human_burden: 0,
+            snapshot: std::sync::Arc::new(snap.clone()),
+            posture,
+            context: ContextBundle::default(),
+            tiers: TierMasks::ZERO,
+        };
+        assert_eq!(select_instinct_v0(&context), AutonomicInstinct::Settle);
     }
 
     #[test]
@@ -135,7 +137,8 @@ mod tests {
         // Even with PACKAGE_EXPECTED + CAN_RETRIEVE_NOW + CADENCE_DELIVERY,
         // MUST_ESCALATE wins.
         let posture = PostureBundle {
-            posture_mask: (1u64 << PostureBit::CADENCE_DELIVERY) | (1u64 << PostureBit::ORIENTED_TO_ENTRY),
+            posture_mask: (1u64 << PostureBit::CADENCE_DELIVERY)
+                | (1u64 << PostureBit::ORIENTED_TO_ENTRY),
             confidence: 200,
         };
         let ctx = ContextBundle {
@@ -143,7 +146,14 @@ mod tests {
             risk_mask: 1u64 << ContextBit::MUST_ESCALATE,
             affordance_mask: 1u64 << ContextBit::CAN_RETRIEVE_NOW,
         };
-        assert_eq!(select_instinct_v0(&snap, &posture, &ctx), AutonomicInstinct::Escalate);
+        let context = ClosedFieldContext {
+            snapshot: std::sync::Arc::new(snap.clone()),
+            posture,
+            context: ctx,
+            tiers: TierMasks::ZERO,
+            human_burden: 0,
+        };
+        assert_eq!(select_instinct_v0(&context), AutonomicInstinct::Escalate);
     }
 
     #[test]
@@ -158,7 +168,14 @@ mod tests {
             risk_mask: 1u64 << ContextBit::SAFETY_RISK,
             affordance_mask: 0,
         };
-        assert_eq!(select_instinct_v0(&snap, &posture, &ctx), AutonomicInstinct::Escalate);
+        let context = ClosedFieldContext {
+            snapshot: std::sync::Arc::new(snap.clone()),
+            posture,
+            context: ctx,
+            tiers: TierMasks::ZERO,
+            human_burden: 0,
+        };
+        assert_eq!(select_instinct_v0(&context), AutonomicInstinct::Escalate);
     }
 
     #[test]
@@ -173,7 +190,14 @@ mod tests {
             risk_mask: 0,
             affordance_mask: 1u64 << ContextBit::CAN_RETRIEVE_NOW,
         };
-        assert_eq!(select_instinct_v0(&snap, &posture, &ctx), AutonomicInstinct::Retrieve);
+        let context = ClosedFieldContext {
+            snapshot: std::sync::Arc::new(snap.clone()),
+            posture,
+            context: ctx,
+            tiers: TierMasks::ZERO,
+            human_burden: 0,
+        };
+        assert_eq!(select_instinct_v0(&context), AutonomicInstinct::Retrieve);
     }
 
     #[test]
@@ -188,7 +212,14 @@ mod tests {
             risk_mask: 0,
             affordance_mask: 0,
         };
-        assert_eq!(select_instinct_v0(&snap, &posture, &ctx), AutonomicInstinct::Settle);
+        let context = ClosedFieldContext {
+            snapshot: std::sync::Arc::new(snap.clone()),
+            posture,
+            context: ctx,
+            tiers: TierMasks::ZERO,
+            human_burden: 0,
+        };
+        assert_eq!(select_instinct_v0(&context), AutonomicInstinct::Settle);
     }
 
     #[test]
@@ -198,10 +229,13 @@ mod tests {
             posture_mask: 1u64 << PostureBit::ALERT,
             confidence: 200,
         };
-        assert_eq!(
-            select_instinct_v0(&snap, &posture, &ContextBundle::default()),
-            AutonomicInstinct::Ask
-        );
+        let context = ClosedFieldContext { human_burden: 0,
+            snapshot: std::sync::Arc::new(snap.clone()),
+            posture,
+            context: ContextBundle::default(),
+            tiers: TierMasks::ZERO,
+        };
+        assert_eq!(select_instinct_v0(&context), AutonomicInstinct::Ask);
     }
 
     #[test]
@@ -216,7 +250,14 @@ mod tests {
             risk_mask: 1u64 << ContextBit::THEFT_RISK,
             affordance_mask: 0,
         };
-        assert_eq!(select_instinct_v0(&snap, &posture, &ctx), AutonomicInstinct::Refuse);
+        let context = ClosedFieldContext {
+            snapshot: std::sync::Arc::new(snap.clone()),
+            posture,
+            context: ctx,
+            tiers: TierMasks::ZERO,
+            human_burden: 0,
+        };
+        assert_eq!(select_instinct_v0(&context), AutonomicInstinct::Refuse);
     }
 
     #[test]
@@ -231,7 +272,14 @@ mod tests {
             risk_mask: 0,
             affordance_mask: 1u64 << ContextBit::CAN_INSPECT,
         };
-        assert_eq!(select_instinct_v0(&snap, &posture, &ctx), AutonomicInstinct::Inspect);
+        let context = ClosedFieldContext {
+            snapshot: std::sync::Arc::new(snap.clone()),
+            posture,
+            context: ctx,
+            tiers: TierMasks::ZERO,
+            human_burden: 0,
+        };
+        assert_eq!(select_instinct_v0(&context), AutonomicInstinct::Inspect);
     }
 
     #[test]
@@ -241,10 +289,13 @@ mod tests {
             posture_mask: 1u64 << PostureBit::CALM,
             confidence: 200,
         };
-        assert_eq!(
-            select_instinct_v0(&snap, &posture, &ContextBundle::default()),
-            AutonomicInstinct::Ignore
-        );
+        let context = ClosedFieldContext { human_burden: 0,
+            snapshot: std::sync::Arc::new(snap.clone()),
+            posture,
+            context: ContextBundle::default(),
+            tiers: TierMasks::ZERO,
+        };
+        assert_eq!(select_instinct_v0(&context), AutonomicInstinct::Ignore);
     }
 
     #[test]
@@ -254,11 +305,14 @@ mod tests {
             posture_mask: 1u64 << PostureBit::ORIENTED_INTERIOR,
             confidence: 200,
         };
+        let context = ClosedFieldContext { human_burden: 0,
+            snapshot: std::sync::Arc::new(snap.clone()),
+            posture,
+            context: ContextBundle::default(),
+            tiers: TierMasks::ZERO,
+        };
         // No matching condition → default Ask.
-        assert_eq!(
-            select_instinct_v0(&snap, &posture, &ContextBundle::default()),
-            AutonomicInstinct::Ask
-        );
+        assert_eq!(select_instinct_v0(&context), AutonomicInstinct::Ask);
     }
 
     #[test]
@@ -274,7 +328,14 @@ mod tests {
             risk_mask: 1u64 << ContextBit::MUST_ESCALATE,
             affordance_mask: 0,
         };
-        assert_eq!(select_instinct_v0(&snap, &posture, &ctx), AutonomicInstinct::Settle);
+        let context = ClosedFieldContext {
+            snapshot: std::sync::Arc::new(snap.clone()),
+            posture,
+            context: ctx,
+            tiers: TierMasks::ZERO,
+            human_burden: 0,
+        };
+        assert_eq!(select_instinct_v0(&context), AutonomicInstinct::Settle);
     }
 
     #[test]
@@ -289,6 +350,13 @@ mod tests {
             risk_mask: 1u64 << ContextBit::MUST_ESCALATE,
             affordance_mask: 1u64 << ContextBit::CAN_RETRIEVE_NOW,
         };
-        assert_eq!(select_instinct_v0(&snap, &posture, &ctx), AutonomicInstinct::Escalate);
+        let context = ClosedFieldContext {
+            snapshot: std::sync::Arc::new(snap.clone()),
+            posture,
+            context: ctx,
+            tiers: TierMasks::ZERO,
+            human_burden: 0,
+        };
+        assert_eq!(select_instinct_v0(&context), AutonomicInstinct::Escalate);
     }
 }

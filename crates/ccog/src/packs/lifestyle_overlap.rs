@@ -18,7 +18,9 @@
 //! in a new response class.
 
 use crate::instinct::AutonomicInstinct;
-use crate::packs::{LoadedFieldPack, LoadedPackRule, LoadedRuleGroup};
+use crate::packs::{
+    cold_intern, GroupId, LoadedFieldPack, LoadedPackRule, LoadedRuleGroup, PackId, RuleId,
+};
 
 // =============================================================================
 // K1 bit positions — Routine / Capacity / Safety
@@ -109,11 +111,11 @@ pub const PRECEDENCE_ROUTINE: u32 = 50;
 #[must_use]
 pub fn build_lifestyle_overlap_pack(name: &str, digest_urn: &str) -> LoadedFieldPack {
     let safety = LoadedRuleGroup {
-        id: "lifestyle.safety".to_string(),
+        id: GroupId::new("lifestyle.safety"),
         precedence_rank: PRECEDENCE_SAFETY,
         rules: vec![
             LoadedPackRule {
-                id: "lifestyle.safety.driving_risk_refuses".to_string(),
+                id: RuleId::new("lifestyle.safety.driving_risk_refuses"),
                 response: AutonomicInstinct::Refuse,
                 require_posture_mask: 0,
                 require_expectation_mask: 0,
@@ -124,7 +126,7 @@ pub fn build_lifestyle_overlap_pack(name: &str, digest_urn: &str) -> LoadedField
                 require_k3_mask: 0,
             },
             LoadedPackRule {
-                id: "lifestyle.safety.medication_overdue_escalates".to_string(),
+                id: RuleId::new("lifestyle.safety.medication_overdue_escalates"),
                 response: AutonomicInstinct::Escalate,
                 require_posture_mask: 0,
                 require_expectation_mask: 0,
@@ -135,7 +137,7 @@ pub fn build_lifestyle_overlap_pack(name: &str, digest_urn: &str) -> LoadedField
                 require_k3_mask: 0,
             },
             LoadedPackRule {
-                id: "lifestyle.safety.acute_distress_escalates".to_string(),
+                id: RuleId::new("lifestyle.safety.acute_distress_escalates"),
                 response: AutonomicInstinct::Escalate,
                 require_posture_mask: 0,
                 require_expectation_mask: 0,
@@ -149,11 +151,11 @@ pub fn build_lifestyle_overlap_pack(name: &str, digest_urn: &str) -> LoadedField
     };
 
     let evidence = LoadedRuleGroup {
-        id: "lifestyle.evidence".to_string(),
+        id: GroupId::new("lifestyle.evidence"),
         precedence_rank: PRECEDENCE_EVIDENCE,
         rules: vec![
             LoadedPackRule {
-                id: "lifestyle.evidence.missing_completion_asks".to_string(),
+                id: RuleId::new("lifestyle.evidence.missing_completion_asks"),
                 response: AutonomicInstinct::Ask,
                 require_posture_mask: 0,
                 require_expectation_mask: 0,
@@ -164,7 +166,7 @@ pub fn build_lifestyle_overlap_pack(name: &str, digest_urn: &str) -> LoadedField
                 require_k3_mask: 1u64 << EvidenceBit::MEAL_EVIDENCE_MISSING,
             },
             LoadedPackRule {
-                id: "lifestyle.evidence.routine_uncertain_inspects".to_string(),
+                id: RuleId::new("lifestyle.evidence.routine_uncertain_inspects"),
                 response: AutonomicInstinct::Inspect,
                 require_posture_mask: 0,
                 require_expectation_mask: 0,
@@ -178,10 +180,10 @@ pub fn build_lifestyle_overlap_pack(name: &str, digest_urn: &str) -> LoadedField
     };
 
     let capacity = LoadedRuleGroup {
-        id: "lifestyle.capacity".to_string(),
+        id: GroupId::new("lifestyle.capacity"),
         precedence_rank: PRECEDENCE_CAPACITY,
         rules: vec![LoadedPackRule {
-            id: "lifestyle.capacity.fatigue_softens_routine".to_string(),
+            id: RuleId::new("lifestyle.capacity.fatigue_softens_routine"),
             // Routine pressure under fatigue collapses to Ask, not
             // Refuse — the matched_rule_id renders "smallest version"
             // language at the UI layer.
@@ -197,10 +199,10 @@ pub fn build_lifestyle_overlap_pack(name: &str, digest_urn: &str) -> LoadedField
     };
 
     let meaning = LoadedRuleGroup {
-        id: "lifestyle.meaning".to_string(),
+        id: GroupId::new("lifestyle.meaning"),
         precedence_rank: PRECEDENCE_MEANING,
         rules: vec![LoadedPackRule {
-            id: "lifestyle.meaning.scale_meaningful_activity".to_string(),
+            id: RuleId::new("lifestyle.meaning.scale_meaningful_activity"),
             // Even under fatigue, identity-reinforcing activity is
             // preserved as Retrieve (smaller-version) rather than
             // erased. Response stays canonical; "scale" lives in id.
@@ -216,11 +218,11 @@ pub fn build_lifestyle_overlap_pack(name: &str, digest_urn: &str) -> LoadedField
     };
 
     let routine = LoadedRuleGroup {
-        id: "lifestyle.routine".to_string(),
+        id: GroupId::new("lifestyle.routine"),
         precedence_rank: PRECEDENCE_ROUTINE,
         rules: vec![
             LoadedPackRule {
-                id: "lifestyle.routine.due_asks".to_string(),
+                id: RuleId::new("lifestyle.routine.due_asks"),
                 response: AutonomicInstinct::Ask,
                 require_posture_mask: 0,
                 require_expectation_mask: 0,
@@ -231,7 +233,7 @@ pub fn build_lifestyle_overlap_pack(name: &str, digest_urn: &str) -> LoadedField
                 require_k3_mask: 0,
             },
             LoadedPackRule {
-                id: "lifestyle.routine.missed_inspects".to_string(),
+                id: RuleId::new("lifestyle.routine.missed_inspects"),
                 response: AutonomicInstinct::Inspect,
                 require_posture_mask: 0,
                 require_expectation_mask: 0,
@@ -245,7 +247,7 @@ pub fn build_lifestyle_overlap_pack(name: &str, digest_urn: &str) -> LoadedField
     };
 
     LoadedFieldPack {
-        name: name.to_string(),
+        name: PackId::new(cold_intern(name)),
         ontology_profile: vec![
             "https://schema.org/".to_string(),
             "http://www.w3.org/ns/prov#".to_string(),
@@ -285,9 +287,11 @@ mod tests {
 
     #[test]
     fn safety_outranks_routine_in_precedence_table() {
-        assert!(PRECEDENCE_SAFETY < PRECEDENCE_ROUTINE);
-        assert!(PRECEDENCE_EVIDENCE < PRECEDENCE_CAPACITY);
-        assert!(PRECEDENCE_CAPACITY < PRECEDENCE_MEANING);
-        assert!(PRECEDENCE_MEANING < PRECEDENCE_ROUTINE);
+        const {
+            assert!(PRECEDENCE_SAFETY < PRECEDENCE_ROUTINE);
+            assert!(PRECEDENCE_EVIDENCE < PRECEDENCE_CAPACITY);
+            assert!(PRECEDENCE_CAPACITY < PRECEDENCE_MEANING);
+            assert!(PRECEDENCE_MEANING < PRECEDENCE_ROUTINE);
+        }
     }
 }

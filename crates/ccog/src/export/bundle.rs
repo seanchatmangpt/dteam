@@ -1,4 +1,5 @@
 //! Deterministic `.tar.zst` proof bundle (Phase 11).
+#![allow(clippy::disallowed_types)]
 
 use std::collections::BTreeMap;
 use std::io::{Cursor, Read, Write};
@@ -16,10 +17,10 @@ pub struct ProofBundle {
 #[derive(Debug, thiserror::Error)]
 pub enum BundleError {
     /// I/O failure underlying tar/zstd.
-    #[error("io error: {0}")]
+    #[error("io error: {0}. Hint: check file system permissions or disk space.")]
     Io(#[from] std::io::Error),
     /// Manifest hash did not match recomputed entry digest.
-    #[error("manifest mismatch for entry '{name}': declared {declared}, actual {actual}")]
+    #[error("manifest mismatch for entry '{name}': declared {declared}, actual {actual}. Hint: the bundle may be corrupted or tampered with.")]
     ManifestMismatch {
         /// Entry name with mismatched hash.
         name: String,
@@ -29,10 +30,10 @@ pub enum BundleError {
         actual: String,
     },
     /// Required entry was missing from the bundle.
-    #[error("missing required entry: {0}")]
+    #[error("missing required entry: {0}. Hint: the proof bundle is incomplete or using an unsupported version.")]
     MissingEntry(String),
     /// Manifest JSON was malformed.
-    #[error("malformed manifest: {0}")]
+    #[error("malformed manifest: {0}. Hint: ensure manifest.json is valid JSON.")]
     MalformedManifest(String),
 }
 

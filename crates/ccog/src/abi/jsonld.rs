@@ -1,4 +1,5 @@
 //! JSON-LD serialization for POWL8 / POWL64 (Phase 10, offline only).
+#![allow(clippy::disallowed_types)]
 //!
 //! Hand-rolled with `serde_json::Value` + `BTreeMap`-backed objects so the
 //! emitted bytes are deterministic across runs and OS allocators.

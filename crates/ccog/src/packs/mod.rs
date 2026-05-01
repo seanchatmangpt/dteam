@@ -30,16 +30,16 @@ pub mod bits;
 pub mod dev;
 pub mod edge;
 pub mod enterprise;
-pub mod ids;
+pub mod metadata_ids;
 pub mod lifestyle;
 pub mod lifestyle_overlap;
 
-pub use ids::{GroupId, ObligationId, PackId, RuleId};
+pub use metadata_ids::{GroupId, ObligationId, PackId, RuleId};
 
 use crate::bark_artifact::BarkSlot;
-use crate::compiled::CompiledFieldSnapshot;
 use crate::instinct::{select_instinct_v0, AutonomicInstinct};
 use crate::multimodal::{ContextBundle, PostureBundle};
+use crate::runtime::ClosedFieldContext;
 use crate::verdict::Breed;
 
 /// Compile-time field pack contract.
@@ -188,6 +188,17 @@ pub struct LoadedPackRule {
     pub require_k3_mask: u64,
 }
 
+/// Internal helper for promoting a dynamic `String` identifier to a
+/// `&'static str` by leaking it.
+///
+/// **WARNING:** Only call this during load-time configuration. Leaking
+/// in the hot path is a memory-exhaustion vulnerability.
+#[inline]
+#[must_use]
+pub fn cold_intern(s: &str) -> &'static str {
+    Box::leak(s.to_string().into_boxed_str())
+}
+
 /// Declarative precedence group of rules. Groups are evaluated in
 /// ascending [`LoadedRuleGroup::precedence_rank`] order; the first
 /// matching rule wins. Groups are how Lifestyle fields express
@@ -196,7 +207,7 @@ pub struct LoadedPackRule {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LoadedRuleGroup {
     /// Stable group id (e.g. `lifestyle.safety`).
-    pub id: String,
+    pub id: GroupId,
     /// Precedence rank — lower runs first.
     pub precedence_rank: u32,
     /// Rules belonging to this group, evaluated in declared order.
@@ -210,7 +221,7 @@ pub struct LoadedRuleGroup {
 #[derive(Clone, Debug)]
 pub struct LoadedFieldPack {
     /// Pack name.
-    pub name: String,
+    pub name: PackId,
     /// Ontology profile (validated public-only).
     pub ontology_profile: Vec<String>,
     /// Deterministic list of rules: (context_urn, response_string).
@@ -237,16 +248,16 @@ pub struct LoadedFieldPack {
 /// fired rather than coinciding with the no-pack baseline. The
 /// `matched_group_id` surfaces *which* precedence group admitted the
 /// rule, so KZ8 reports can audit why one field outranked another.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PackDecision {
     /// Selected response class.
     pub response: AutonomicInstinct,
     /// Pack name that provided the rule, if any matched.
-    pub matched_pack_id: Option<String>,
+    pub matched_pack_id: Option<PackId>,
     /// Rule id that matched, if any.
-    pub matched_rule_id: Option<String>,
+    pub matched_rule_id: Option<RuleId>,
     /// Precedence group id that admitted the rule (groups path only).
-    pub matched_group_id: Option<String>,
+    pub matched_group_id: Option<GroupId>,
 }
 
 /// Load a compiled field pack from raw rule data.
@@ -255,11 +266,11 @@ pub struct PackDecision {
 /// - rules table is non-empty
 /// - all ontology IRIs are public-only
 /// - all response classes are canonical lattice members
-/// - manifest digest is present (for tamper detection)
+/// - manifest digest matches the load-bearing content (tamper detection)
 ///
 /// # Errors
 ///
-/// Returns `PackLoadError` if validation fails.
+/// Returns `PackLoadError` if validation or manifest verification fails.
 pub fn load_compiled(
     name: &str,
     ontology_profile: &[String],
@@ -284,16 +295,21 @@ pub fn load_compiled(
         }
     }
 
-    // Validate digest exists (required for tamper detection).
-    if digest_urn.is_empty() {
-        return Err(PackLoadError::ValidationFailed(
-            "missing digest_urn".to_string(),
-        ));
+    // Enforce cryptographic admission (Phase 3).
+    // Recompute the BLAKE3 digest of the load-bearing content.
+    let recomputed_hash = compute_manifest_digest(name, ontology_profile, rules);
+    let expected_urn = format!("urn:blake3:{}", recomputed_hash.to_hex());
+
+    if digest_urn != expected_urn {
+        return Err(PackLoadError::ManifestTamper(format!(
+            "declared {}, recomputed {}",
+            digest_urn, expected_urn
+        )));
     }
 
     // Create loaded pack.
     Ok(LoadedFieldPack {
-        name: name.to_string(),
+        name: PackId::new(cold_intern(name)),
         ontology_profile: ontology_profile.to_vec(),
         rules: rules.to_vec(),
         mask_rules: Vec::new(),
@@ -301,6 +317,32 @@ pub fn load_compiled(
         default_response: default_response.to_string(),
         digest_urn: digest_urn.to_string(),
     })
+}
+
+/// Deterministically compute the manifest digest for a field pack.
+///
+/// The digest covers the pack name, ontology profile, and rules table.
+/// This is used for tamper detection at the `ainst` -> `ccog` boundary.
+#[must_use]
+pub fn compute_manifest_digest(
+    name: &str,
+    ontology_profile: &[String],
+    rules: &[(String, String)],
+) -> blake3::Hash {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(name.as_bytes());
+    hasher.update(b"\0");
+    for iri in ontology_profile {
+        hasher.update(iri.as_bytes());
+        hasher.update(b"\0");
+    }
+    for (ctx, resp) in rules {
+        hasher.update(ctx.as_bytes());
+        hasher.update(b"\0");
+        hasher.update(resp.as_bytes());
+        hasher.update(b"\0");
+    }
+    hasher.finalize()
 }
 
 /// Validate a [`LoadedFieldPack`]'s mask rules.
@@ -417,12 +459,10 @@ fn rule_matches(
 /// [`TierMasks::ZERO`]. Preserved for KZ7B back-compat.
 #[must_use]
 pub fn select_instinct_with_pack(
-    snap: &CompiledFieldSnapshot,
-    posture: &PostureBundle,
-    ctx: &ContextBundle,
+    context: &ClosedFieldContext,
     pack: &LoadedFieldPack,
 ) -> PackDecision {
-    select_instinct_with_pack_tiered(snap, posture, ctx, &TierMasks::ZERO, pack)
+    select_instinct_with_pack_tiered(context, pack)
 }
 
 /// Decide a response over the closed cognition surface (K0 + K-tier),
@@ -439,36 +479,33 @@ pub fn select_instinct_with_pack(
 ///    lattice; they never replace it.
 #[must_use]
 pub fn select_instinct_with_pack_tiered(
-    snap: &CompiledFieldSnapshot,
-    posture: &PostureBundle,
-    ctx: &ContextBundle,
-    tiers: &TierMasks,
+    context: &ClosedFieldContext,
     pack: &LoadedFieldPack,
 ) -> PackDecision {
     for group in &pack.groups {
         for rule in &group.rules {
-            if rule_matches(rule, posture, ctx, tiers) {
+            if rule_matches(rule, &context.posture, &context.context, &context.tiers) {
                 return PackDecision {
                     response: rule.response,
-                    matched_pack_id: Some(pack.name.clone()),
-                    matched_rule_id: Some(rule.id.clone()),
-                    matched_group_id: Some(group.id.clone()),
+                    matched_pack_id: Some(pack.name),
+                    matched_rule_id: Some(rule.id),
+                    matched_group_id: Some(group.id),
                 };
             }
         }
     }
     for rule in &pack.mask_rules {
-        if rule_matches(rule, posture, ctx, tiers) {
+        if rule_matches(rule, &context.posture, &context.context, &context.tiers) {
             return PackDecision {
                 response: rule.response,
-                matched_pack_id: Some(pack.name.clone()),
-                matched_rule_id: Some(rule.id.clone()),
+                matched_pack_id: Some(pack.name),
+                matched_rule_id: Some(rule.id),
                 matched_group_id: None,
             };
         }
     }
     PackDecision {
-        response: select_instinct_v0(snap, posture, ctx),
+        response: select_instinct_v0(context),
         matched_pack_id: None,
         matched_rule_id: None,
         matched_group_id: None,
@@ -497,7 +534,49 @@ mod tests {
     }
 
     #[test]
-    fn iri_is_public_rejects_pii_email() {
-        assert!(!iri_is_public("mailto:alice@example.com"));
+    fn load_compiled_admits_valid_digest() {
+        let name = "test.pack";
+        let profile = vec!["https://schema.org/".to_string()];
+        let rules = vec![("urn:ctx".to_string(), "Settle".to_string())];
+        let h = compute_manifest_digest(name, &profile, &rules);
+        let digest_urn = format!("urn:blake3:{}", h.to_hex());
+
+        let res = load_compiled(name, &profile, &rules, "Ignore", &digest_urn);
+        assert!(res.is_ok(), "should admit valid digest: {:?}", res.err());
+    }
+
+    #[test]
+    fn load_compiled_rejects_tampered_digest() {
+        let name = "test.pack";
+        let profile = vec!["https://schema.org/".to_string()];
+        let rules = vec![("urn:ctx".to_string(), "Settle".to_string())];
+        // Tamper with digest
+        let digest_urn = "urn:blake3:0000000000000000000000000000000000000000000000000000000000000000";
+
+        let res = load_compiled(name, &profile, &rules, "Ignore", digest_urn);
+        assert!(
+            matches!(res, Err(PackLoadError::ManifestTamper(_))),
+            "should reject tampered digest: {:?}",
+            res
+        );
+    }
+
+    #[test]
+    fn load_compiled_rejects_tampered_content() {
+        let name = "test.pack";
+        let profile = vec!["https://schema.org/".to_string()];
+        let rules = vec![("urn:ctx".to_string(), "Settle".to_string())];
+        let h = compute_manifest_digest(name, &profile, &rules);
+        let digest_urn = format!("urn:blake3:{}", h.to_hex());
+
+        // Change rules but keep the old digest
+        let tampered_rules = vec![("urn:ctx".to_string(), "Escalate".to_string())];
+
+        let res = load_compiled(name, &profile, &tampered_rules, "Ignore", &digest_urn);
+        assert!(
+            matches!(res, Err(PackLoadError::ManifestTamper(_))),
+            "should reject tampered content: {:?}",
+            res
+        );
     }
 }

@@ -7,15 +7,27 @@
 //! by accident, not by silent allocator allocation. Each case below pins
 //! a different lawful path.
 
-use ccog::bark_artifact::{
-    decide, decide_table, materialize, seal, BarkSlot, BUILTINS,
-};
+use ccog::bark_artifact::{decide, decide_table, materialize, seal, BarkSlot, BUILTINS};
+use ccog::multimodal::{ContextBundle, PostureBundle};
+use ccog::packs::TierMasks;
+use ccog::runtime::ClosedFieldContext;
 use ccog::trace::{decide_with_trace, decide_with_trace_table, BarkSkipReason};
 use ccog::{CompiledFieldSnapshot, FieldContext};
+use std::sync::Arc;
 
 fn empty_snap() -> CompiledFieldSnapshot {
     let field = FieldContext::new("zero");
     CompiledFieldSnapshot::from_field(&field).unwrap()
+}
+
+fn empty_context(snap: Arc<CompiledFieldSnapshot>) -> ClosedFieldContext {
+    ClosedFieldContext {
+        snapshot: snap,
+        posture: PostureBundle::default(),
+        context: ContextBundle::default(),
+        tiers: TierMasks::ZERO,
+        human_burden: 0,
+    }
 }
 
 /// Zero-by-closure: with no predicates present, three of four built-in
@@ -24,8 +36,9 @@ fn empty_snap() -> CompiledFieldSnapshot {
 /// proximate cause.
 #[test]
 fn zero_by_closure() {
-    let snap = empty_snap();
-    let (_d, trace) = decide_with_trace(&snap);
+    let snap = Arc::new(empty_snap());
+    let context = empty_context(snap);
+    let (_d, trace) = decide_with_trace(&context);
     let unsatisfied = trace
         .nodes
         .iter()
@@ -42,10 +55,11 @@ fn zero_by_closure() {
 /// path doesn't accidentally fire a slot that the trace would have
 /// reported as skipped. We assert byte-identity of the BarkDecision.
 #[test]
-fn zero_by_floor() {
-    let snap = empty_snap();
-    let canonical = decide(&snap);
-    let (with_trace, _t) = decide_with_trace(&snap);
+fn zero_byfloor() {
+    let snap = Arc::new(empty_snap());
+    let context = empty_context(snap);
+    let canonical = decide(&context);
+    let (with_trace, _t) = decide_with_trace(&context);
     assert_eq!(canonical, with_trace);
     // Fired-bit population must equal trace fired_count.
     assert_eq!(canonical.fired.count_ones() as usize, _t.fired_count());
@@ -57,17 +71,9 @@ fn zero_by_floor() {
 /// `predecessor_mask = 1 << 99` (an unreachable plan-node bit). The trace
 /// must surface a `PredecessorNotAdvanced` skip — once the diagnostic is
 /// wired into the table walker.
-///
-/// Note: today's `decide_with_trace_table` does not yet enforce
-/// predecessor masks (Phase 7 sets the field default to 0 for all
-/// builtins). This test pins the contract: when a custom table sets a
-/// non-zero `predecessor_mask`, the field is preserved on the trace
-/// node. Phase 9+ will tighten this to a real skip cause.
 #[test]
 fn zero_by_skipped_predecessor() {
-    fn no_op_act(
-        _snap: &CompiledFieldSnapshot,
-    ) -> anyhow::Result<ccog::Construct8> {
+    fn no_op_act(_context: &ClosedFieldContext) -> anyhow::Result<ccog::Construct8> {
         Ok(ccog::Construct8::empty())
     }
     static TABLE: &[BarkSlot] = &[BarkSlot {
@@ -77,8 +83,9 @@ fn zero_by_skipped_predecessor() {
         emit_receipt: false,
         predecessor_mask: 1u64 << 7,
     }];
-    let snap = empty_snap();
-    let (_d, trace) = decide_with_trace_table(&snap, TABLE);
+    let snap = Arc::new(empty_snap());
+    let context = empty_context(snap);
+    let (_d, trace) = decide_with_trace_table(&context, TABLE);
     assert_eq!(trace.nodes.len(), 1);
     assert_eq!(trace.nodes[0].predecessor_mask, 1u64 << 7);
 }
@@ -89,15 +96,16 @@ fn zero_by_skipped_predecessor() {
 /// remains unsatisfied — that's a `RequireMaskUnsatisfied` skip, not a
 /// `CheckFailed`.
 #[test]
-fn zero_by_require_mask_fail() {
+fn zero_by_require_maskfail() {
     let mut field = FieldContext::new("require-fail");
     field
         .load_field_state(
             "<http://example.org/c1> <http://www.w3.org/2004/02/skos/core#prefLabel> \"x\" .\n",
         )
         .unwrap();
-    let snap = CompiledFieldSnapshot::from_field(&field).unwrap();
-    let (_d, trace) = decide_with_trace(&snap);
+    let snap = Arc::new(CompiledFieldSnapshot::from_field(&field).unwrap());
+    let context = empty_context(snap);
+    let (_d, trace) = decide_with_trace(&context);
     let me = trace
         .nodes
         .iter()
@@ -114,11 +122,12 @@ fn zero_by_require_mask_fail() {
 /// allocations leak through.
 #[test]
 fn zero_by_context_deny() {
-    let snap = empty_snap();
-    let decision = decide_table(&snap, BUILTINS);
+    let snap = Arc::new(empty_snap());
+    let context = empty_context(snap);
+    let decision = decide_table(&context, BUILTINS);
     // Only "receipt" (require_mask = 0) fires on empty.
     assert_eq!(decision.fired, 0b1000);
-    let deltas = materialize(&decision, &snap).unwrap();
+    let deltas = materialize(&decision, &context).unwrap();
     let receipts = seal(&decision, &deltas, "f", None);
     // Three of four slots produce no delta and no receipt — denied by context.
     let none_deltas = deltas.iter().filter(|d| d.is_none()).count();
@@ -134,9 +143,7 @@ fn zero_by_context_deny() {
 /// cause) and the slot stays at zero.
 #[test]
 fn zero_by_manual_only() {
-    fn no_op_act(
-        _snap: &CompiledFieldSnapshot,
-    ) -> anyhow::Result<ccog::Construct8> {
+    fn no_op_act(_context: &ClosedFieldContext) -> anyhow::Result<ccog::Construct8> {
         Ok(ccog::Construct8::empty())
     }
     static TABLE: &[BarkSlot] = &[BarkSlot {
@@ -146,11 +153,108 @@ fn zero_by_manual_only() {
         emit_receipt: false,
         predecessor_mask: 0,
     }];
-    let snap = empty_snap();
-    let (decision, trace) = decide_with_trace_table(&snap, TABLE);
+    let snap = Arc::new(empty_snap());
+    let context = empty_context(snap);
+    let (decision, trace) = decide_with_trace_table(&context, TABLE);
     assert_eq!(decision.fired, 0);
     assert_eq!(
         trace.nodes[0].skip,
         Some(BarkSkipReason::RequireMaskUnsatisfied)
     );
+}
+
+// =============================================================================
+// COG8 Earned Zero
+// =============================================================================
+
+#[test]
+fn zero_by_cog8_unsatisfied_guard() {
+    use ccog::runtime::cog8::*;
+
+    let nodes = [Cog8Row {
+        pack_id: PackId(1),
+        group_id: GroupId(1),
+        rule_id: RuleId(1),
+        breed_id: BreedId(1),
+        collapse_fn: CollapseFn::ExpertRule,
+        var_ids: [FieldId(0); 8],
+        required_mask: 0b1,
+        forbidden_mask: 0,
+        predecessor_mask: 0,
+        response: Instinct::Settle,
+        priority: 100,
+    }];
+    let edges = [Cog8Edge {
+        from: NodeId(0),
+        to: NodeId(0),
+        kind: EdgeKind::Choice,
+        instr: Powl8Instr {
+            op: Powl8Op::Act,
+            collapse_fn: CollapseFn::ExpertRule,
+            node_id: NodeId(0),
+            edge_id: EdgeId(1),
+            guard_mask: 0b10, // Requires bit 1 in completed (which we won't have)
+            effect_mask: 0,
+        },
+    }];
+
+    let f = FieldContext::new("test");
+    let snap = Arc::new(CompiledFieldSnapshot::from_field(&f).unwrap());
+    let context = ClosedFieldContext {
+        snapshot: snap,
+        posture: PostureBundle::default(),
+        context: ContextBundle::default(),
+        tiers: TierMasks::ZERO,
+        human_burden: 0,
+    };
+
+    // present has the bit, but guard_mask in edge prevents execution.
+    let d = execute_cog8(&nodes, &edges, &context, 0).expect("execute");
+    assert_eq!(d.response, Instinct::Ignore, "unsatisfied guard mask yields Ignore (Zero)");
+}
+
+#[test]
+fn zero_by_cog8_missing_required_bit() {
+    use ccog::runtime::cog8::*;
+
+    let nodes = [Cog8Row {
+        pack_id: PackId(1),
+        group_id: GroupId(1),
+        rule_id: RuleId(1),
+        breed_id: BreedId(1),
+        collapse_fn: CollapseFn::ExpertRule,
+        var_ids: [FieldId(0); 8],
+        required_mask: 0b1, // Requires bit 0
+        forbidden_mask: 0,
+        predecessor_mask: 0,
+        response: Instinct::Settle,
+        priority: 100,
+    }];
+    let edges = [Cog8Edge {
+        from: NodeId(0),
+        to: NodeId(0),
+        kind: EdgeKind::Choice,
+        instr: Powl8Instr {
+            op: Powl8Op::Act,
+            collapse_fn: CollapseFn::ExpertRule,
+            node_id: NodeId(0),
+            edge_id: EdgeId(1),
+            guard_mask: 0,
+            effect_mask: 0,
+        },
+    }];
+
+    let f = FieldContext::new("test");
+    let snap = Arc::new(CompiledFieldSnapshot::default());
+    let context = ClosedFieldContext {
+        snapshot: snap,
+        posture: PostureBundle::default(),
+        context: ContextBundle::default(),
+        tiers: TierMasks::ZERO,
+        human_burden: 0,
+    };
+
+    // present is empty → required bit 0 is missing.
+    let d = execute_cog8(&nodes, &edges, &context, 0).expect("execute");
+    assert_eq!(d.response, Instinct::Ignore, "missing required bit yields Ignore (Zero)");
 }

@@ -4,6 +4,8 @@ use ccog::compiled::CompiledFieldSnapshot;
 use ccog::field::FieldContext;
 use ccog::multimodal::{ContextBit, ContextBundle, PostureBit, PostureBundle};
 use ccog::packs::dev::select_instinct;
+use ccog::packs::TierMasks;
+use ccog::runtime::ClosedFieldContext;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 fn bench_dev(c: &mut Criterion) {
@@ -18,9 +20,16 @@ fn bench_dev(c: &mut Criterion) {
         risk_mask: 1u64 << ContextBit::MUST_ESCALATE,
         affordance_mask: 0,
     };
+    let context = ClosedFieldContext {
+        snapshot: &snap,
+        posture,
+        context: ctx,
+        tiers: TierMasks::ZERO,
+        human_burden: 0,
+    };
     c.bench_function("pack_dev_select_instinct_clamps_escalate", |b| {
         b.iter(|| {
-            let v = select_instinct(black_box(&snap), black_box(&posture), black_box(&ctx));
+            let v = select_instinct(black_box(&context));
             black_box(v)
         })
     });

@@ -1,9 +1,9 @@
 //! Hook scheduler — drives the closed-loop tick and fires hooks on detected ΔO.
 
-use anyhow::Result;
 use crate::field::FieldContext;
 use crate::hooks::{HookOutcome, HookRegistry};
 use crate::runtime::delta::{GraphDelta, GraphSnapshot};
+use crate::runtime::error::{RuntimeError, Result};
 
 /// Scheduler that detects ΔO between ticks and fires registered hooks on change.
 #[derive(Debug)]
@@ -29,7 +29,8 @@ impl Scheduler {
 
     /// Run one tick: capture state, diff against prior snapshot, fire hooks if ΔO ≠ ∅.
     pub fn tick(&mut self, field: &FieldContext) -> Result<TickReport> {
-        let current = GraphSnapshot::capture(&field.graph)?;
+        let current = GraphSnapshot::capture(&field.graph)
+            .map_err(|e| RuntimeError::GraphError(e.to_string()))?;
         let delta = match &self.last_snapshot {
             Some(prev) => GraphDelta::between(prev, &current),
             None => GraphDelta::all_added(&current),
@@ -37,7 +38,8 @@ impl Scheduler {
         let outcomes = if delta.is_empty() && self.last_snapshot.is_some() {
             Vec::new()
         } else {
-            self.registry.fire_matching(field)?
+            self.registry.fire_matching(field)
+                .map_err(|e| RuntimeError::HookError(e.to_string()))?
         };
         self.last_snapshot = Some(current);
         Ok(TickReport { delta, outcomes })

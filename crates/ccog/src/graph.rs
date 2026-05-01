@@ -84,10 +84,10 @@ impl GraphStore {
         let query = format!("{}{}", PREFIXES, sparql);
         let results = SparqlEvaluator::new()
             .parse_query(&query)
-            .map_err(|e| anyhow!("SPARQL parse error: {}", e))?
+            .map_err(|e| anyhow!("SPARQL parse error: {}. Hint: check for syntax errors or invalid prefixes in your SPARQL query.", e))?
             .on_store(&self.store)
             .execute()
-            .map_err(|e| anyhow!("SPARQL ASK failed: {}", e))?;
+            .map_err(|e| anyhow!("SPARQL ASK failed: {}. Hint: check your query logic or store connectivity.", e))?;
 
         if let QueryResults::Boolean(b) = results {
             Ok(b)
@@ -101,10 +101,10 @@ impl GraphStore {
         let query = format!("{}{}", PREFIXES, sparql);
         let results = SparqlEvaluator::new()
             .parse_query(&query)
-            .map_err(|e| anyhow!("SPARQL parse error: {}", e))?
+            .map_err(|e| anyhow!("SPARQL parse error: {}. Hint: check for syntax errors or invalid prefixes in your SPARQL query.", e))?
             .on_store(&self.store)
             .execute()
-            .map_err(|e| anyhow!("SPARQL CONSTRUCT failed: {}", e))?;
+            .map_err(|e| anyhow!("SPARQL CONSTRUCT failed: {}. Hint: check your query logic or store connectivity.", e))?;
 
         if let QueryResults::Graph(triples) = results {
             let mut t = Vec::new();
@@ -179,16 +179,34 @@ impl GraphStore {
     ///
     /// Direct triple-pattern lookup — no SPARQL parsing. Filters non-IRI objects.
     pub fn objects_of(&self, subject: &NamedNode, predicate: &NamedNode) -> Result<Vec<NamedNode>> {
-        let s_ref: NamedOrBlankNodeRef = subject.into();
-        let p_ref: NamedNodeRef = predicate.into();
+        let results = self.subjects_objects_of(&oxigraph::model::NamedOrBlankNode::NamedNode(subject.clone()), predicate)?;
+        Ok(results.into_iter().filter_map(|n| {
+            if let oxigraph::model::NamedOrBlankNode::NamedNode(nn) = n {
+                Some(nn)
+            } else {
+                None
+            }
+        }).collect())
+    }
+
+    /// Find all named-node or blank-node objects of `(subject, predicate, ?)`.
+    pub fn subjects_objects_of(
+        &self,
+        subject: &oxigraph::model::NamedOrBlankNode,
+        predicate: &NamedNode,
+    ) -> Result<Vec<oxigraph::model::NamedOrBlankNode>> {
+        let s_ref = subject.as_ref();
+        let p_ref = predicate.as_ref();
         let mut out = Vec::new();
         for quad_result in
             self.store
                 .quads_for_pattern(Some(s_ref), Some(p_ref), None, None)
         {
             let quad = quad_result.map_err(|e| anyhow!("quads_for_pattern: {}", e))?;
-            if let Term::NamedNode(n) = quad.object {
-                out.push(n);
+            match quad.object {
+                Term::NamedNode(n) => out.push(oxigraph::model::NamedOrBlankNode::NamedNode(n)),
+                Term::BlankNode(b) => out.push(oxigraph::model::NamedOrBlankNode::BlankNode(b)),
+                _ => {}
             }
         }
         Ok(out)
