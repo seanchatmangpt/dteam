@@ -27,6 +27,11 @@ pub struct Construct8Op {
     pub bit_index: u8,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Construct8Error {
+    CapacityExceeded,
+}
+
 /// A bounded state mutation allowed to re-enter the field.
 ///
 /// Strictly bounded to 8 operations to enforce the CONSTRUCT8 law.
@@ -53,13 +58,13 @@ impl Construct8Delta {
     }
 
     /// Attempts to push a new mutation operation into the bounded delta.
-    pub const fn push(mut self, op: Construct8Op) -> Result<Self, &'static str> {
+    pub const fn push(mut self, op: Construct8Op) -> Result<Self, Construct8Error> {
         if self.len < 8 {
             self.ops[self.len as usize] = op;
             self.len += 1;
             Ok(self)
         } else {
-            Err("CONSTRUCT8 violation: delta exceeded 8 mutations")
+            Err(Construct8Error::CapacityExceeded)
         }
     }
 

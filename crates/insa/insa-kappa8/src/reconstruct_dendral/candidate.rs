@@ -42,7 +42,7 @@ impl CandidateArena {
     }
 
     #[inline]
-    pub fn push(&mut self, candidate: ReconstructionCandidate) -> Result<(), &'static str> {
+    pub fn push(&mut self, candidate: ReconstructionCandidate) -> Result<(), CandidateError> {
         if self.len < MAX_CANDIDATES {
             self.candidates[self.len] = candidate;
             self.len += 1;

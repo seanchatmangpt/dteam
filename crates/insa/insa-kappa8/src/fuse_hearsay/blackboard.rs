@@ -27,14 +27,19 @@ impl Default for Blackboard {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BlackboardError {
+    CapacityExceeded,
+}
+
 impl Blackboard {
-    pub fn push(&mut self, slot: EvidenceSlot) -> Result<(), &'static str> {
+    pub fn push(&mut self, slot: EvidenceSlot) -> Result<(), BlackboardError> {
         if self.len < 16 {
             self.slots[self.len as usize] = slot;
             self.len += 1;
             Ok(())
         } else {
-            Err("Blackboard full")
+            Err(BlackboardError::CapacityExceeded)
         }
     }
 }
