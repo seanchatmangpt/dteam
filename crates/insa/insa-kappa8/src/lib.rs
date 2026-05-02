@@ -1,3 +1,10 @@
+#![allow(clippy::missing_const_for_fn)]
+#![allow(clippy::must_use_candidate)]
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::suspicious_operation_groupings)]
+#![allow(clippy::comparison_chain)]
+#![allow(clippy::cast_possible_truncation)]
+#![allow(clippy::pub_underscore_fields)]
 #![doc = include_str!("../README.md")]
 #![no_std]
 

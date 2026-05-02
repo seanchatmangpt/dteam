@@ -34,6 +34,7 @@ pub struct InstinctResolutionLut {
 }
 
 impl InstinctResolutionLut {
+    #[must_use]
     pub const fn resolve(&self, activation: InstinctByte) -> InstinctResolution {
         let bits = activation.bits() as usize;
         let selected = self.selected_lut[bits];

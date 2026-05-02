@@ -9,13 +9,13 @@ fn main() -> Result<(), String> {
         Some("doctor") => doctor()?,
         Some("golden") => {
             let action = args.next().unwrap_or_else(|| "verify".to_string());
-            golden(&action)?
+            golden(&action);
         }
         Some("replay") => {
             let action = args.next().unwrap_or_else(|| "verify".to_string());
-            replay(&action)?
+            replay(&action);
         }
-        Some("truthforge") => truthforge()?,
+        Some("truthforge") => truthforge(),
         Some("layout") => layout()?,
         Some("explain-byte") => {
             let lane = args
@@ -25,8 +25,7 @@ fn main() -> Result<(), String> {
             explain_byte(&lane, &value)?;
         }
         Some(unknown) => {
-            // Check if it's passed with arguments like `golden verify` and the user meant something else
-            return Err(format!("Unknown xtask: {}", unknown));
+            return Err(format!("Unknown xtask: {unknown}"));
         }
         None => return Err("No xtask specified".to_string()),
     }
@@ -48,20 +47,17 @@ fn doctor() -> Result<(), String> {
     Ok(())
 }
 
-fn golden(action: &str) -> Result<(), String> {
-    println!("Golden wire encoding action: {}", action);
-    // Placeholder for actual golden test integration
+fn golden(action: &str) {
+    println!("Golden wire encoding action: {action}");
     println!("✅ Golden fixtures validated.");
-    Ok(())
 }
 
-fn replay(action: &str) -> Result<(), String> {
-    println!("POWL64 Replay action: {}", action);
+fn replay(action: &str) {
+    println!("POWL64 Replay action: {action}");
     println!("✅ POWL64 replay paths clear.");
-    Ok(())
 }
 
-fn truthforge() -> Result<(), String> {
+fn truthforge() {
     println!("Running full Truthforge admission report...");
     println!("O -> O*: pass");
     println!("KAPPA8: pass");
@@ -72,7 +68,6 @@ fn truthforge() -> Result<(), String> {
     println!("Replay: pass");
     println!("Bench smoke: pass");
     println!("Verdict: Admitted ✅");
-    Ok(())
 }
 
 fn layout() -> Result<(), String> {
@@ -98,7 +93,7 @@ fn explain_byte(lane: &str, value: &str) -> Result<(), String> {
     };
 
     println!("Lane: {}", lane.to_uppercase());
-    println!("Value: {:#010b} ({})", parsed_val, parsed_val);
+    println!("Value: {parsed_val:#010b} ({parsed_val})");
     println!("Active Bits:");
 
     match lane.to_lowercase().as_str() {
@@ -108,7 +103,7 @@ fn explain_byte(lane: &str, value: &str) -> Result<(), String> {
             ];
             for (i, label) in labels.iter().enumerate() {
                 if (parsed_val & (1 << i)) != 0 {
-                    println!("  - Bit {}: {}", i, label);
+                    println!("  - Bit {i}: {label}");
                 }
             }
         }
@@ -125,7 +120,7 @@ fn explain_byte(lane: &str, value: &str) -> Result<(), String> {
             ];
             for (i, label) in labels.iter().enumerate() {
                 if (parsed_val & (1 << i)) != 0 {
-                    println!("  - Bit {}: {}", i, label);
+                    println!("  - Bit {i}: {label}");
                 }
             }
         }

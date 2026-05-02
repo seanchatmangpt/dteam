@@ -12,15 +12,18 @@ impl KappaByte {
     pub const FUSE: Self = Self(1 << 6);
     pub const REDUCE_GAP: Self = Self(1 << 7);
 
-    #[inline(always)]
+    #[inline]
+    #[must_use]
     pub const fn empty() -> Self {
         Self(0)
     }
-    #[inline(always)]
+    #[inline]
+    #[must_use]
     pub const fn union(self, other: Self) -> Self {
         Self(self.0 | other.0)
     }
-    #[inline(always)]
+    #[inline]
+    #[must_use]
     pub const fn contains(self, other: Self) -> bool {
         (self.0 & other.0) == other.0
     }
@@ -40,19 +43,23 @@ impl InstinctByte {
     pub const ESCALATE: Self = Self(1 << 6);
     pub const IGNORE: Self = Self(1 << 7);
 
-    #[inline(always)]
+    #[inline]
+    #[must_use]
     pub const fn empty() -> Self {
         Self(0)
     }
-    #[inline(always)]
+    #[inline]
+    #[must_use]
     pub const fn union(self, other: Self) -> Self {
         Self(self.0 | other.0)
     }
-    #[inline(always)]
+    #[inline]
+    #[must_use]
     pub const fn contains(self, other: Self) -> bool {
         (self.0 & other.0) == other.0
     }
-    #[inline(always)]
+    #[inline]
+    #[must_use]
     pub const fn bits(self) -> u8 {
         self.0
     }
@@ -63,27 +70,31 @@ impl InstinctByte {
 pub struct SelectedInstinctByte(pub u8);
 
 impl SelectedInstinctByte {
-    #[inline(always)]
+    #[inline]
+    #[must_use]
     pub const fn empty() -> Self {
         Self(0)
     }
-    #[inline(always)]
+    #[inline]
+    #[must_use]
     pub const fn onehot(bits: u8) -> Self {
-        if bits == 0 || bits.count_ones() == 1 {
+        if bits == 0 || bits.is_power_of_two() {
             Self(bits)
         } else {
             Self(0)
         }
     }
-    #[inline(always)]
+    #[inline]
+    #[must_use]
     pub const fn new_decode(bits: u8) -> Option<Self> {
-        if bits == 0 || bits.count_ones() == 1 {
+        if bits == 0 || bits.is_power_of_two() {
             Some(Self(bits))
         } else {
             None
         }
     }
-    #[inline(always)]
+    #[inline]
+    #[must_use]
     pub const fn bits(self) -> u8 {
         self.0
     }
@@ -105,15 +116,18 @@ impl ElizaByte {
     pub const SLOW_PREMATURE_ACTION: Self = Self(1 << 6);
     pub const DEFER_TO_CLOSURE: Self = Self(1 << 7);
 
-    #[inline(always)]
+    #[inline]
+    #[must_use]
     pub const fn empty() -> Self {
         Self(0)
     }
-    #[inline(always)]
+    #[inline]
+    #[must_use]
     pub const fn union(self, other: Self) -> Self {
         Self(self.0 | other.0)
     }
-    #[inline(always)]
+    #[inline]
+    #[must_use]
     pub const fn contains(self, other: Self) -> bool {
         (self.0 & other.0) == other.0
     }
@@ -133,15 +147,18 @@ impl StripsByte {
     pub const ACTION_BLOCKED: Self = Self(1 << 6);
     pub const REQUIRES_REPLAN: Self = Self(1 << 7);
 
-    #[inline(always)]
+    #[inline]
+    #[must_use]
     pub const fn empty() -> Self {
         Self(0)
     }
-    #[inline(always)]
+    #[inline]
+    #[must_use]
     pub const fn union(self, other: Self) -> Self {
         Self(self.0 | other.0)
     }
-    #[inline(always)]
+    #[inline]
+    #[must_use]
     pub const fn contains(self, other: Self) -> bool {
         (self.0 & other.0) == other.0
     }
@@ -161,15 +178,18 @@ impl ShrdluByte {
     pub const AUTHORITY_MISMATCH: Self = Self(1 << 6);
     pub const GROUNDING_FAILED: Self = Self(1 << 7);
 
-    #[inline(always)]
+    #[inline]
+    #[must_use]
     pub const fn empty() -> Self {
         Self(0)
     }
-    #[inline(always)]
+    #[inline]
+    #[must_use]
     pub const fn union(self, other: Self) -> Self {
         Self(self.0 | other.0)
     }
-    #[inline(always)]
+    #[inline]
+    #[must_use]
     pub const fn contains(self, other: Self) -> bool {
         (self.0 & other.0) == other.0
     }
@@ -189,15 +209,18 @@ impl PrologByte {
     pub const CYCLE_DETECTED: Self = Self(1 << 6);
     pub const PROOF_REQUIRES_ESCALATION: Self = Self(1 << 7);
 
-    #[inline(always)]
+    #[inline]
+    #[must_use]
     pub const fn empty() -> Self {
         Self(0)
     }
-    #[inline(always)]
+    #[inline]
+    #[must_use]
     pub const fn union(self, other: Self) -> Self {
         Self(self.0 | other.0)
     }
-    #[inline(always)]
+    #[inline]
+    #[must_use]
     pub const fn contains(self, other: Self) -> bool {
         (self.0 & other.0) == other.0
     }
@@ -217,15 +240,18 @@ impl MycinByte {
     pub const POLICY_EPOCH_STALE: Self = Self(1 << 6);
     pub const EXPERT_REVIEW_REQUIRED: Self = Self(1 << 7);
 
-    #[inline(always)]
+    #[inline]
+    #[must_use]
     pub const fn empty() -> Self {
         Self(0)
     }
-    #[inline(always)]
+    #[inline]
+    #[must_use]
     pub const fn union(self, other: Self) -> Self {
         Self(self.0 | other.0)
     }
-    #[inline(always)]
+    #[inline]
+    #[must_use]
     pub const fn contains(self, other: Self) -> bool {
         (self.0 & other.0) == other.0
     }
@@ -245,15 +271,18 @@ impl DendralByte {
     pub const CONSTRAINT_VIOLATION: Self = Self(1 << 6);
     pub const RECONSTRUCTION_UNSTABLE: Self = Self(1 << 7);
 
-    #[inline(always)]
+    #[inline]
+    #[must_use]
     pub const fn empty() -> Self {
         Self(0)
     }
-    #[inline(always)]
+    #[inline]
+    #[must_use]
     pub const fn union(self, other: Self) -> Self {
         Self(self.0 | other.0)
     }
-    #[inline(always)]
+    #[inline]
+    #[must_use]
     pub const fn contains(self, other: Self) -> bool {
         (self.0 & other.0) == other.0
     }
@@ -265,7 +294,8 @@ pub struct HearsayByte(pub u8);
 
 impl HearsayByte {
     pub const SOURCE_AGREES: Self = Self(1 << 0);
-    #[inline(always)]
+    #[inline]
+    #[must_use]
     pub const fn bits(self) -> u8 {
         self.0
     }
@@ -278,15 +308,18 @@ impl HearsayByte {
     pub const FUSION_COMPLETE: Self = Self(1 << 6);
     pub const FUSION_REQUIRES_INSPECTION: Self = Self(1 << 7);
 
-    #[inline(always)]
+    #[inline]
+    #[must_use]
     pub const fn empty() -> Self {
         Self(0)
     }
-    #[inline(always)]
+    #[inline]
+    #[must_use]
     pub const fn union(self, other: Self) -> Self {
         Self(self.0 | other.0)
     }
-    #[inline(always)]
+    #[inline]
+    #[must_use]
     pub const fn contains(self, other: Self) -> bool {
         (self.0 & other.0) == other.0
     }
@@ -298,7 +331,8 @@ pub struct GpsByte(pub u8);
 
 impl GpsByte {
     pub const GOAL_KNOWN: Self = Self(1 << 0);
-    #[inline(always)]
+    #[inline]
+    #[must_use]
     pub const fn bits(self) -> u8 {
         self.0
     }
@@ -311,15 +345,18 @@ impl GpsByte {
     pub const PROGRESS_MADE: Self = Self(1 << 6);
     pub const NO_PROGRESS: Self = Self(1 << 7);
 
-    #[inline(always)]
+    #[inline]
+    #[must_use]
     pub const fn empty() -> Self {
         Self(0)
     }
-    #[inline(always)]
+    #[inline]
+    #[must_use]
     pub const fn union(self, other: Self) -> Self {
         Self(self.0 | other.0)
     }
-    #[inline(always)]
+    #[inline]
+    #[must_use]
     pub const fn contains(self, other: Self) -> bool {
         (self.0 & other.0) == other.0
     }
@@ -341,6 +378,7 @@ pub struct KappaDetail16 {
 }
 
 impl KappaDetail16 {
+    #[must_use]
     pub const fn empty() -> Self {
         Self {
             kappa: KappaByte(0),

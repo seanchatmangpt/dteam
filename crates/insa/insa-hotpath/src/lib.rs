@@ -1,3 +1,4 @@
+#![allow(clippy::pedantic)]
 #![doc = include_str!("../README.md")]
 //! Reference Law Path for INSA execution.
 //!

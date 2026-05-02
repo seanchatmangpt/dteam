@@ -26,5 +26,5 @@ fn test_shrdlu_resolved() {
     assert!(res.detail.contains(ShrdluByte::SYMBOL_RESOLVED));
     assert!(res.detail.contains(ShrdluByte::OBJECT_UNIQUE));
     assert!(res.emits.contains(InstinctByte::SETTLE));
-    assert_eq!(res.resolved_object.unwrap().0, 100);
+    assert_eq!(res.resolved_object.map(|o| o.0), Some(100));
 }

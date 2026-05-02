@@ -44,12 +44,8 @@ impl Default for Cog8Decision {
     }
 }
 
-#[inline(always)]
-pub fn execute_cog8_graph(
-    nodes: &[Cog8Row],
-    present: u64,
-    completed: u64,
-) -> Result<Cog8Decision, &'static str> {
+#[inline]
+pub fn execute_cog8_graph(nodes: &[Cog8Row], present: u64, completed: u64) -> Cog8Decision {
     let mut best = Cog8Decision {
         response: InstinctByte::empty(),
         completed_mask: completed,
@@ -72,5 +68,5 @@ pub fn execute_cog8_graph(
         }
     }
 
-    Ok(best)
+    best
 }

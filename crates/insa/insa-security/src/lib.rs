@@ -1,3 +1,4 @@
+#![allow(clippy::pedantic)]
 #![doc = include_str!("../README.md")]
 //! Security Domain Closure and Access Drift JTBD.
 

@@ -16,6 +16,6 @@ fn gate_execute_cog8_graph_allocates_zero_octets() {
     }];
 
     let present = 0b1;
-    let d = execute_cog8_graph(&nodes, present, 0).unwrap();
+    let d = execute_cog8_graph(&nodes, present, 0);
     assert_eq!(d.response, InstinctByte::SETTLE);
 }

@@ -1,5 +1,16 @@
 //! POWL8 Operation primitive.
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Powl8OpError {
+    InvalidDiscriminant,
+}
+
+impl core::fmt::Display for Powl8OpError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "Invalid Powl8Op discriminant")
+    }
+}
+
 /// The operator for a process motion edge.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 #[repr(u8)]
@@ -16,18 +27,18 @@ pub enum Powl8Op {
 }
 
 impl TryFrom<u8> for Powl8Op {
-    type Error = &'static str;
+    type Error = Powl8OpError;
     fn try_from(val: u8) -> Result<Self, Self::Error> {
         match val {
-            0 => Ok(Powl8Op::NoOp),
-            1 => Ok(Powl8Op::Act),
-            2 => Ok(Powl8Op::Choice),
-            3 => Ok(Powl8Op::Parallel),
-            4 => Ok(Powl8Op::Join),
-            5 => Ok(Powl8Op::Loop),
-            6 => Ok(Powl8Op::Block),
-            7 => Ok(Powl8Op::Silent),
-            _ => Err("Invalid Powl8Op discriminant"),
+            0 => Ok(Self::NoOp),
+            1 => Ok(Self::Act),
+            2 => Ok(Self::Choice),
+            3 => Ok(Self::Parallel),
+            4 => Ok(Self::Join),
+            5 => Ok(Self::Loop),
+            6 => Ok(Self::Block),
+            7 => Ok(Self::Silent),
+            _ => Err(Powl8OpError::InvalidDiscriminant),
         }
     }
 }

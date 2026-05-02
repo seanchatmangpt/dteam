@@ -18,7 +18,7 @@ fn test_access_drift_jtbd() {
         .with_bit(RECENT_SITE_ENTRY);
 
     // When: security graph closes field
-    let decision = execute_cog8_graph(&rows, o_star_present.0, 0).expect("Graph execution failed");
+    let decision = execute_cog8_graph(&rows, o_star_present.0, 0);
 
     // Then: Refuse/Escalate selected
     assert!(decision.response.contains(InstinctByte::REFUSE));

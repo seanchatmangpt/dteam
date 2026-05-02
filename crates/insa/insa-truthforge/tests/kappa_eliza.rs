@@ -30,5 +30,5 @@ fn test_reflect_eliza_match() {
     assert!(res.emits.contains(InstinctByte::INSPECT));
     assert!(res.emits.contains(InstinctByte::ASK));
     assert!(res.emits.contains(InstinctByte::AWAIT));
-    assert_eq!(res.selected_pattern.unwrap().0, 1);
+    assert_eq!(res.selected_pattern.map(|p| p.0), Some(1));
 }
