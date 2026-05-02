@@ -8,26 +8,40 @@
 \usepackage{tikz}
 \usepackage{listings}
 \usepackage{color}
+\usepackage{xcolor}
 
-\definecolor{dkgreen}{rgb}{0,0.6,0}
-\definecolor{gray}{rgb}{0.5,0.5,0.5}
-\definecolor{mauve}{rgb}{0.58,0,0.82}
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
 
-\lstset{frame=tb,
-  language=Rust,
-  aboveskip=3mm,
-  belowskip=3mm,
-  showstringspaces=false,
-  columns=flexible,
-  basicstyle={\small\ttfamily},
-  numbers=none,
-  numberstyle=\tiny\color{gray},
-  keywordstyle=\color{blue},
-  commentstyle=\color{dkgreen},
-  stringstyle=\color{mauve},
-  breaklines=true,
-  breakatwhitespace=true,
-  tabsize=3
+\lstdefinelanguage{Rust}{
+    keywords={break, callback, continue, crate, else, enum, extern, false, fn, for, if, impl, in, let, loop, match, mod, move, mut, pub, ref, return, self, Self, static, struct, super, trait, true, type, unsafe, use, where, while, async, await, dyn},
+    otherkeywords={!, &},
+    sensitive=true,
+    morecomment=[l]{//},
+    morecomment=[s]{/*}{*/},
+    morestring=[b]",
+}
+
+\lstset{
+    language=Rust,
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle={\small\ttfamily},
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
 }
 
 \title{\textbf{Hyperdimensional Semantic Multiplexing and Admitted Autonomic Closure}\\\vspace{0.5em}\Large A Formal Calculus of Executable Enterprise State and the Manufacturing of Production-Grade Instinctual Autonomics (INSA)}
@@ -46,14 +60,16 @@ We prove that byte-width semantic multiplexing provides a discrete, 65,536-dimen
 
 \tableofcontents
 
-\chapter{Introduction: The Asymptotic Limits of Probabilistic Generation}
+\chapter{The Asymptotic Limits of Probabilistic Generation}
 
 \section{The Hyperdimensional Observational Manifold}
 Let $\Omega$ represent the unbounded hyperdimensional manifold of raw enterprise observation. We define an observation $\omega \in \Omega$ as a stochastic signal encompassing fragmented telemetry, human-authored natural language, policy gradients, and physical access events. The first-generation paradigm of artificial intelligence (2022-2025) attempted to model enterprise action as an unbounded probabilistic projection:
 \begin{equation}
 A_{\text{LLM}} = \text{Validate}\Big(\text{Parse}\Big(\text{Tool}\Big(\text{Sample}_{\theta}(O \subset \Omega, C_t)\Big)\Big)\Big)
 \end{equation}
-Where $C_t$ represents the serialized context window of tokens. We observe that as $t \to \infty$ and $W_{\text{model}} \to 0$, the industry falsely presumed that model "intelligence" would saturate enterprise requirements.
+Where $C_t$ represents the serialized context window of tokens. We observe that as $t \to \infty$ and $W_{\text{model}} \to 0$, the industry falsely presumed that model "intelligence" would saturate enterprise requirements. 
+
+In hyperdimensional terms, the LLM operates in a latent space $\mathbb{R}^d$ where $d \approx 10^5$. The projection into action $A$ is inherently lossy and unadmitted. The mapping $\pi: \mathbb{R}^d \to \mathcal{A}$ suffers from semantic drift where small perturbations in $O$ yield catastrophic variances in $A$.
 
 \section{The Little's Law WIP Explosion}
 By applying Little's Law ($L = \lambda W$), where $L$ is work-in-process (WIP), $\lambda$ is the arrival rate, and $W$ is the time in system, we demonstrate that generative AI systems act as global congestion magnifiers. Because LLMs are optimized for fluency rather than closure, they increase the arrival rate of unverified, unadmitted artifacts ($\lambda_{\text{generated\_work}}$) through drafts, summaries, and agent-chatter. 
@@ -73,136 +89,166 @@ Where $\sigma$ is the local interpretation function. This divergence represents 
 
 \chapter{The 29-Phase Genesis: From Exploration to Exploitation}
 
-\section{Exploration via ccog and ainst}
-The development of INSA was not a linear engineering path but a rigorous exploit-phase extraction from a broad exploration of Compiled Cognition (\texttt{ccog}) and AutoInstinct (\texttt{ainst}). The initial exploration encompassed diverse lineages, including the co-evolution of working dogs and handlers, process mining XES workflows, and symbolic AI.
+\section{The Explore-Exploit Phase Transition}
+The development of INSA was not a linear engineering path but a rigorous exploit-phase extraction from a broad exploration of Compiled Cognition (\texttt{ccog}) and AutoInstinct (\texttt{ainst}). The initial exploration encompassed diverse lineages, including the co-evolution of working dogs and handlers, process mining XES workflows, and symbolic AI. 
+
+We define the exploration field as $\mathcal{O}_{\text{explored}}$. The transition to INSA occurred when the cardinality of $\mathcal{O}_{\text{explored}}$ exceeded the threshold of manageable complexity, necessitating a ruthless selection function $\mathcal{S}$:
+\begin{equation}
+\mathcal{O}^* = \mathcal{S}(\mathcal{O}_{\text{explored}}) = \{ \omega \in \mathcal{O}_{\text{explored}} \mid \text{Lawful}(\omega) \wedge \text{Admissible}(\omega) \}
+\end{equation}
 
 \section{The Selection Ledger Rule}
-A decisive turning point occurred when the exploratory codebase was declared "finished" prematurely by generative models. We enforced the "Nothing survives because it exists" law, treating the old repository as raw ore ($O_{\text{explored}}$). We applied a selection ledger with a discrete transition function $\mathcal{S}$:
+A decisive turning point occurred when the exploratory codebase was declared "finished" prematurely by generative models. We enforced the "Nothing survives because it exists" law, treating the old repository as raw ore. We applied a selection ledger with a discrete transition function:
 \begin{equation}
-\mathcal{S}(a) \in \{\text{KEEP\_AS\_LAW, REWRITE, DELETE}\}
+\forall a \in \text{Artifacts}: a \to \{ \text{KEEP\_AS\_LAW, REWRITE, DELETE} \}
 \end{equation}
 This forced the extraction of the absolute invariants: $O^* \to COG8 \to INST8 \to POWL64$.
 
-\section{From "Looks Right" to Vibe Done}
-We replaced the "Vibe Coding" paradigm with "Vibe Done". Vibe coding is input-oriented ($feels \to generate \to looks\_right$). Vibe done is closure-oriented:
+\section{Vibe Done: The Evidentiary Gate}
+We replaced the "Vibe Coding" paradigm ($feels \to generate \to looks\_right$) with "Vibe Done". In the INSA production line, "Done" is a binary state reachable only via proof:
 \begin{equation}
-\text{Done} = \text{Admitted}(O^*, \mu, POWL8, POWL64, \text{Replay})
+\text{Done}(x) = \text{Tested}(x) \wedge \text{LayoutAdmitted}(x) \wedge \text{Replayable}(x) \wedge \text{Benchmarked}(x)
 \end{equation}
-Done is evidence, not confidence. If the route cannot replay or the layout drifts by a single byte, the system undergoes an Andon stop.
+If the route cannot replay or the layout drifts by a single byte, the system undergoes an Andon stop. Done is evidence, not confidence.
 
 \chapter{The Calculus of Admitted Field Context ($O^*$)}
 
-\section{Closure Operators and Fixed Points}
+\section{Closure Operators and Topological Sufficiency}
 We reject the premise that action $\mathcal{A}$ may be derived from raw observation $O$. Instead, we define a rigorous topological closure operator $\text{Cl}_{\Sigma, P, R}$, where $\Sigma$ denotes semantics, $P$ policy, and $R$ reachability. The admitted field context $O^*$ is defined as the fixed point of this operator:
 \begin{equation}
 O^* = \text{fix}(\text{Cl}_{\Sigma, P, R}(O)) \implies \text{Cl}_{\Sigma, P, R}(O^*) = O^*
 \end{equation}
 
-\section{Information-Theoretic Sufficiency}
+This operator ensures that all references are grounded, all policies are checked, and all evidence is fresh before the field enters the kernel.
+
+\section{Information-Theoretic Closure}
 In terms of hyperdimensional information theory, $O^*$ acts as the absolute sufficient statistic for lawful action. We formally state the Information Inequality for INSA:
 \begin{equation}
 I(A; \Omega | O^*) = \iint p(a, \omega | o^*) \log \frac{p(a, \omega | o^*)}{p(a | o^*) p(\omega | o^*)} \, d\omega \, da = 0
 \end{equation}
-Once the field is closed, the mutual information between the action $A$ and the raw observational manifold $\Omega$ is entirely captured by $O^*$. No additional tokens, context, or prompts can alter the deterministic outcome.
+Once the field is closed, the mutual information between the action $A$ and the raw observational manifold $\Omega$ is zero given $O^*$. This proves that $O^*$ captures every load-bearing bit required for deterministic execution.
 
-\section{Need9: The Decomposition Discipline}
-The $COG8$ framework imposes the strict boundary condition on the cardinality of the support vector $s$:
+\section{Need9: The Dimensionality Discipline}
+The $COG8$ framework imposes a strict boundary on the cardinality of the support vector $s$:
 \begin{equation}
-\dim(\text{support}(COG8)) \le 8
+| \text{support}(COG8) | \le 8
 \end{equation}
-When the requisite closure dimensionality reaches $\dim(s) = 9$, the calculus forbids scalar widening ($u8 \to u16$). Instead, it triggers an architectural Andon event:
+When the requisite closure dimensionality reaches $9$, the calculus explicitly forbids scalar widening ($u8 \to u16$). Instead, it triggers an architectural Andon event:
 \begin{equation}
-\text{Need9} \implies \text{Decompose}(O^*)
+\text{Need9} \implies \nabla \cdot \text{Decompose}(O^*) \quad (\text{Composition, Sequencing, Hierarchy})
 \end{equation}
-This ensures the ontology remains factored into byte-aligned closure atoms, maintaining cache density and preventing semantic sprawl.
+This ensures the ontology remains factored into byte-aligned atoms, maintaining cache density and preventing semantic sprawl.
 
 \chapter{Byte-Width Semantic Multiplexing}
 
-\section{Discrete Basis Vectors of Cognition}
+\section{The Discrete Orthonormal Basis of Instinct}
 INSA models the execution substrate as a discrete vector space over $\mathbb{F}_2$. Let $\mathcal{K} \cong \{0,1\}^8$ represent the basis of $KAPPA8$ (Old-AI collapse attribution) and $\mathcal{I} \cong \{0,1\}^8$ represent the basis of $INST8$ autonomic response.
 
 A semantic field state is a linear combination of these basis vectors:
 \begin{equation}
-\vec{v}_{\text{state}} = \sum_{i=0}^7 \alpha_i \hat{k}_i \otimes \sum_{j=0}^7 \beta_j \hat{\imath}_j \quad \text{where} \quad \alpha_i, \beta_j \in \{0, 1\}
+\vec{v}_{\text{state}} = \sum_{i=0}^7 \alpha_i \hat{k}_i \otimes \sum_{j=0}^7 \beta_j \hat{\imath}_j \quad \alpha_i, \beta_j \in \{0, 1\}
 \end{equation}
 
 Each bit in the $INST8$ surface represents an admitted meaning:
 \begin{itemize}
-    \item $i_0$: Settle (No further work)
-    \item $i_1$: Retrieve (Fetch existing evidence)
-    \item $i_2$: Inspect (Bounded ambiguity review)
-    \item $i_3$: Ask (Precise user input)
-    \item $i_4$: Await (Wait for external event)
-    \item $i_5$: Refuse (Block unlawful motion)
-    \item $i_6$: Escalate (Higher authority required)
-    \item $i_7$: Ignore (Duplicate/Noise signal)
+    \item \textbf{Bit 0: Settle} - Termination of work.
+    \item \textbf{Bit 1: Retrieve} - Non-intrusive evidence acquisition.
+    \item \textbf{Bit 2: Inspect} - Formal ambiguity measurement.
+    \item \textbf{Bit 3: Ask} - Bounded handler query.
+    \item \textbf{Bit 4: Await} - Passive state monitoring.
+    \item \textbf{Bit 5: Refuse} - Lawful motion blocking.
+    \item \textbf{Bit 6: Escalate} - Authority transfer.
+    \item \textbf{Bit 7: Ignore} - Filtered signal.
 \end{itemize}
 
-\section{Tensor Product of Collapse and Activation}
-The combined hot signature space is the tensor product $\mathcal{K} \otimes \mathcal{I}$, yielding a strictly bounded 65,536-dimensional discrete phase space. Because the domain is finite ($\dim = 256$), we leverage $O(1)$ Lookup Tables (LUTs) for resolution:
+\section{KAPPA8: The Historical Collapse Families}
+We map the lineage of symbolic AI into a single byte surface:
+\begin{itemize}
+    \item \textbf{ELIZA (Reflect)}: Conversational pacing and slot detection.
+    \item \textbf{STRIPS (Precondition)}: Action schema enablement.
+    \item \textbf{SHRDLU (Ground)}: Object-reference binding.
+    \item \textbf{Prolog (Prove)}: Relational authority proof.
+    \item \textbf{MYCIN (Rule)}: Expert policy closure.
+    \item \textbf{DENDRAL (Reconstruct)}: Fragment-to-structure derivation.
+    \item \textbf{HEARSAY (Fuse)}: Multi-source blackboard fusion.
+    \item \textbf{GPS (ReduceGap)}: Means-ends remediation.
+\end{itemize}
+
+\section{Resolution via Lookup Tables (LUT)}
+Because the domain is finite ($256 \times 256$), we leverage $O(1)$ resolution:
 \begin{equation}
-\text{Resolution} = \text{LUT}_{\text{INST8}}[\text{InstinctByte} \text{ as usize}]
+\mathcal{R} = \text{LUT}_{\text{resolution}}[\mathcal{K}, \mathcal{I}]
 \end{equation}
-This eliminates runtime interpretation, branching, and heap allocation, allowing for millions of closures per second on a single thread.
+This eliminates branching and runtime interpretation, enabling millions of decisions per second on a single M3 core.
 
 \chapter{Admitted vs. Unadmitted: The Rust Core GAUNTLET}
 
-\section{The Boundary of Control}
+\section{The Philosophy of Control}
 We reject the stable vs. nightly Rust boundary as a false dichotomy of authority. In INSA, the primary boundary is **Admitted vs. Unadmitted**. 
 \begin{equation}
 \text{Admitted} = \text{Exact Law} + \text{Exact Layout} + \text{Exact Encoding} + \text{Truthforge Admission}
 \end{equation}
 
-\section{Miri Strict Provenance and Undefined Behavior}
-Undocumented or unproven fast paths are experimental. Only those that survive the nightly $-Zmiri-strict-provenance$ gauntlet are admitted. We treat Undefined Behavior (UB) not as a crash risk, but as a "hallucination" of the machine. Evidence produced by a system with UB is legally and architecturally inadmissible.
+\section{Zero-Allocation Hot Paths}
+Dynamic memory allocation is a catastrophic synchronization point. We enforce a zero-allocation hot path via:
+\begin{itemize}
+    \item \texttt{\#[repr(transparent)]} newtypes for registers.
+    \item Fixed-width arrays ($[T; 8]$) for state deltas.
+    \item Denial of \texttt{Vec}, \texttt{String}, and \texttt{Box}.
+\end{itemize}
 
-\section{Layout Authority and Struct Padding}
-We enforce strict layout geometry. $Cog8Row$ is exactly 32 bytes to ensure L1 cache alignment (2 rows per 64-byte cache line). We utilize explicit \texttt{\_padding} fields and \texttt{\#[repr(C, align(32))]} to guarantee determinism.
+\section{Layout Authority and Miri Validation}
+We enforce strict layout geometry. $Cog8Row$ is exactly 32 bytes to ensure L1 cache alignment (2 rows per 64-byte cache line). We utilize explicit padding and Miri provenance tracking to eliminate Undefined Behavior (UB). 
 \begin{lstlisting}
 #[repr(C, align(32))]
 pub struct Cog8Row {
     pub required_mask: FieldMask,
     pub forbidden_mask: FieldMask,
     pub completed_block_mask: CompletedMask,
-    pub pack_id: PackId,
-    pub group_id: GroupId,
-    pub rule_id: RuleId,
     pub response: InstinctByte,
     pub kappa: KappaByte,
+    pub _padding: [u8; 14],
 }
 \end{lstlisting}
-Any structural change that drifts this size is blocked by Truthforge layout gates.
 
-\chapter{The Manufacturing Line: unrdf and unrdf-sync}
+\section{Truthforge: The Adversarial Falsifier}
+Truthforge is the admission machinery that ensures:
+\begin{equation}
+\forall x: \text{ReferenceLawPath}(x) = \text{CandidateFastPath}(x)
+\end{equation}
+If a SIMD or intrinsic-based fast path deviates by even a single bit from the scalar reference law, it is de-admitted.
 
-\section{Ontology as Source of Truth}
+\chapter{Manufacturing and Assurance Stations}
+
+\section{unrdf: Ontology Projection}
 We industrialize the connection between high-level semantics (RDF/TTL) and executable Rust. unrdf acts as the ontology projection compiler. The station rule is:
 \begin{equation}
 \text{SPARQL Selects} \xrightarrow{\text{Nunjucks Projects}} \text{Artifacts}
 \end{equation}
 
-\section{The Generated Boundary}
-We enforce a strict boundary between Handcrafted Hot Law and Generated Projections. unrdf manufactures term catalogs, failure codes, and MCP descriptors, while the kernel's bitwise logic remains handcrafted and Truthforge-vetted. We utilize \texttt{just unrdf-check} to ensure that no stale artifacts drift from the source ontology.
-
-\chapter{Communication Service Assurance: The Telco Discipline}
-
-\section{The Bell System Analogy}
-Communication between INSA nodes and external projections (MCP, A2A, HITL) is governed by "Telco" discipline. A URL is not a service; a service is provisioned, bound, and routed.
-
-\section{Control, Data, and Proof Planes}
-We enforce the 2600-era lesson: \textbf{Never allow in-band payload to become out-of-band control.}
+\section{Telco: Communication Service Assurance}
+Communication between INSA nodes is governed by Bell System discipline. We enforce the separation of planes:
 \begin{equation}
 \text{Control Plane} \perp \text{Data Plane} \perp \text{Proof Plane}
 \end{equation}
-The \texttt{telco} command suite (\texttt{provision}, \texttt{bind}, \texttt{route}, \texttt{test}, \texttt{trace}, \texttt{fault}, \texttt{restore}, \texttt{verify}, \texttt{report}) ensures that a reachable endpoint is only usable if it is also admitted, authorized, and receipt-producing.
+Never allow in-band payload to become out-of-band control. This ensures that an MCP tool or A2A agent cannot bypass the constitutional authority of the local kernel.
 
-\chapter{Strategic Value: The Blue River Dam}
+\section{The doctor and wizard Lifecycle}
+\begin{itemize}
+    \item \textbf{doctor}: Diagnostic admission control (Is the field healthy?).
+    \item \textbf{wizard}: Guided admissible construction (How do we close the gap?).
+\end{itemize}
 
-\section{Owning the Upstream Flow}
-The strategic core of INSA is the Blue River Dam model. By controlling the upstream flow of $O^*$ closure and $POWL64$ receipts, the system makes all downstream SaaS/PaaS applications derivative. 
+\chapter{Strategic Monetization: The Blue River Dam}
 
-\section{Hyper-Speed SaaS Manufacturing}
-Because the closure law, state transitions, and receipts are generated from the admitted kernel, building a vertical SaaS (e.g., Access Drift, CVE Closure, Vendor Risk) is no longer a software development task. It is a projection task. We can manufacture "generic but enhanced" versions of ServiceNow, Jira, or Workday at hyper-speed because the foundational truth layer is already admitted.
+\section{Upstream Flow Dynamics}
+The strategic core of INSA is the Blue River Dam model. Let $J$ be the flow of enterprise truth. By controlling the upstream dam ($O^*$ and $POWL64$), the system makes all downstream applications derivative:
+\begin{equation}
+\text{SaaS}_{\text{downstream}} = \pi(O^*)
+\end{equation}
+
+\section{Converged Security Closure}
+We position INSA as the ultimate security product for boards. By detecting "Access Drift" across HR, IAM, Badge, and Repo fields, INSA closes risks that no single tool can see. This monetizes the denominator of Little's Law: preventing work before it forms.
 
 \chapter{Conclusion: Vision 2030}
 
