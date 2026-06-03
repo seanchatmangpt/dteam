@@ -19,6 +19,9 @@ unibit-powl = { path = "../unibit/crates/unibit-powl" }
 unibit-graph = { path = "../unibit/crates/unibit-graph" }
 
 unibit-kernel = { path = "../unibit/crates/unibit-kernel" }
+wasm4pm-utils = { path = "../wasm4pm/crates/wasm4pm-utils" }
+wasm4pm-types = { path = "../wasm4pm/crates/wasm4pm-types" }
+wasm4pm-algos = { path = "../wasm4pm/crates/wasm4pm-algos" }
 
 log = "0.4"
 env_logger = { version = "0.11", optional = true }
@@ -49,7 +52,7 @@ ed25519-dalek = { version = "2", default-features = false, features = ["std"] }
 hashbrown = "0.14"
 
 [features]
-default = ["token-based-replay"]
+default = ["token-based-replay", "native"]
 token-based-replay = []
 # Enables live trace generation from conformance::trace_generator.
 # Until that module is implemented, leave this feature off (stub stubs are used).
