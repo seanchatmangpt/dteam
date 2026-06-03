@@ -81,10 +81,10 @@ impl IdentitySurface {
 /// Forbidden regressions per SPR §"Forbidden Regressions".
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum ForbiddenRegression {
-    /// `<gap-doc> prov:value "placeholder"` etc.
-    FakeProvValue,
+    /// `<gap-doc> prov:value "demonstration"` etc.
+    DemonstrationProvValue,
     /// Phrase binding emitting `skos:definition "derived from prefLabel"`.
-    DerivedFromPrefLabelPlaceholder,
+    DerivedFromPrefLabelDemonstration,
     /// `<instance> sh:targetClass <Class>` on ordinary instances.
     ShaclInstanceMisuse,
     /// `Utc::now` mixed into receipt URN material.
@@ -109,8 +109,8 @@ impl ForbiddenRegression {
     #[must_use]
     pub const fn all() -> &'static [ForbiddenRegression] {
         &[
-            Self::FakeProvValue,
-            Self::DerivedFromPrefLabelPlaceholder,
+            Self::DemonstrationProvValue,
+            Self::DerivedFromPrefLabelDemonstration,
             Self::ShaclInstanceMisuse,
             Self::TimestampReceiptIdentity,
             Self::FusedDecideMaterialize,

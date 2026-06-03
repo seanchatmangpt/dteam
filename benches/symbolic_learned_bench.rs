@@ -72,18 +72,18 @@ fn bench_hearsay_run(bencher: Bencher) {
     bencher
         .with_inputs(|| {
             let mut bb = Blackboard::new();
-            bb.post(Hypothesis::new(ACOUSTIC, 0xAAAA_5555_AAAA_5555, 0.9, 0, 10));
+            bb.post(Hypothesis::new(ACOUSTIC, 0xAAAA_5555_AAAA_5555, 900, 0, 10));
             bb.post(Hypothesis::new(
                 ACOUSTIC,
                 0x5555_AAAA_5555_AAAA,
-                0.85,
+                850,
                 5,
                 15,
             ));
             bb.post(Hypothesis::new(
                 ACOUSTIC,
                 0xFFFF_0000_FFFF_0000,
-                0.95,
+                950,
                 10,
                 20,
             ));

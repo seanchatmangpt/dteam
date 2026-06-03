@@ -1,0 +1,9 @@
+\contentsline {chapter}{\numberline {1}The Crisis of Enterprise Security Drift}{7}{chapter.1}%
+\contentsline {section}{\numberline {1.1}The Unbounded Divergence of Partial Systems}{7}{section.1.1}%
+\contentsline {chapter}{\numberline {2}The Calculus of Operational Closure}{9}{chapter.2}%
+\contentsline {section}{\numberline {2.1}The Axiom of Admitted State}{9}{section.2.1}%
+\contentsline {chapter}{\numberline {3}Semantic Multiplexing: The $u8$ Bit-Field Basis}{11}{chapter.3}%
+\contentsline {section}{\numberline {3.1}The KAPPA8 and INST8 Manifolds}{11}{section.3.1}%
+\contentsline {chapter}{\numberline {4}Rust Core Geometry: Zero-Cost Bounded Allocations}{13}{chapter.4}%
+\contentsline {section}{\numberline {4.1}The Geometry of Memory in INSA}{13}{section.4.1}%
+\contentsline {chapter}{\numberline {5}Conclusion}{15}{chapter.5}%

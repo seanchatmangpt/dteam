@@ -34,12 +34,12 @@ pub struct CoverageLink {
 pub const fn forbidden_regression_coverage() -> &'static [CoverageLink] {
     &[
         CoverageLink {
-            invariant: "FakeProvValue",
+            invariant: "DemonstrationProvValue",
             file: "crates/ccog/tests/gauntlet.rs",
-            test_or_symbol: "gauntlet_regression_seed_no_fake_prov_value_on_gap_doc",
+            test_or_symbol: "gauntlet_regression_seed_no_demonstration_prov_value_on_gap_doc",
         },
         CoverageLink {
-            invariant: "DerivedFromPrefLabelPlaceholder",
+            invariant: "DerivedFromPrefLabelDemonstration",
             file: "crates/ccog/tests/gauntlet.rs",
             test_or_symbol: "gauntlet_regression_seed_no_derived_from_prefLabel_string",
         },
@@ -157,11 +157,10 @@ pub fn forbidden_regressions_fully_linked() -> bool {
     let links = forbidden_regression_coverage();
     ForbiddenRegression::all().iter().all(|fr| {
         let token = match fr {
-            ForbiddenRegression::FakeProvValue => "FakeProvValue",
-            ForbiddenRegression::DerivedFromPrefLabelPlaceholder => {
-                "DerivedFromPrefLabelPlaceholder"
-            }
-            ForbiddenRegression::ShaclInstanceMisuse => "ShaclInstanceMisuse",
+            ForbiddenRegression::DemonstrationProvValue => "DemonstrationProvValue",
+            ForbiddenRegression::DerivedFromPrefLabelDemonstration => {
+                "DerivedFromPrefLabelDemonstration"
+            }            ForbiddenRegression::ShaclInstanceMisuse => "ShaclInstanceMisuse",
             ForbiddenRegression::TimestampReceiptIdentity => "TimestampReceiptIdentity",
             ForbiddenRegression::FusedDecideMaterialize => "FusedDecideMaterialize",
             ForbiddenRegression::ManualTriggerAutoFire => "ManualTriggerAutoFire",

@@ -917,6 +917,9 @@ dependencies = [
  "unibit-powl",
  "uuid",
  "wasm-bindgen",
+ "wasm4pm-algos",
+ "wasm4pm-types",
+ "wasm4pm-utils",
 ]
 
 [[package]]
@@ -1092,6 +1095,12 @@ name = "foldhash"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d9c4f5dac5e15c24eb999c26181a6ca40b39fe946cbe4c263c7209467bc83af2"
+
+[[package]]
+name = "foldhash"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 
 [[package]]
 name = "form_urlencoded"
@@ -1286,7 +1295,7 @@ version = "0.15.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9229cfe53dfd69f0609a49f65461bd93001ea1ef889cd5529dd176593f5338a1"
 dependencies = [
- "foldhash",
+ "foldhash 0.1.5",
 ]
 
 [[package]]
@@ -1294,6 +1303,11 @@ name = "hashbrown"
 version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4f467dd6dccf739c208452f8014c75c18bb8301b050ad1cfb27153803edb0f51"
+dependencies = [
+ "allocator-api2",
+ "equivalent",
+ "foldhash 0.2.0",
+]
 
 [[package]]
 name = "heck"
@@ -1981,6 +1995,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ff76201f031d8863c38aa7f905eca4f53abbfa15f609db4277d44cd8938f33fe"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "ocel-core"
+version = "26.5.30"
+dependencies = [
+ "chrono",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -3020,6 +3043,7 @@ version = "1.0.149"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "83fc039473c5595ace860d8c4fafa220ff474b3fc6bfdb4293327f1a37e94d86"
 dependencies = [
+ "indexmap 2.14.0",
  "itoa",
  "memchr",
  "serde",
@@ -4086,6 +4110,44 @@ dependencies = [
  "indexmap 2.14.0",
  "wasm-encoder",
  "wasmparser",
+]
+
+[[package]]
+name = "wasm4pm-algos"
+version = "26.5.29"
+dependencies = [
+ "blake3",
+ "hashbrown 0.17.0",
+ "itertools 0.14.0",
+ "serde",
+ "serde_json",
+ "smallvec",
+ "wasm4pm-types",
+]
+
+[[package]]
+name = "wasm4pm-types"
+version = "26.5.29"
+dependencies = [
+ "blake3",
+ "chrono",
+ "hashbrown 0.17.0",
+ "ocel-core",
+ "rustc-hash 2.1.2",
+ "serde",
+ "serde_json",
+ "smallvec",
+ "uuid",
+]
+
+[[package]]
+name = "wasm4pm-utils"
+version = "26.5.29"
+dependencies = [
+ "hashbrown 0.17.0",
+ "itertools 0.14.0",
+ "serde",
+ "smallvec",
 ]
 
 [[package]]

@@ -1,16 +1,11 @@
 import sys
 
-with open("../insa/insa-hotpath/src/powl8.rs", "r") as f:
+path = "/Users/sac/insa/insa-proof/src/powl64.rs"
+with open(path, "r") as f:
     content = f.read()
 
-content = content.replace("#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]\n#[repr(u8)]\npub enum Powl8Op {\n    NoOp = 0,", "#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]\n#[repr(u8)]\npub enum Powl8Op {\n    #[default]\n    NoOp = 0,")
+# Fix the literal \n
+content = content.replace("/// Fix 6: Byzantine Wire Assurance Cryptographic Signature\\n    pub signature: [u8; 32],", "/// Fix 6: Byzantine Wire Assurance Cryptographic Signature\n    pub signature: [u8; 32],")
 
-content = content.replace("""impl Default for Powl8Op {
-    fn default() -> Self {
-        Self::NoOp
-    }
-}
-""", "")
-
-with open("../insa/insa-hotpath/src/powl8.rs", "w") as f:
+with open(path, "w") as f:
     f.write(content)
