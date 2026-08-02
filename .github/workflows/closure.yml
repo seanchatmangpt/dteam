@@ -78,13 +78,16 @@ jobs:
         run: python tools/capability_ledger.py --root . --output artifacts/capability-ledger.json
       - name: Verify standalone Rust capability kernel
         run: |
-          cargo test --manifest-path capabilities/dteam-kernel/Cargo.toml --all-targets
+          set -o pipefail
+          cargo test --manifest-path capabilities/dteam-kernel/Cargo.toml --all-targets --message-format=short 2>&1 | tee artifacts/cargo-test.log
           cargo run --quiet --manifest-path capabilities/dteam-kernel/Cargo.toml --bin dteam-capabilities > artifacts/dteam-capability-demo.json
       - name: Upload capability evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: capability-evidence
           path: |
             artifacts/capability-ledger.json
+            artifacts/cargo-test.log
             artifacts/dteam-capability-demo.json
-          if-no-files-found: error
+          if-no-files-found: warn
