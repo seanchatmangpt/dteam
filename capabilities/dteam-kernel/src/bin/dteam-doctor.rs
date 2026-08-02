@@ -1,7 +1,87 @@
-use dteam_capability_kernel::{QolCatalog, Vision2030};
+use dteam_capability_kernel::{
+    standard_combinatorial_engine, FeatureId, QolCatalog, ServiceObjective, TelcoTopology,
+    Vision2030, VisionWizard, WizardValue,
+};
 
 fn print_help() {
-    println!("dteam-doctor [--json|status|repair|graph|qol <profile>|crown]");
+    println!("dteam-doctor [--json|status|repair|graph|qol <profile>|wizard [preset]|compose [preset]|telco|crown]");
+    println!("presets: developer | edge | telco | enterprise");
+}
+
+fn wizard_for(preset: &str) -> VisionWizard {
+    let mut wizard = VisionWizard::standard();
+    let answers = match preset {
+        "edge" => [("mode", "edge"), ("availability", "ha"), ("authority", "yes"), ("offline", "yes"), ("reversible", "yes")],
+        "telco" => [("mode", "telco"), ("availability", "carrier"), ("authority", "yes"), ("offline", "yes"), ("reversible", "yes")],
+        "enterprise" => [("mode", "enterprise"), ("availability", "ha"), ("authority", "yes"), ("offline", "no"), ("reversible", "no")],
+        _ => [("mode", "developer"), ("availability", "standard"), ("authority", "yes"), ("offline", "yes"), ("reversible", "yes")],
+    };
+    for (id, value) in answers {
+        wizard.answer(id, WizardValue::Choice(value.to_owned())).expect("static wizard answer");
+    }
+    wizard
+}
+
+fn print_compositions(preset: &str) {
+    let wizard = wizard_for(preset);
+    let plan = wizard.compile().expect("complete preset");
+    let engine = standard_combinatorial_engine();
+    let space = engine.explore(plan.request()).expect("bounded composition search");
+    println!(
+        "preset={} explored={} refused={} lawful={} pareto={} plan={} space={}",
+        preset,
+        space.explored(),
+        space.refused(),
+        space.lawful().len(),
+        space.pareto().len(),
+        plan.digest(),
+        space.digest()
+    );
+    for (index, composition) in space.pareto().iter().enumerate() {
+        println!(
+            "{}. cost={} latency_us={} reliability_ppm={} complexity={} reversible={} digest={} components=[{}]",
+            index + 1,
+            composition.cost(),
+            composition.latency_micros(),
+            composition.reliability_ppm(),
+            composition.complexity(),
+            composition.is_reversible(),
+            composition.digest(),
+            composition.components().join(",")
+        );
+    }
+}
+
+fn print_telco() {
+    let topology = TelcoTopology::standard();
+    let objective = ServiceObjective {
+        maximum_latency_micros: 2_000,
+        minimum_capacity: 8_000,
+        minimum_reliability_ppm: 999_999,
+        minimum_failure_domains: 3,
+    };
+    let assessment = topology.assess("edge-a", "core-a", &objective);
+    println!(
+        "TELCO standing={} paths={} disjoint={} spof={} digest={}",
+        assessment.standing(),
+        assessment.compliant_paths().len(),
+        assessment.disjoint_path_count(),
+        assessment.single_points_of_failure().len(),
+        assessment.digest()
+    );
+    for path in assessment.compliant_paths() {
+        println!(
+            "path=[{}] latency_us={} capacity={} reliability_ppm={} domains={} digest={}",
+            path.nodes().join("->"),
+            path.latency_micros(),
+            path.capacity(),
+            path.reliability_ppm(),
+            path.failure_domains().len(),
+            path.digest()
+        );
+    }
+    for node in assessment.single_points_of_failure() { println!("spof:{node}"); }
+    if assessment.standing() == "BLOCKED" { std::process::exit(4); }
 }
 
 fn main() {
@@ -41,6 +121,25 @@ fn main() {
                     eprintln!("unknown QoL profile `{name}`");
                     std::process::exit(2);
                 }
+            }
+        }
+        "wizard" => {
+            let preset = args.get(1).map(String::as_str).unwrap_or("developer");
+            let wizard = wizard_for(preset);
+            let plan = wizard.compile().expect("preset is complete");
+            println!("WIZARD preset={} digest={}", preset, plan.digest());
+            for command in plan.commands() { println!("{command}"); }
+        }
+        "compose" => {
+            let preset = args.get(1).map(String::as_str).unwrap_or("developer");
+            print_compositions(preset);
+        }
+        "telco" => print_telco(),
+        "feature" => {
+            let Some(name) = args.get(1) else { eprintln!("feature name required"); std::process::exit(2); };
+            match FeatureId::new(name.clone()) {
+                Ok(feature) => println!("feature:{}", feature),
+                Err(error) => { eprintln!("{error}"); std::process::exit(2); }
             }
         }
         "crown" => {
