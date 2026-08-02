@@ -14,6 +14,7 @@ pub mod event_bus;
 pub mod graph;
 pub mod hash;
 pub mod hook;
+pub mod innovation;
 pub mod ledger;
 pub mod model;
 pub mod phase_change;
@@ -47,6 +48,10 @@ pub use hash::{sha256, CanonicalEncoder, Digest};
 pub use hook::{
     Hook, HookError, HookEvaluation, HookEvent, HookLint, HookRegistry, HookReport, IntentTemplate,
     PayloadTemplate,
+};
+pub use innovation::{
+    AuditDiff, AuditSnapshot, InnovationAudit, InnovationDimension, InnovationFinding,
+    SupportBundle,
 };
 pub use ledger::{LedgerError, Receipt, ReceiptKind, ReceiptLedger, ReceiptQuery, ReplayReport};
 pub use model::{
@@ -98,19 +103,20 @@ pub use store::{
 pub mod prelude {
     pub use crate::{
         discover_transition_system, execute_schedule, standard_combinatorial_engine, Activity,
-        AdmissionPolicy, ApplyResult, AuthorityId, BatchMode, Broker, Capability, CapabilityGraph,
-        CapabilityId, CapabilityStanding, CombinatorialEngine, ComponentOption, CompositionRequest,
-        Condition, Constraint, DecisionEffect, DecisionOutcome, DecisionRule, DecisionTable,
-        DoctorReport, Document, DocumentSchema, EventId, EventKind, EventRecord, Executor,
-        ExpectedVersion, FactValue, FeatureId, FieldSchema, Guard, Hook, HookEvent, HookRegistry,
-        Intent, IntentTemplate, MachineInstance, MigrationPlan, MigrationStep, Mutation, NodeId,
-        ObjectEventLog, ObjectId, ObjectRecord, ObjectType, Observation, OperationId, Outcome,
-        PayloadTemplate, PolicyId, Predicate, PreflightRefusal, PrincipalId, ProvenanceGraph,
-        ProvenanceNode, QolCatalog, QuotaClaim, QuotaManager, QuotaPolicy, ReceiptQuery, RecordKey,
-        Relation, RepairPlan, ReservationId, ReservationRequest, ResourceId, Route, Router, Rule,
-        Runtime, ServiceObjective, StateId, StateMachine, SubjectId, Task, TaskExecutor, TaskGraph,
-        TaskId, TaskOutcome, TelcoTopology, Transaction, TransactionalStore, Transition,
-        TransitionId, TransitionSystem, UnknownFieldPolicy, ValueType, Vision2030,
-        VisionCapability, VisionStratum, VisionWizard, WizardValue,
+        AdmissionPolicy, ApplyResult, AuditSnapshot, AuthorityId, BatchMode, Broker, Capability,
+        CapabilityGraph, CapabilityId, CapabilityStanding, CombinatorialEngine, ComponentOption,
+        CompositionRequest, Condition, Constraint, DecisionEffect, DecisionOutcome, DecisionRule,
+        DecisionTable, DoctorReport, Document, DocumentSchema, EventId, EventKind, EventRecord,
+        Executor, ExpectedVersion, FactValue, FeatureId, FieldSchema, Guard, Hook, HookEvent,
+        HookRegistry, InnovationAudit, InnovationDimension, Intent, IntentTemplate, MachineInstance,
+        MigrationPlan, MigrationStep, Mutation, NodeId, ObjectEventLog, ObjectId, ObjectRecord,
+        ObjectType, Observation, OperationId, Outcome, PayloadTemplate, PolicyId, Predicate,
+        PreflightRefusal, PrincipalId, ProvenanceGraph, ProvenanceNode, QolCatalog, QuotaClaim,
+        QuotaManager, QuotaPolicy, ReceiptQuery, RecordKey, Relation, RepairPlan, ReservationId,
+        ReservationRequest, ResourceId, Route, Router, Rule, Runtime, ServiceObjective, StateId,
+        StateMachine, SubjectId, SupportBundle, Task, TaskExecutor, TaskGraph, TaskId, TaskOutcome,
+        TelcoTopology, Transaction, TransactionalStore, Transition, TransitionId, TransitionSystem,
+        UnknownFieldPolicy, ValueType, Vision2030, VisionCapability, VisionStratum, VisionWizard,
+        WizardValue,
     };
 }
