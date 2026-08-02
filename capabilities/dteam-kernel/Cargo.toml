@@ -18,6 +18,10 @@ path = "src/bin/dteam-capabilities.rs"
 name = "dteam-doctor"
 path = "src/bin/dteam-doctor.rs"
 
+[[bin]]
+name = "dteam-dense-demo"
+path = "src/bin/dteam-dense-demo.rs"
+
 [lints.rust]
 unsafe_code = "forbid"
 
