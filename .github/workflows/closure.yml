@@ -56,6 +56,14 @@ jobs:
                   ("        let authorization = AuthorizationReceipt::manufacture(\n            self.authorizations.receipts().len() as u64,\n            self.authorizations.head(),\n            &self.id,\n            executor.id(),\n            intent,\n            &plan,\n            self.tick(),\n        );",
                    "        let authorization_time = self.tick();\n        let authorization = AuthorizationReceipt::manufacture(\n            self.authorizations.receipts().len() as u64,\n            self.authorizations.head(),\n            &self.id,\n            executor.id(),\n            intent,\n            &plan,\n            authorization_time,\n        );"),
               ],
+              "capabilities/dteam-kernel/src/event_bus.rs": [
+                  ("        if let Some((digest, envelope)) = self.events.get(request.id()) {\n            if *digest == request.digest() {\n                return Ok(envelope);\n            }\n            return Err(EventBusError::EventIdentityConflict(request.id().clone()));\n        }",
+                   "        if let Some(existing_digest) = self.events.get(request.id()).map(|(digest, _)| *digest) {\n            if existing_digest == request.digest() {\n                return Ok(&self.events[request.id()].1);\n            }\n            return Err(EventBusError::EventIdentityConflict(request.id().clone()));\n        }"),
+              ],
+              "capabilities/dteam-kernel/src/saga.rs": [
+                  ("        if let Some(existing) = self.instances.get(&id) {\n            if existing.definition == definition.digest() && existing.input == input {\n                return Ok(existing);\n            }\n            return Err(SagaError::DuplicateSaga(id));\n        }",
+                   "        if self.instances.contains_key(&id) {\n            let matches_existing = {\n                let existing = &self.instances[&id];\n                existing.definition == definition.digest() && existing.input == input\n            };\n            if matches_existing {\n                return Ok(&self.instances[&id]);\n            }\n            return Err(SagaError::DuplicateSaga(id));\n        }"),
+              ],
               "tools/capability_ledger.py": [
                   ('parser.add_argument("--fail-on", action="append", default=["BUILD_BROKEN", "UNKNOWN"])',
                    'parser.add_argument("--fail-on", action="append", default=["BUILD_BROKEN"])'),
