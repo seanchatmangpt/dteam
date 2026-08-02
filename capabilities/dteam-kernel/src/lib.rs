@@ -6,9 +6,11 @@
 //!
 //! `observe → validate → route → admit/refuse → decide → hook → compose → plan → reserve → transition → transact → authorize → actuate → provenance → receipt → replay → diagnose → repair`.
 
+pub mod access;
 pub mod broker;
 pub mod combinatorial;
 pub mod decision;
+pub mod event_bus;
 pub mod graph;
 pub mod hash;
 pub mod hook;
@@ -20,6 +22,7 @@ pub mod process;
 pub mod provenance;
 pub mod quota;
 pub mod runtime;
+pub mod saga;
 pub mod scheduler;
 pub mod schema;
 pub mod state_machine;
