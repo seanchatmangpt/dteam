@@ -1,23 +1,9 @@
-# Error Handling and Panic Eradication
+<!-- documentation-closure: superseded -->
+# Superseded documentation
 
-*Secret Insight: `unwrap()` is a ticking time bomb. Stringly-typed errors are semantic cowards.*
+`crates/insa/docs/rust-core/06-error-handling-and-panics.md` is retained as a stable repository path, but it is no longer an authoritative document.
 
-The INSA hot path is designed to run millions of closures a second. A `panic!` inside a hot thread brings the entire node down.
+- Exact archived source: [docs/archive/source/crates/insa/docs/rust-core/06-error-handling-and-panics.md.txt](../../../../docs/archive/source/crates/insa/docs/rust-core/06-error-handling-and-panics.md.txt)
+- Current documentation authorities: [docs/DOCUMENTATION_MAP.md](../../../../docs/DOCUMENTATION_MAP.md)
 
-## Eradicating `unwrap()` and `expect()`
-We compile with `#![deny(clippy::unwrap_used)]` and `#![deny(clippy::expect_used)]`. 
-If a state is truly unreachable, we use `unreachable!()` with an exhaustive comment explaining the geometric invariant that proves it, or we restructure the types so the state cannot be modeled.
-
-## The Problem with `Result<T, &'static str>`
-Early prototypes used `Result<T, &'static str>`. This is an anti-pattern. Strings must be parsed to be understood, meaning the downstream caller cannot react programmatically without text-matching.
-
-22 The Zero-Cost Enum Solution
-Errors must be explicitly modeled as `#[derive(Debug, Clone, Copy, PartialEq, Eq)] #[repr(u8)]` enums.
-```rust
-pub enum MaskError {
-    OutOfRange = 1,
-}
-```
-This reduces error bubbling to a single register check. It also maps perfectly onto the `telco` fault isolation taxonomy.
-
-*Core Team Verdict*: "Panics are for broken hardware. Typed errors are for broken logic."
+Historical claims in the archived source describe their original context and do not establish current implementation standing.

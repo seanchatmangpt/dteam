@@ -1,13 +1,9 @@
-# The Core Equation: A = µ(O*)
+<!-- documentation-closure: superseded -->
+# Superseded documentation
 
-At the heart of the INSA architecture lies the governing equation:
+`docs/book/src/architecture/equation.md` is retained as a stable repository path, but it is no longer an authoritative document.
 
-$$A = \mu(O^*)$$
+- Exact archived source: [docs/archive/source/docs/book/src/architecture/equation.md.txt](../../../archive/source/docs/book/src/architecture/equation.md.txt)
+- Current documentation authorities: [docs/DOCUMENTATION_MAP.md](../../../DOCUMENTATION_MAP.md)
 
-Where:
-
-* **$O^*$ (Closed Field Context)**: A typed, policy-valid representation of state. We do not operate on raw LLM observations ($O$); we only operate on filtered, validated context.
-* **$\mu$ (Transition Function)**: The deterministic, law-compliant evolution of the system state.
-* **$A$ (Admitted Action)**: The final proof of action, carrying the evidentiary receipt of the logic that triggered it.
-
-Any system state or action that cannot be derived from a validated $O^*$ via a lawful $\mu$ is rejected by the system's Truthforge gate.
+Historical claims in the archived source describe their original context and do not establish current implementation standing.

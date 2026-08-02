@@ -1,12 +1,9 @@
-# Verification Overview
+<!-- documentation-closure: superseded -->
+# Superseded documentation
 
-Verification in the INSA architecture is exhaustive. We define a contract for every cognitive pass.
+`docs/book/src/verification/overview.md` is retained as a stable repository path, but it is no longer an authoritative document.
 
-## Contract Testing
-We utilize `proptest` and property-based test suites to explore the state space of our cognitive transitions.
+- Exact archived source: [docs/archive/source/docs/book/src/verification/overview.md.txt](../../../archive/source/docs/book/src/verification/overview.md.txt)
+- Current documentation authorities: [docs/DOCUMENTATION_MAP.md](../../../DOCUMENTATION_MAP.md)
 
-## Property-Based Invariants
-Invariants are defined as formal properties of the lattice:
-- **Lattice Consistency**: Transitions must follow the monotonic DAG structure of the instinctive lattice.
-- **Identity Conservation**: The transformation of $O^*$ into a receipt or action must preserve identity URNs.
-- **Tamper-Resilience**: Manifests and bundles must fail verification if any metadata bit is mutated.
+Historical claims in the archived source describe their original context and do not establish current implementation standing.

@@ -1,31 +1,9 @@
-# Generalized telco — End-to-End Pattern
+<!-- documentation-closure: superseded -->
+# Superseded documentation
 
-The clean generalization is:
-> telco = communication service assurance
+`crates/insa/docs/07-telco-usage.md` is retained as a stable repository path, but it is no longer an authoritative document.
 
-It is the operating layer that proves a communication path is:
-provisioned, bound, routed, reachable, authorized, schema-compatible, receipt-producing, replayable, restorable.
+- Exact archived source: [docs/archive/source/crates/insa/docs/07-telco-usage.md.txt](../../../docs/archive/source/crates/insa/docs/07-telco-usage.md.txt)
+- Current documentation authorities: [docs/DOCUMENTATION_MAP.md](../../../docs/DOCUMENTATION_MAP.md)
 
-telco proves that projected work can cross boundaries without losing law.
-
-## The Three Telco Planes
-1. **Control plane**: Defines who may communicate, over which route, under which policy.
-2. **Data plane**: Carries the actual request/response payload.
-3. **Proof plane**: Records what happened and makes it replayable.
-
-Never allow in-band payload to become out-of-band control.
-`control plane ⊥ data plane ⊥ proof plane`
-
-## Generalized Telco Commands
-- `telco provision`: Defines/validates a communication service order.
-- `telco bind`: Binds a logical service to a physical endpoint.
-- `telco route`: Computes selected communication route.
-- `telco test`: Verifies handshake, schema, authority, receipt.
-- `telco trace`: Traces the full communication path.
-- `telco fault`: Classifies communication failure.
-- `telco restore`: Restores degraded path using bounded repair.
-- `telco verify`: Verifies communication path against service contract.
-- `telco report`: Emits topology and readiness evidence.
-
-## Telco and MCP/A2A/HITL
-MCP/A2A/HITL are projections, not cognition. Telco ensures they are routed, authorized, schema-valid, and receipt-producing.
+Historical claims in the archived source describe their original context and do not establish current implementation standing.

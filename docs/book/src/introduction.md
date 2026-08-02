@@ -1,5 +1,9 @@
-# Introduction
+<!-- documentation-closure: superseded -->
+# Superseded documentation
 
-The INSA (Instinctual Autonomics) architecture represents a fundamental shift in cognitive systems. By grounding all cognitive activity in a formal, closed cognition surface (`O*`), we eliminate the ambiguity of traditional LLM-driven observation (`O`). 
+`docs/book/src/introduction.md` is retained as a stable repository path, but it is no longer an authoritative document.
 
-Every autonomous action is a strictly verified application of the transition function (`µ`), producing an admissible proof (`A`). This book serves as the primary technical resource for developers and auditors working within the Unibit substrate.
+- Exact archived source: [docs/archive/source/docs/book/src/introduction.md.txt](../../archive/source/docs/book/src/introduction.md.txt)
+- Current documentation authorities: [docs/DOCUMENTATION_MAP.md](../../DOCUMENTATION_MAP.md)
+
+Historical claims in the archived source describe their original context and do not establish current implementation standing.

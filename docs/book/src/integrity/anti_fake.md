@@ -1,15 +1,9 @@
-# Anti-Fake Gauntlet
+<!-- documentation-closure: superseded -->
+# Superseded documentation
 
-The Anti-Fake Gauntlet is a suite of automated Kill Zones that physically prove the system is not hardcoded, shallow, or fake.
+`docs/book/src/integrity/anti_fake.md` is retained as a stable repository path, but it is no longer an authoritative document.
 
-## Kill Zones
+- Exact archived source: [docs/archive/source/docs/book/src/integrity/anti_fake.md.txt](../../../archive/source/docs/book/src/integrity/anti_fake.md.txt)
+- Current documentation authorities: [docs/DOCUMENTATION_MAP.md](../../../DOCUMENTATION_MAP.md)
 
-| Zone | Invariant | Proof |
-|------|-----------|-------|
-| KZ1 | Doctrine Drift | Semantic lattice consistency |
-| KZ2 | Causal Dependence | Perturbation-based causal testing |
-| KZ6 | Performance Honesty | Zero-allocation hot path verification |
-| KZ7 | Runtime Reality | E2E supply chain replay |
-
-## Evidence
-Every run generates a signed `ANTI_FAKE_EVIDENCE.log`, which captures the git commit hash, toolchain state, and raw cargo test outputs. This serves as the definitive audit trail for system admissibility.
+Historical claims in the archived source describe their original context and do not establish current implementation standing.

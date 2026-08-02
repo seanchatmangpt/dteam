@@ -1,11 +1,9 @@
-# Contract Testing
+<!-- documentation-closure: superseded -->
+# Superseded documentation
 
-We employ a strict contract-testing framework where both the *Producer* and the *Consumer* of a cognitive surface must prove the input/output contract.
+`docs/book/src/verification/contracts.md` is retained as a stable repository path, but it is no longer an authoritative document.
 
-## The Admissibility Gate
-Every `ainst` action is gated by an admissibility contract. Before a policy is deployed:
-1. **Schema Check**: The OCEL structure is validated for completeness.
-2. **Gauntlet Admission**: The policy is challenged against generated scenarios.
-3. **Artifact Manifest**: The pack is hashed and verified.
+- Exact archived source: [docs/archive/source/docs/book/src/verification/contracts.md.txt](../../../archive/source/docs/book/src/verification/contracts.md.txt)
+- Current documentation authorities: [docs/DOCUMENTATION_MAP.md](../../../DOCUMENTATION_MAP.md)
 
-If any contract is breached, the admission is revoked.
+Historical claims in the archived source describe their original context and do not establish current implementation standing.

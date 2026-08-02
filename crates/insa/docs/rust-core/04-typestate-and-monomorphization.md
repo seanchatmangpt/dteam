@@ -1,23 +1,9 @@
-# Typestate and Monomorphization
+<!-- documentation-closure: superseded -->
+# Superseded documentation
 
-*Secret Insight: A runtime error is a failure of imagination at compile time.*
+`crates/insa/docs/rust-core/04-typestate-and-monomorphization.md` is retained as a stable repository path, but it is no longer an authoritative document.
 
-INSA uses Typestates extensively (e.g., `Route<Unproofed>` vs `Route<Proofed>`). This ensures that impossible state transitions (emitting an unproofed route) are rejected by the compiler, not the runtime.
+- Exact archived source: [docs/archive/source/crates/insa/docs/rust-core/04-typestate-and-monomorphization.md.txt](../../../../docs/archive/source/crates/insa/docs/rust-core/04-typestate-and-monomorphization.md.txt)
+- Current documentation authorities: [docs/DOCUMENTATION_MAP.md](../../../../docs/DOCUMENTATION_MAP.md)
 
-## The Secret: PhantomData and Zero-Cost
-```rust
-pub struct Route<State> {
-    inner: RouteInner,
-    _state: core::marker::PhantomData<State>,
-}
-```
-`PhantomData` occupies absolutely zero space at runtime. The compiler uses the `State` type parameter to enforce rules during type checking and then completely erases it.
-
-## The Monomorphization Trap
-Generics are powerful, but excessive generic specialization leads to binary bloat and instruction cache thrashing. If `execute_cog8_graph` is generic over too many traits, the compiler generates dozens of identical copies of the function.
-
-To prevent this:
-1. **Dynamic Dispatch is Banned on Hot Paths**: We don't use `&dyn Trait` because vtables are slow.
-2. **Inner Functions**: For heavy generic functions, we extract the core logic into a non-generic `inner` function taking slices, and use the generic outer function just for type checking.
-
-*Core Team Verdict*: "Use the type system to make illegal states unrepresentable, but don't let it bloat your instruction cache."
+Historical claims in the archived source describe their original context and do not establish current implementation standing.

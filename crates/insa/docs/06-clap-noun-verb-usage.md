@@ -1,26 +1,9 @@
-# Generalized clap-noun-verb Usage — End-to-End Pattern
+<!-- documentation-closure: superseded -->
+# Superseded documentation
 
-The clean generalization is:
-> clap-noun-verb = operational grammar compiler
+`crates/insa/docs/06-clap-noun-verb-usage.md` is retained as a stable repository path, but it is no longer an authoritative document.
 
-It gives INSA the command grammar; INSA supplies the admitted law.
+- Exact archived source: [docs/archive/source/crates/insa/docs/06-clap-noun-verb-usage.md.txt](../../../docs/archive/source/crates/insa/docs/06-clap-noun-verb-usage.md.txt)
+- Current documentation authorities: [docs/DOCUMENTATION_MAP.md](../../../docs/DOCUMENTATION_MAP.md)
 
-## The Core Separation
-- **CLI**: Parse, validate, route, serialize output
-- **Integration**: Filesystem, network, process, terminal, config
-- **Domain**: Actual law and computation
-
-No INSA law inside CLI wrapper functions.
-
-## Noun and Verb Design Rules
-Noun = responsibility boundary.
-Verb = admissible motion.
-
-Good nouns: `doctor`, `wizard`, `telco`, `replay`, `pack`, `bench`, `release`
-Good verbs: `check`, `explain`, `report`, `verify`, `plan`, `apply`, `provision`, `test`, `trace`
-
-## Structured Output and Agent-Grade CLI
-Every command emits machine-readable output.
-Every status maps to a stable exit code.
-No hidden interactive prompts in CI paths.
-No mutation without receipt.
+Historical claims in the archived source describe their original context and do not establish current implementation standing.

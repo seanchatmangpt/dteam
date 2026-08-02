@@ -1,11 +1,9 @@
-# Topology v2
+<!-- documentation-closure: superseded -->
+# Superseded documentation
 
-Topology v2 defines the nonlinear structure of cognitive flows. Instead of a simple sequence, `ccog` uses POWL (Partial Order, Weighted Loops) topology.
+`crates/ccog/docs/book/topology_v2.md` is retained as a stable repository path, but it is no longer an authoritative document.
 
-Key topological elements:
-- **Choice Graphs**: Admissible branches where the runtime selects the best fit based on priority and evidence.
-- **Partial Orders**: Tasks that can be executed independently until a synchronization point (`Join`).
-- **Bounded Loops**: Iterative refinement of field state until a stable closure is reached.
-- **Silent Transitions**: Internal state changes that do not emit external responses but advance the completion mask.
+- Exact archived source: [docs/archive/source/crates/ccog/docs/book/topology_v2.md.txt](../../../../docs/archive/source/crates/ccog/docs/book/topology_v2.md.txt)
+- Current documentation authorities: [docs/DOCUMENTATION_MAP.md](../../../../docs/DOCUMENTATION_MAP.md)
 
-The `cog8_graph!` macro provides a declarative DSL for constructing these topologies at compile-time or load-time.
+Historical claims in the archived source describe their original context and do not establish current implementation standing.

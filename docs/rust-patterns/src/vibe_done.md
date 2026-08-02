@@ -1,18 +1,9 @@
-# Evidentiary Completion ("Vibe Done" vs "Vibe Coding")
+<!-- documentation-closure: superseded -->
+# Superseded documentation
 
-In the INSA architecture, "Vibe coding" (where code simply compiles, looks right to an LLM, and passes superficial tests) is actively rejected. Instead, we adhere to a standard called **"Vibe Done"**, which means **Evidentiary Done**.
+`docs/rust-patterns/src/vibe_done.md` is retained as a stable repository path, but it is no longer an authoritative document.
 
-## The Standard
-Code is considered complete *only* when it passes:
-1. **Strict Layout Offsets**: Data structures must have guaranteed memory layouts (e.g., `#[repr(C)]`, `#[repr(packed)]`) and predictable byte sizing.
-2. **Cross-Platform Wire Encoding Checks**: Serialization must be deterministic across platforms to guarantee consensus and replayability.
-3. **Truthforge Admission Gates**: A dedicated verification harness (`insa-truthforge`) that subjects the code to adversarial mutation and invariants tests.
+- Exact archived source: [docs/archive/source/docs/rust-patterns/src/vibe_done.md.txt](../../archive/source/docs/rust-patterns/src/vibe_done.md.txt)
+- Current documentation authorities: [docs/DOCUMENTATION_MAP.md](../../DOCUMENTATION_MAP.md)
 
-## No Deferred Work
-We enforce an **Exhaustive Completeness** standard:
-- Never write placeholders, stubs, or mocks in any codebase. 
-- Never use `TODO`, `FIXME`, `unimplemented!()`, or defer logic "for production".
-- Every implementation must handle all edge cases exhaustively, utilizing comprehensive pattern matching and defensive boundaries.
-
-## The PROV Receipt
-Ultimately, the goal of a valid state transition in DTEAM is to generate a **PROV receipt** (`R_U`). If an operation (`A_U`) cannot generate an independent, cryptographically verifiable proof of its action across the cold-path (`powl64`), the code is fundamentally incomplete.
+Historical claims in the archived source describe their original context and do not establish current implementation standing.

@@ -219,6 +219,8 @@ def render_documentation_map(records: Iterable[dict[str, str | None]]) -> str:
             "- Contribution and agent behavior belong to `CONTRIBUTING.md` and `AGENTS.md`.",
             "- Licensing motivation belongs to `PHILOSOPHY.md`; legal terms belong only to `LICENSE`.",
             "",
+            "The complete path inventory is available in [`docs/MARKDOWN_INVENTORY.md`](MARKDOWN_INVENTORY.md).",
+            "",
             "A historical file may explain lineage, but it may not override a canonical owner.",
         ]
     )
@@ -376,7 +378,7 @@ def validate(entries: tuple[Entry, ...], root: Path) -> dict[str, object]:
     broken_links = validate_links(root, entries)
     orphans = unreachable_documents(root, entries)
     return {
-        "tracked_markdown": len(markdown_paths(root, include_untracked=False)),
+        "tracked_markdown": len(markdown_paths(root, include_untracked=True)),
         "inventoried_markdown": len(entries),
         "unclassified": unclassified,
         "missing_canonical": missing_canonical,

@@ -1,31 +1,9 @@
-# Generalized unrdf Usage — End-to-End Production Pattern
+<!-- documentation-closure: superseded -->
+# Superseded documentation
 
-The clean generalization is:
-> unrdf = ontology projection compiler
+`crates/insa/docs/05-unrdf-usage.md` is retained as a stable repository path, but it is no longer an authoritative document.
 
-It is not the runtime. It is not the CLI framework. It is not the admission authority.
-It is the station that turns semantic source material into repeatable generated artifacts.
+- Exact archived source: [docs/archive/source/crates/insa/docs/05-unrdf-usage.md.txt](../../../docs/archive/source/crates/insa/docs/05-unrdf-usage.md.txt)
+- Current documentation authorities: [docs/DOCUMENTATION_MAP.md](../../../docs/DOCUMENTATION_MAP.md)
 
-`RDF/TTL -> SPARQL -> Nunjucks -> GeneratedArtifact`
-
-The INSA best practice is:
-> Do not wrap unrdf. Industrialize its inputs, templates, outputs, and checks.
-
-Use:
-- `just unrdf-sync`
-- `just unrdf-check`
-- `just unrdf-diff`
-- `just unrdf-verify`
-
-## The Core Separation
-- TTL = semantic source
-- SPARQL = selection law
-- Nunjucks = projection law
-
-SPARQL selects. Nunjucks projects.
-
-## What unrdf Should Generate
-Good targets: Rust IRI constants, term catalogs, failure-code catalogs, doctor check catalogs, Zod schemas, OpenAPI specs, MCP descriptors.
-Avoid: COG8 hot evaluator, INST8 bit operations, POWL8 route logic, WireV1 encoder internals.
-
-Ontology can project semantic artifacts. Machine law must be handcrafted, gated, and admitted.
+Historical claims in the archived source describe their original context and do not establish current implementation standing.

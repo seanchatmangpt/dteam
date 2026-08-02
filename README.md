@@ -142,6 +142,8 @@ Inspection is not execution. A workflow definition is not a successful run. A ge
 
 ## Documentation
 
+- [`docs/DOCUMENTATION_MAP.md`](docs/DOCUMENTATION_MAP.md) — canonical documentation authority map
+
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — system boundaries and component responsibilities
 - [`docs/VALIDATION.md`](docs/VALIDATION.md) — proof ladder, standing, and release criteria
 - [`docs/OPERATIONS.md`](docs/OPERATIONS.md) — operator and developer commands
