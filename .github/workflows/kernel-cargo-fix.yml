@@ -1,0 +1,83 @@
+name: kernel-cargo-fix
+
+on:
+  pull_request:
+    paths:
+      - "capabilities/dteam-kernel/**"
+      - ".github/workflows/kernel-cargo-fix.yml"
+
+concurrency:
+  group: kernel-cargo-fix-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  fix-and-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CARGO_INCREMENTAL: "0"
+      RUSTFLAGS: "-C debuginfo=0"
+      MANIFEST: capabilities/dteam-kernel/Cargo.toml
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+      - name: Apply compiler-authored fixes
+        shell: bash
+        run: |
+          cargo fix --manifest-path "$MANIFEST" --all-targets --allow-dirty --allow-staged
+          cargo fmt --manifest-path "$MANIFEST" --all
+          if ! git diff --quiet; then
+            git config user.name "dteam-cargo-fix-bot"
+            git config user.email "dteam-cargo-fix-bot@users.noreply.github.com"
+            git add capabilities/dteam-kernel
+            git commit -m "fix(kernel): apply cargo-authored repairs"
+            git push origin HEAD:${{ github.event.pull_request.head.ref }}
+          fi
+      - name: Type-check kernel
+        shell: bash
+        run: cargo check --manifest-path "$MANIFEST" --all-targets
+      - name: Execute kernel tests
+        shell: bash
+        run: cargo test --manifest-path "$MANIFEST" --lib -- --test-threads=1
+      - name: Execute kernel demo
+        shell: bash
+        run: |
+          mkdir -p artifacts/kernel-cargo-fix
+          cargo run --quiet --manifest-path "$MANIFEST" --bin dteam-capabilities \
+            > artifacts/kernel-cargo-fix/demo.json
+      - name: Publish execution receipt
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p artifacts/kernel-cargo-fix
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          demo = Path("artifacts/kernel-cargo-fix/demo.json")
+          receipt = {
+              "schema": "urn:dteam:cargo-fix-receipt:v1",
+              "repository": os.environ.get("GITHUB_REPOSITORY"),
+              "sha": os.environ.get("GITHUB_SHA"),
+              "ref": os.environ.get("GITHUB_HEAD_REF"),
+              "demo_exists": demo.exists(),
+              "demo_sha256": hashlib.sha256(demo.read_bytes()).hexdigest() if demo.exists() else None,
+          }
+          Path("artifacts/kernel-cargo-fix/receipt.json").write_text(
+              json.dumps(receipt, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+      - name: Upload cargo-fix evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-cargo-fix-evidence
+          path: artifacts/kernel-cargo-fix
+          if-no-files-found: warn
