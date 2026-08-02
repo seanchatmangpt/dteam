@@ -1,0 +1,22 @@
+{
+  "canonical_sha256": "5a8783cb7537233b88d6a3b8e8aed24a1ab74168f3c58e23de3fbe10153c8617",
+  "capabilities": 24,
+  "checkpoints": [
+    {"id":"G1","lineage":"John Gall","principle":"Start from a working simple system","state":"PASS"},
+    {"id":"G2","lineage":"Wil van der Aalst","principle":"Record behavior as event evidence","state":"PASS"},
+    {"id":"G3","lineage":"Wil van der Aalst","principle":"Conformance before optimization","state":"PASS"},
+    {"id":"G4","lineage":"Wil van der Aalst et al.","principle":"Preserve process model and event correspondence","state":"PASS"},
+    {"id":"G5","lineage":"Robert C. Martin","principle":"Dependencies point toward policy","state":"PASS"},
+    {"id":"G6","lineage":"Robert C. Martin","principle":"Keep boundaries explicit and independently testable","state":"PASS"},
+    {"id":"G7","lineage":"Hunt and Thomas","principle":"Use tracer bullets for executable feedback","state":"PASS"},
+    {"id":"G8","lineage":"Hunt and Thomas","principle":"Automate repetition and make failures loud","state":"PASS"},
+    {"id":"G9","lineage":"Hunt and Thomas et al.","principle":"Preserve reversibility and orthogonality","state":"PASS"},
+    {"id":"G10","lineage":"Gall + van der Aalst + Martin + Hunt/Thomas","principle":"Extend only after the smaller system is observed alive","state":"PASS"}
+  ],
+  "failed": 0,
+  "passed": 10,
+  "profiles": 8640,
+  "runtime_languages": ["c","cpp","go","java","node","perl","php","python","ruby"],
+  "schema": "dteam.gall-innovation-checkpoints.v1",
+  "standing": "ALIVE"
+}
