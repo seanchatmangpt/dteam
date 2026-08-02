@@ -1,0 +1,114 @@
+name: kernel-crown
+
+on:
+  pull_request:
+    paths:
+      - "capabilities/dteam-kernel/**"
+      - ".github/workflows/kernel-crown.yml"
+
+concurrency:
+  group: kernel-crown-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  crown:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      CARGO_INCREMENTAL: "0"
+      RUSTFLAGS: "-C debuginfo=0"
+      MANIFEST: capabilities/dteam-kernel/Cargo.toml
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+      - name: Prepare receipt directory
+        run: mkdir -p artifacts/kernel-validation
+      - name: Type-check every target
+        run: |
+          set -o pipefail
+          cargo check --manifest-path "$MANIFEST" --all-targets --message-format=short \
+            2>&1 | tee artifacts/kernel-validation/cargo-check.log
+      - name: Execute every library test
+        run: |
+          set -o pipefail
+          cargo test --manifest-path "$MANIFEST" --lib -- --test-threads=1 --nocapture \
+            2>&1 | tee artifacts/kernel-validation/cargo-test.log
+      - name: Execute original capability demonstration
+        run: |
+          cargo run --quiet --manifest-path "$MANIFEST" --bin dteam-capabilities \
+            > artifacts/kernel-validation/capability-demo.json
+      - name: Execute dense system demonstration
+        run: |
+          cargo run --quiet --manifest-path "$MANIFEST" --bin dteam-dense-demo \
+            > artifacts/kernel-validation/dense-demo.json
+      - name: Manufacture exact-head ALIVE receipt
+        run: |
+          export VALIDATED_SHA="$(git rev-parse HEAD)"
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path("artifacts/kernel-validation")
+          files = [
+              "cargo-check.log",
+              "cargo-test.log",
+              "capability-demo.json",
+              "dense-demo.json",
+          ]
+          evidence = {}
+          for name in files:
+              path = root / name
+              evidence[name] = {
+                  "bytes": path.stat().st_size,
+                  "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+              }
+          dense = json.loads((root / "dense-demo.json").read_text(encoding="utf-8"))
+          if dense.get("standing") != "ALIVE":
+              raise SystemExit("dense demonstration did not emit ALIVE")
+          receipt = {
+              "schema": "urn:dteam:kernel-alive-receipt:v1",
+              "standing": "ALIVE",
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "validated_sha": os.environ["VALIDATED_SHA"],
+              "ref": os.environ.get("GITHUB_HEAD_REF"),
+              "manifest": os.environ["MANIFEST"],
+              "gates": {
+                  "cargo_check_all_targets": "PASS",
+                  "cargo_test_lib": "PASS",
+                  "capability_demo": "PASS",
+                  "dense_system_demo": "PASS",
+              },
+              "evidence": evidence,
+              "dense_demo": dense,
+          }
+          encoded = json.dumps(receipt, indent=2, sort_keys=True) + "\n"
+          (root / "ALIVE.json").write_text(encoded, encoding="utf-8")
+          print(encoded)
+          PY
+      - name: Publish immutable validation receipt
+        run: |
+          git config user.name "dteam-crown-bot"
+          git config user.email "dteam-crown-bot@users.noreply.github.com"
+          git add artifacts/kernel-validation/ALIVE.json
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(kernel): publish exact-head ALIVE receipt"
+            git push origin HEAD:${{ github.event.pull_request.head.ref }}
+          fi
+      - name: Upload full evidence pack
+        uses: actions/upload-artifact@v4
+        with:
+          name: dteam-kernel-alive-evidence
+          path: artifacts/kernel-validation
+          if-no-files-found: error
+      - name: Crown draft PR
+        run: |
+          gh pr comment "${{ github.event.pull_request.number }}" --body "Kernel crown: **ALIVE**. All-target type-check, library tests, original demo, dense demo, and exact-head receipt passed. Receipt: \`artifacts/kernel-validation/ALIVE.json\`."
+          gh pr ready "${{ github.event.pull_request.number }}"
