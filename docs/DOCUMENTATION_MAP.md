@@ -12,11 +12,14 @@ This page is the authoritative index for repository documentation. A concept has
 | [`PHILOSOPHY.md`](../PHILOSOPHY.md) | canonical | project philosophy and licensing rationale |
 | [`README.md`](../README.md) | canonical | project entry, subject boundaries, and quick start |
 | [`docs/ARCHITECTURE.md`](ARCHITECTURE.md) | canonical | architecture and authority boundaries |
+| [`docs/DOCUMENTATION_MAP.md`](DOCUMENTATION_MAP.md) | canonical | documentation authority map |
 | [`docs/DOCUMENTATION_MIGRATION.md`](DOCUMENTATION_MIGRATION.md) | reference | repository-wide migration contract |
 | [`docs/GLOSSARY.md`](GLOSSARY.md) | canonical | authoritative terminology |
+| [`docs/MARKDOWN_INVENTORY.md`](MARKDOWN_INVENTORY.md) | reference | human-readable Markdown inventory |
 | [`docs/OPERATIONS.md`](OPERATIONS.md) | canonical | operator and developer procedures |
 | [`docs/RESEARCH.md`](RESEARCH.md) | canonical | research program, questions, and evaluation discipline |
 | [`docs/VALIDATION.md`](VALIDATION.md) | canonical | verification, evidence, and release standing |
+| [`docs/archive/README.md`](archive/README.md) | reference | archive index and provenance policy |
 
 ## Historical documentation
 
@@ -31,6 +34,8 @@ This page is the authoritative index for repository documentation. A concept has
 - Terminology belongs to `docs/GLOSSARY.md`.
 - Contribution and agent behavior belong to `CONTRIBUTING.md` and `AGENTS.md`.
 - Licensing motivation belongs to `PHILOSOPHY.md`; legal terms belong only to `LICENSE`.
+
+The complete path inventory is available in [`docs/MARKDOWN_INVENTORY.md`](MARKDOWN_INVENTORY.md).
 
 The complete path inventory is available in [`docs/MARKDOWN_INVENTORY.md`](MARKDOWN_INVENTORY.md).
 

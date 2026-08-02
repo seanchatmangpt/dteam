@@ -1,0 +1,17 @@
+{
+  "inventory_sha256": "b7c074717d0ace3c0424ac0296f2f9485fc1b4ce84b0f7123c9b85ce72c641b8",
+  "markdown_set_sha256": "acd69e122c1936e892d35a81c06a926b0741e77f7759648af03b59e96da5322c",
+  "receipt_sha256": "df6c3a6ede9c8ca73ccfd064d4972f19b5d3cc98686e2b8a9e06dad509e02992",
+  "schema": "urn:dteam:documentation-closure:v1",
+  "standing": "ALIVE",
+  "validation": {
+    "archive_entries_without_provenance": [],
+    "broken_links": [],
+    "duplicate_authorities": [],
+    "inventoried_markdown": 241,
+    "missing_canonical": [],
+    "orphan_documents": [],
+    "tracked_markdown": 241,
+    "unclassified": []
+  }
+}
