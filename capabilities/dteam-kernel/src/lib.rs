@@ -4,7 +4,7 @@
 //! The crate is deliberately standalone: it provides a runnable nucleus while the
 //! larger workspace's sibling repositories are unavailable. Its execution path is:
 //!
-//! `observe → validate → route → admit/refuse → decide → hook → plan → transition → transact → authorize → actuate → provenance → receipt → replay`.
+//! `observe → validate → route → admit/refuse → decide → hook → plan → reserve → transition → transact → authorize → actuate → provenance → receipt → replay`.
 
 pub mod broker;
 pub mod decision;
@@ -16,6 +16,7 @@ pub mod model;
 pub mod policy;
 pub mod process;
 pub mod provenance;
+pub mod quota;
 pub mod runtime;
 pub mod scheduler;
 pub mod schema;
@@ -52,6 +53,10 @@ pub use process::{
 pub use provenance::{
     NodeId, NodeKind, ProvenanceError, ProvenanceGraph, ProvenanceNode, ProvenancePath, Relation,
 };
+pub use quota::{
+    PrincipalId, QuotaAction, QuotaClaim, QuotaError, QuotaManager, QuotaPolicy, QuotaReceipt,
+    QuotaVerification, Reservation, ReservationId, ReservationRequest, ReservationState, ResourceId,
+};
 pub use runtime::{
     ProcessError as RuntimeError, ProcessResult, ProcessTrace, Route, Router, Runtime, TraceError,
     TraceEvent, TraceStage,
@@ -85,8 +90,9 @@ pub mod prelude {
         FieldSchema, Guard, Hook, HookEvent, HookRegistry, Intent, IntentTemplate, MachineInstance,
         MigrationPlan, MigrationStep, Mutation, NodeId, ObjectEventLog, ObjectId, ObjectRecord,
         ObjectType, Observation, OperationId, Outcome, PayloadTemplate, PolicyId, Predicate,
-        PreflightRefusal, ProvenanceGraph, ProvenanceNode, ReceiptQuery, RecordKey, Relation, Route,
-        Router, Rule, Runtime, StateId, StateMachine, SubjectId, Task, TaskExecutor, TaskGraph,
+        PreflightRefusal, PrincipalId, ProvenanceGraph, ProvenanceNode, QuotaClaim, QuotaManager,
+        QuotaPolicy, ReceiptQuery, RecordKey, Relation, ReservationId, ReservationRequest, ResourceId,
+        Route, Router, Rule, Runtime, StateId, StateMachine, SubjectId, Task, TaskExecutor, TaskGraph,
         TaskId, TaskOutcome, Transaction, TransactionalStore, Transition, TransitionId,
         TransitionSystem, UnknownFieldPolicy, ValueType,
     };
