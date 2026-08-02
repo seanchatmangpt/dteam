@@ -786,9 +786,9 @@ impl EventBus {
         request: PublishRequest,
     ) -> Result<&EventEnvelope, EventBusError> {
         self.advance_time(request.logical_time())?;
-        if let Some((digest, envelope)) = self.events.get(request.id()) {
-            if *digest == request.digest() {
-                return Ok(envelope);
+        if let Some(existing_digest) = self.events.get(request.id()).map(|(digest, _)| *digest) {
+            if existing_digest == request.digest() {
+                return Ok(&self.events[request.id()].1);
             }
             return Err(EventBusError::EventIdentityConflict(request.id().clone()));
         }

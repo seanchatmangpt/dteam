@@ -706,9 +706,13 @@ impl SagaCoordinator {
         definition: &SagaDefinition,
         input: Vec<u8>,
     ) -> Result<&SagaInstance, SagaError> {
-        if let Some(existing) = self.instances.get(&id) {
-            if existing.definition == definition.digest() && existing.input == input {
-                return Ok(existing);
+        if self.instances.contains_key(&id) {
+            let matches_existing = {
+                let existing = &self.instances[&id];
+                existing.definition == definition.digest() && existing.input == input
+            };
+            if matches_existing {
+                return Ok(&self.instances[&id]);
             }
             return Err(SagaError::DuplicateSaga(id));
         }
