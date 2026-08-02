@@ -1,6 +1,6 @@
 # Attribution
 
-This file records third-party source lineage retained in dteam. It supplements, but does not replace, the corresponding third-party license texts.
+This file records third-party source lineage retained in dteam. It supplements, but does not replace, applicable third-party license terms.
 
 ## rust4pm
 
@@ -14,10 +14,7 @@ The following data structures in `src/models/mod.rs` are derived from the `rust4
 
 Upstream project: `https://github.com/aarkue/rust4pm`
 
-The derived components are used under the upstream MIT and Apache License 2.0 terms. The retained license texts are:
-
-- [`vendors/rust4pm/LICENSE-MIT`](vendors/rust4pm/LICENSE-MIT)
-- [`vendors/rust4pm/LICENSE-APACHE`](vendors/rust4pm/LICENSE-APACHE)
+The derived components are attributed to rust4pm under its upstream MIT and Apache License 2.0 terms. Earlier repository documentation referred to local copies at `vendors/rust4pm/LICENSE-MIT` and `vendors/rust4pm/LICENSE-APACHE`; those paths are not present in the admitted tree for this documentation closure. Before redistribution, packaging, or release, verify that all license texts required by the upstream terms are retained in the distributed artifact.
 
 ## Attribution discipline
 
