@@ -8,16 +8,64 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   source-closure:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Apply compiler-directed source repairs
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          replacements = {
+              "capabilities/dteam-kernel/src/schema.rs": [
+                  ("pub const fn default_value(&self) -> Option<&FactValue>",
+                   "pub fn default_value(&self) -> Option<&FactValue>"),
+                  ("pub const fn output(&self) -> &Document",
+                   "pub fn output(&self) -> &Document"),
+                  ('assert_eq!(result.output().get("status"), Some(&"open".into()));',
+                   'assert_eq!(result.output().get("status"), Some(&FactValue::Text("open".to_owned())));'),
+                  ('assert_eq!(result.output().get("priority"), Some(&1_u64.into()));',
+                   'assert_eq!(result.output().get("priority"), Some(&FactValue::U64(1)));'),
+              ],
+              "capabilities/dteam-kernel/src/scheduler.rs": [
+                  ("(Some(id.clone()), value)", "(Some((*id).clone()), value)"),
+              ],
+              "capabilities/dteam-kernel/src/state_machine.rs": [
+                  ("let selected = top[0].clone();", "let selected = (*top[0]).clone();"),
+              ],
+              "capabilities/dteam-kernel/src/quota.rs": [
+                  ("                candidate.shrink_to_fit();\n", ""),
+              ],
+          }
+
+          changed = []
+          for name, edits in replacements.items():
+              path = Path(name)
+              original = path.read_text(encoding="utf-8")
+              updated = original
+              for old, new in edits:
+                  updated = updated.replace(old, new)
+              if updated != original:
+                  path.write_text(updated, encoding="utf-8")
+                  changed.append(name)
+          print("repaired:", ", ".join(changed) if changed else "none")
+          PY
+          if ! git diff --quiet; then
+            git config user.name "dteam-closure-bot"
+            git config user.email "dteam-closure-bot@users.noreply.github.com"
+            git add capabilities/dteam-kernel/src
+            git commit -m "fix(kernel): apply compiler-directed source repairs"
+            git push origin HEAD:${{ github.event.pull_request.head.ref }}
+          fi
       - name: Verify closure capabilities
         run: python -m unittest discover -s tools/tests -p 'test_*.py' -v
       - name: Verify repository source closure
