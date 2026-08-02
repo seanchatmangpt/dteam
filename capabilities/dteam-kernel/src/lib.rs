@@ -4,7 +4,7 @@
 //! The crate is deliberately standalone: it provides a runnable nucleus while the
 //! larger workspace's sibling repositories are unavailable. Its execution path is:
 //!
-//! `observe → route → admit/refuse → decide → plan → transition → transact → authorize → actuate → receipt → replay`.
+//! `observe → route → admit/refuse → decide → plan → transition → transact → authorize → actuate → provenance → receipt → replay`.
 
 pub mod broker;
 pub mod decision;
@@ -14,6 +14,7 @@ pub mod ledger;
 pub mod model;
 pub mod policy;
 pub mod process;
+pub mod provenance;
 pub mod runtime;
 pub mod scheduler;
 pub mod state_machine;
@@ -42,6 +43,9 @@ pub use process::{
     EventRecord, ObjectEventLog, ObjectId, ObjectRecord, ObjectType, ProcessError, ProcessMetrics,
     TransitionSystem,
 };
+pub use provenance::{
+    NodeId, NodeKind, ProvenanceError, ProvenanceGraph, ProvenanceNode, ProvenancePath, Relation,
+};
 pub use runtime::{
     ProcessError as RuntimeError, ProcessResult, ProcessTrace, Route, Router, Runtime, TraceError,
     TraceEvent, TraceStage,
@@ -67,9 +71,10 @@ pub mod prelude {
         AuthorityId, BatchMode, Broker, Capability, CapabilityGraph, CapabilityId, Condition,
         DecisionEffect, DecisionOutcome, DecisionRule, DecisionTable, EventId, EventKind,
         EventRecord, Executor, ExpectedVersion, FactValue, Guard, Intent, MachineInstance, Mutation,
-        ObjectEventLog, ObjectId, ObjectRecord, ObjectType, Observation, OperationId, Outcome,
-        PolicyId, Predicate, PreflightRefusal, ReceiptQuery, RecordKey, Route, Router, Rule, Runtime,
-        StateId, StateMachine, SubjectId, Task, TaskExecutor, TaskGraph, TaskId, TaskOutcome,
-        Transaction, TransactionalStore, Transition, TransitionId, TransitionSystem,
+        NodeId, ObjectEventLog, ObjectId, ObjectRecord, ObjectType, Observation, OperationId,
+        Outcome, PolicyId, Predicate, PreflightRefusal, ProvenanceGraph, ProvenanceNode, ReceiptQuery,
+        RecordKey, Relation, Route, Router, Rule, Runtime, StateId, StateMachine, SubjectId, Task,
+        TaskExecutor, TaskGraph, TaskId, TaskOutcome, Transaction, TransactionalStore, Transition,
+        TransitionId, TransitionSystem,
     };
 }
