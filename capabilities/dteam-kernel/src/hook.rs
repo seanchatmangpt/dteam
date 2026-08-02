@@ -85,9 +85,7 @@ impl HookEvent {
     }
 
     pub fn facts(&self) -> impl ExactSizeIterator<Item = (&str, &FactValue)> {
-        self.facts
-            .iter()
-            .map(|(key, value)| (key.as_str(), value))
+        self.facts.iter().map(|(key, value)| (key.as_str(), value))
     }
 
     #[must_use]
@@ -327,8 +325,7 @@ impl Hook {
         for condition in &self.conditions {
             let mut table = DecisionTable::new();
             table.push(
-                DecisionRule::new("condition", 0, DecisionEffect::Allow)
-                    .when(condition.clone()),
+                DecisionRule::new("condition", 0, DecisionEffect::Allow).when(condition.clone()),
             );
             encoder.field("condition", &table.digest().0);
         }
@@ -345,7 +342,10 @@ impl Hook {
 pub enum HookLint {
     DuplicateId(String),
     NoIntents(String),
-    Shadowed { hook: String, by: String },
+    Shadowed {
+        hook: String,
+        by: String,
+    },
     DuplicateEmission {
         hook: String,
         capability: CapabilityId,
@@ -439,9 +439,15 @@ pub enum HookError {
     EmptyHookId,
     EmptyTopic,
     DuplicateHook(String),
-    SubjectMismatch { event: SubjectId, admitted: SubjectId },
+    SubjectMismatch {
+        event: SubjectId,
+        admitted: SubjectId,
+    },
     PayloadFactMissing(String),
-    PayloadType { key: String, actual: String },
+    PayloadType {
+        key: String,
+        actual: String,
+    },
     NonceOverflow,
 }
 
@@ -458,10 +464,9 @@ impl Display for HookError {
             Self::PayloadFactMissing(key) => {
                 write!(formatter, "payload fact `{key}` is absent")
             }
-            Self::PayloadType { key, actual } => write!(
-                formatter,
-                "payload fact `{key}` is {actual}, expected text"
-            ),
+            Self::PayloadType { key, actual } => {
+                write!(formatter, "payload fact `{key}` is {actual}, expected text")
+            }
             Self::NonceOverflow => formatter.write_str("hook intent nonce overflow"),
         }
     }
@@ -652,9 +657,7 @@ impl HookRegistry {
         }
         match &stopped_by {
             Some(value) => {
-                encoder
-                    .boolean("stopped", true)
-                    .text("stopped-by", value);
+                encoder.boolean("stopped", true).text("stopped-by", value);
             }
             None => {
                 encoder.boolean("stopped", false);
@@ -696,9 +699,7 @@ fn event_as_observation(event: &HookEvent) -> Result<crate::model::Observation, 
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        Hook, HookEvent, HookLint, HookRegistry, IntentTemplate, PayloadTemplate,
-    };
+    use super::{Hook, HookEvent, HookLint, HookRegistry, IntentTemplate, PayloadTemplate};
     use crate::decision::Condition;
     use crate::model::{
         AdmittedObservation, AuthorityId, CapabilityId, Observation, OperationId, PolicyId,
@@ -736,12 +737,8 @@ mod tests {
                     .emits(template()),
             )
             .unwrap();
-        let mut event = HookEvent::new(
-            "entity.changed",
-            1,
-            SubjectId::new("entity-1").unwrap(),
-        )
-        .unwrap();
+        let mut event =
+            HookEvent::new("entity.changed", 1, SubjectId::new("entity-1").unwrap()).unwrap();
         event.insert("ready", true);
         event.set_payload(b"delta".to_vec());
         let report = registry
@@ -755,12 +752,8 @@ mod tests {
     #[test]
     fn subject_mismatch_is_refused() {
         let registry = HookRegistry::new();
-        let event = HookEvent::new(
-            "entity.changed",
-            1,
-            SubjectId::new("entity-1").unwrap(),
-        )
-        .unwrap();
+        let event =
+            HookEvent::new("entity.changed", 1, SubjectId::new("entity-1").unwrap()).unwrap();
         assert!(registry
             .manufacture(&event, &admitted("entity-2"), 0)
             .is_err());

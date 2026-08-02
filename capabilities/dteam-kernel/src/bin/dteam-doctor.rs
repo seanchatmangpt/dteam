@@ -11,13 +11,39 @@ fn print_help() {
 fn wizard_for(preset: &str) -> VisionWizard {
     let mut wizard = VisionWizard::standard();
     let answers = match preset {
-        "edge" => [("mode", "edge"), ("availability", "ha"), ("authority", "yes"), ("offline", "yes"), ("reversible", "yes")],
-        "telco" => [("mode", "telco"), ("availability", "carrier"), ("authority", "yes"), ("offline", "yes"), ("reversible", "yes")],
-        "enterprise" => [("mode", "enterprise"), ("availability", "ha"), ("authority", "yes"), ("offline", "no"), ("reversible", "no")],
-        _ => [("mode", "developer"), ("availability", "standard"), ("authority", "yes"), ("offline", "yes"), ("reversible", "yes")],
+        "edge" => [
+            ("mode", "edge"),
+            ("availability", "ha"),
+            ("authority", "yes"),
+            ("offline", "yes"),
+            ("reversible", "yes"),
+        ],
+        "telco" => [
+            ("mode", "telco"),
+            ("availability", "carrier"),
+            ("authority", "yes"),
+            ("offline", "yes"),
+            ("reversible", "yes"),
+        ],
+        "enterprise" => [
+            ("mode", "enterprise"),
+            ("availability", "ha"),
+            ("authority", "yes"),
+            ("offline", "no"),
+            ("reversible", "no"),
+        ],
+        _ => [
+            ("mode", "developer"),
+            ("availability", "standard"),
+            ("authority", "yes"),
+            ("offline", "yes"),
+            ("reversible", "yes"),
+        ],
     };
     for (id, value) in answers {
-        wizard.answer(id, WizardValue::Choice(value.to_owned())).expect("static wizard answer");
+        wizard
+            .answer(id, WizardValue::Choice(value.to_owned()))
+            .expect("static wizard answer");
     }
     wizard
 }
@@ -26,7 +52,9 @@ fn print_compositions(preset: &str) {
     let wizard = wizard_for(preset);
     let plan = wizard.compile().expect("complete preset");
     let engine = standard_combinatorial_engine();
-    let space = engine.explore(plan.request()).expect("bounded composition search");
+    let space = engine
+        .explore(plan.request())
+        .expect("bounded composition search");
     println!(
         "preset={} explored={} refused={} lawful={} pareto={} plan={} space={}",
         preset,
@@ -80,8 +108,12 @@ fn print_telco() {
             path.digest()
         );
     }
-    for node in assessment.single_points_of_failure() { println!("spof:{node}"); }
-    if assessment.standing() == "BLOCKED" { std::process::exit(4); }
+    for node in assessment.single_points_of_failure() {
+        println!("spof:{node}");
+    }
+    if assessment.standing() == "BLOCKED" {
+        std::process::exit(4);
+    }
 }
 
 fn print_innovation_json() {
@@ -100,16 +132,41 @@ fn main() {
         "--json" | "status" => println!("{}", report.to_json()),
         "repair" => {
             let plan = vision.repair_plan();
-            println!("standing={} current_score={} projected_score_if_all_actions_succeed={} plan={}", report.standing(), report.score(), plan.projected_score(), plan.digest());
+            println!(
+                "standing={} current_score={} projected_score_if_all_actions_succeed={} plan={}",
+                report.standing(),
+                report.score(),
+                plan.projected_score(),
+                plan.digest()
+            );
             for (index, action) in plan.actions().iter().enumerate() {
-                println!("{}. [{} impact={} reversible={}] {} :: {}", index + 1, action.capability(), action.impact(), action.reversible(), action.command(), action.reason());
+                println!(
+                    "{}. [{} impact={} reversible={}] {} :: {}",
+                    index + 1,
+                    action.capability(),
+                    action.impact(),
+                    action.reversible(),
+                    action.command(),
+                    action.reason()
+                );
             }
         }
         "graph" => {
             for id in vision.topological_order() {
                 let capability = vision.capability(&id).expect("ordered capability exists");
-                let dependencies = capability.dependencies().iter().cloned().collect::<Vec<_>>().join(",");
-                println!("{} [{}] <- [{}] :: {}", capability.id(), capability.standing_value(), dependencies, capability.proof_command());
+                let dependencies = capability
+                    .dependencies()
+                    .iter()
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join(",");
+                println!(
+                    "{} [{}] <- [{}] :: {}",
+                    capability.id(),
+                    capability.standing_value(),
+                    dependencies,
+                    capability.proof_command()
+                );
             }
         }
         "qol" => {
@@ -123,7 +180,9 @@ fn main() {
             match catalog.profile(name) {
                 Some(profile) => {
                     println!("# {} — {}", profile.name(), profile.description());
-                    for command in profile.commands() { println!("{command}"); }
+                    for command in profile.commands() {
+                        println!("{command}");
+                    }
                 }
                 None => {
                     eprintln!("unknown QoL profile `{name}`");
@@ -136,7 +195,9 @@ fn main() {
             let wizard = wizard_for(preset);
             let plan = wizard.compile().expect("preset is complete");
             println!("WIZARD preset={} digest={}", preset, plan.digest());
-            for command in plan.commands() { println!("{command}"); }
+            for command in plan.commands() {
+                println!("{command}");
+            }
         }
         "compose" => {
             let preset = args.get(1).map(String::as_str).unwrap_or("developer");
@@ -167,16 +228,31 @@ fn main() {
             }
         }
         "feature" => {
-            let Some(name) = args.get(1) else { eprintln!("feature name required"); std::process::exit(2); };
+            let Some(name) = args.get(1) else {
+                eprintln!("feature name required");
+                std::process::exit(2);
+            };
             match FeatureId::new(name.clone()) {
                 Ok(feature) => println!("feature:{}", feature),
-                Err(error) => { eprintln!("{error}"); std::process::exit(2); }
+                Err(error) => {
+                    eprintln!("{error}");
+                    std::process::exit(2);
+                }
             }
         }
         "crown" => {
-            println!("VISION_2030 standing={} score={} digest={}", report.standing(), report.score(), report.digest());
-            for item in report.critical_path() { println!("critical:{item}"); }
-            if report.score() < 100 { std::process::exit(3); }
+            println!(
+                "VISION_2030 standing={} score={} digest={}",
+                report.standing(),
+                report.score(),
+                report.digest()
+            );
+            for item in report.critical_path() {
+                println!("critical:{item}");
+            }
+            if report.score() < 100 {
+                std::process::exit(3);
+            }
         }
         "help" | "--help" | "-h" => print_help(),
         other => {

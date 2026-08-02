@@ -140,9 +140,7 @@ impl ProvenanceNode {
             | Self::Activity { attributes, .. }
             | Self::Agent { attributes, .. } => attributes,
         };
-        attributes
-            .iter()
-            .map(|(key, value)| (key.as_str(), value))
+        attributes.iter().map(|(key, value)| (key.as_str(), value))
     }
 
     /// Computes canonical node identity.
@@ -162,7 +160,9 @@ impl ProvenanceNode {
             encoder.u64("started-at", *started_at);
             match ended_at {
                 Some(value) => {
-                    encoder.boolean("has-ended-at", true).u64("ended-at", *value);
+                    encoder
+                        .boolean("has-ended-at", true)
+                        .u64("ended-at", *value);
                 }
                 None => {
                     encoder.boolean("has-ended-at", false);
@@ -201,13 +201,34 @@ impl NodeKind {
 /// Typed provenance relation.
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum Relation {
-    Used { activity: NodeId, entity: NodeId },
-    GeneratedBy { entity: NodeId, activity: NodeId },
-    AssociatedWith { activity: NodeId, agent: NodeId },
-    AttributedTo { entity: NodeId, agent: NodeId },
-    DerivedFrom { entity: NodeId, source: NodeId },
-    DelegatedTo { delegate: NodeId, responsible: NodeId },
-    InformedBy { activity: NodeId, source: NodeId },
+    Used {
+        activity: NodeId,
+        entity: NodeId,
+    },
+    GeneratedBy {
+        entity: NodeId,
+        activity: NodeId,
+    },
+    AssociatedWith {
+        activity: NodeId,
+        agent: NodeId,
+    },
+    AttributedTo {
+        entity: NodeId,
+        agent: NodeId,
+    },
+    DerivedFrom {
+        entity: NodeId,
+        source: NodeId,
+    },
+    DelegatedTo {
+        delegate: NodeId,
+        responsible: NodeId,
+    },
+    InformedBy {
+        activity: NodeId,
+        source: NodeId,
+    },
 }
 
 impl Relation {
@@ -263,7 +284,10 @@ pub enum ProvenanceError {
     DuplicateNode(NodeId),
     MissingNode(NodeId),
     NotActivity(NodeId),
-    ActivityTimeRegression { started_at: u64, ended_at: u64 },
+    ActivityTimeRegression {
+        started_at: u64,
+        ended_at: u64,
+    },
     RelationType {
         relation: &'static str,
         node: NodeId,
@@ -731,8 +755,14 @@ mod tests {
     #[test]
     fn lineage_and_impact_cross_activity_boundaries() {
         let graph = graph();
-        assert!(graph.lineage(&id("normalized")).unwrap().contains(&id("raw")));
-        assert!(graph.impact(&id("raw")).unwrap().contains(&id("normalized")));
+        assert!(graph
+            .lineage(&id("normalized"))
+            .unwrap()
+            .contains(&id("raw")));
+        assert!(graph
+            .impact(&id("raw"))
+            .unwrap()
+            .contains(&id("normalized")));
     }
 
     #[test]

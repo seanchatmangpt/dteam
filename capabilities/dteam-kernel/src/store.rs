@@ -103,7 +103,9 @@ impl Mutation {
                 expected.encode(encoder);
                 match expires_at {
                     Some(value) => {
-                        encoder.boolean("has-expiry", true).u64("expires-at", *value);
+                        encoder
+                            .boolean("has-expiry", true)
+                            .u64("expires-at", *value);
                     }
                     None => {
                         encoder.boolean("has-expiry", false);
@@ -111,9 +113,7 @@ impl Mutation {
                 }
             }
             Self::Delete { key, expected } => {
-                encoder
-                    .text("mutation", "delete")
-                    .text("key", key.as_str());
+                encoder.text("mutation", "delete").text("key", key.as_str());
                 expected.encode(encoder);
             }
         }
@@ -335,7 +335,9 @@ impl CommitReceipt {
             encoder.text("key", change.key().as_str());
             match change.before() {
                 Some(value) => {
-                    encoder.boolean("has-before", true).field("before", &value.0);
+                    encoder
+                        .boolean("has-before", true)
+                        .field("before", &value.0);
                 }
                 None => {
                     encoder.boolean("has-before", false);
@@ -436,11 +438,26 @@ pub enum StoreError {
         logical_time: u64,
         expires_at: u64,
     },
-    LogicalTimeRegression { previous: u64, actual: u64 },
-    ReceiptIndex { expected: u64, actual: u64 },
-    ReceiptPrevious { expected: Digest, actual: Digest },
-    ReceiptState { index: u64, expected: Digest, actual: Digest },
-    ReceiptDigest { index: u64 },
+    LogicalTimeRegression {
+        previous: u64,
+        actual: u64,
+    },
+    ReceiptIndex {
+        expected: u64,
+        actual: u64,
+    },
+    ReceiptPrevious {
+        expected: Digest,
+        actual: Digest,
+    },
+    ReceiptState {
+        index: u64,
+        expected: Digest,
+        actual: Digest,
+    },
+    ReceiptDigest {
+        index: u64,
+    },
 }
 
 impl Display for StoreError {
@@ -477,7 +494,10 @@ impl Display for StoreError {
                 write!(formatter, "commit index {actual}, expected {expected}")
             }
             Self::ReceiptPrevious { expected, actual } => {
-                write!(formatter, "commit predecessor {actual}, expected {expected}")
+                write!(
+                    formatter,
+                    "commit predecessor {actual}, expected {expected}"
+                )
             }
             Self::ReceiptState {
                 index,
@@ -555,7 +575,9 @@ impl TransactionalStore {
 
     #[must_use]
     pub fn head(&self) -> Digest {
-        self.commits.last().map_or(Digest::ZERO, CommitReceipt::digest)
+        self.commits
+            .last()
+            .map_or(Digest::ZERO, CommitReceipt::digest)
     }
 
     /// Computes canonical physical state identity, including tombstones and expiry metadata.

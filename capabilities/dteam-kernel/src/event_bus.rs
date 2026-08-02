@@ -242,11 +242,7 @@ impl PublishRequest {
         request
     }
 
-    pub fn insert_header(
-        &mut self,
-        name: impl Into<String>,
-        value: Vec<u8>,
-    ) -> Option<Vec<u8>> {
+    pub fn insert_header(&mut self, name: impl Into<String>, value: Vec<u8>) -> Option<Vec<u8>> {
         let previous = self.headers.insert(name.into(), value);
         self.digest = self.recompute_digest();
         previous
@@ -536,11 +532,23 @@ impl TopicState {
 /// Audited event-bus action.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum EventBusAction {
-    TopicCreated { topic: TopicId, config: TopicConfig },
-    Published { event: EventEnvelope },
-    SubscriptionCreated { subscription: Subscription },
-    Delivered { delivery: Delivery },
-    Acknowledged { delivery: DeliveryId, logical_time: u64 },
+    TopicCreated {
+        topic: TopicId,
+        config: TopicConfig,
+    },
+    Published {
+        event: EventEnvelope,
+    },
+    SubscriptionCreated {
+        subscription: Subscription,
+    },
+    Delivered {
+        delivery: Delivery,
+    },
+    Acknowledged {
+        delivery: DeliveryId,
+        logical_time: u64,
+    },
     Rejected {
         delivery: DeliveryId,
         logical_time: u64,
@@ -689,7 +697,10 @@ pub enum EventBusError {
     DuplicateSubscription(SubscriptionId),
     UnknownSubscription(SubscriptionId),
     EventIdentityConflict(EventId),
-    LogicalTimeRegression { previous: u64, actual: u64 },
+    LogicalTimeRegression {
+        previous: u64,
+        actual: u64,
+    },
     DeliveryMissing(DeliveryId),
     DeliveryConsumerMismatch {
         delivery: DeliveryId,
@@ -722,7 +733,10 @@ impl Display for EventBusError {
             }
             Self::UnknownSubscription(id) => write!(formatter, "subscription `{id}` is unknown"),
             Self::EventIdentityConflict(id) => {
-                write!(formatter, "event id `{id}` was reused with different content")
+                write!(
+                    formatter,
+                    "event id `{id}` was reused with different content"
+                )
             }
             Self::LogicalTimeRegression { previous, actual } => write!(
                 formatter,
@@ -781,10 +795,7 @@ impl EventBus {
     }
 
     /// Publishes exactly once by event id and request digest.
-    pub fn publish(
-        &mut self,
-        request: PublishRequest,
-    ) -> Result<&EventEnvelope, EventBusError> {
+    pub fn publish(&mut self, request: PublishRequest) -> Result<&EventEnvelope, EventBusError> {
         self.advance_time(request.logical_time())?;
         if let Some(existing_digest) = self.events.get(request.id()).map(|(digest, _)| *digest) {
             if existing_digest == request.digest() {
@@ -893,11 +904,7 @@ impl EventBus {
                 })?;
                 continue;
             }
-            let id = DeliveryId::new(format!(
-                "{}:{}",
-                subscription.as_str(),
-                state.next_delivery
-            ))?;
+            let id = DeliveryId::new(format!("{}:{}", subscription.as_str(), state.next_delivery))?;
             state.next_delivery += 1;
             let delivery = Delivery::manufacture(
                 id.clone(),
@@ -939,9 +946,7 @@ impl EventBus {
             .remove(delivery)
             .ok_or_else(|| EventBusError::DeliveryMissing(delivery.clone()))?;
         if in_flight.delivery.consumer() != consumer {
-            state
-                .in_flight
-                .insert(delivery.clone(), in_flight.clone());
+            state.in_flight.insert(delivery.clone(), in_flight.clone());
             return Err(EventBusError::DeliveryConsumerMismatch {
                 delivery: delivery.clone(),
                 expected: in_flight.delivery.consumer().clone(),
@@ -985,9 +990,7 @@ impl EventBus {
             .remove(delivery)
             .ok_or_else(|| EventBusError::DeliveryMissing(delivery.clone()))?;
         if in_flight.delivery.consumer() != consumer {
-            state
-                .in_flight
-                .insert(delivery.clone(), in_flight.clone());
+            state.in_flight.insert(delivery.clone(), in_flight.clone());
             return Err(EventBusError::DeliveryConsumerMismatch {
                 delivery: delivery.clone(),
                 expected: in_flight.delivery.consumer().clone(),
@@ -1023,7 +1026,9 @@ impl EventBus {
 
     #[must_use]
     pub fn head(&self) -> Digest {
-        self.receipts.last().map_or(Digest::ZERO, EventBusReceipt::digest)
+        self.receipts
+            .last()
+            .map_or(Digest::ZERO, EventBusReceipt::digest)
     }
 
     #[must_use]
@@ -1111,10 +1116,7 @@ impl EventBus {
         Ok(())
     }
 
-    fn append_action(
-        &mut self,
-        action: EventBusAction,
-    ) -> Result<&EventBusReceipt, EventBusError> {
+    fn append_action(&mut self, action: EventBusAction) -> Result<&EventBusReceipt, EventBusError> {
         let receipt = EventBusReceipt::manufacture(
             self.receipts.len() as u64,
             self.head(),
@@ -1150,8 +1152,8 @@ fn advance_committed_offset(state: &mut SubscriptionState, partition: u16, offse
 #[cfg(test)]
 mod tests {
     use super::{
-        ConsumerId, EventBus, EventBusError, EventId, PublishRequest, Subscription,
-        SubscriptionId, TopicConfig, TopicId,
+        ConsumerId, EventBus, EventBusError, EventId, PublishRequest, Subscription, SubscriptionId,
+        TopicConfig, TopicId,
     };
 
     fn bus(maximum_attempts: u32) -> EventBus {
@@ -1186,7 +1188,10 @@ mod tests {
         assert_eq!(
             bus.receipts()
                 .iter()
-                .filter(|receipt| matches!(receipt.action(), super::EventBusAction::Published { .. }))
+                .filter(|receipt| matches!(
+                    receipt.action(),
+                    super::EventBusAction::Published { .. }
+                ))
                 .count(),
             1
         );
@@ -1231,7 +1236,10 @@ mod tests {
         let delivery = bus.poll(&subscription, &consumer, 2, 10).unwrap().remove(0);
         bus.acknowledge(&subscription, delivery.id(), &consumer, 3)
             .unwrap();
-        assert!(bus.poll(&subscription, &consumer, 4, 10).unwrap().is_empty());
+        assert!(bus
+            .poll(&subscription, &consumer, 4, 10)
+            .unwrap()
+            .is_empty());
     }
 
     #[test]
@@ -1280,7 +1288,10 @@ mod tests {
             )
             .unwrap();
         }
-        assert!(bus.poll(&subscription, &consumer, 4, 10).unwrap().is_empty());
+        assert!(bus
+            .poll(&subscription, &consumer, 4, 10)
+            .unwrap()
+            .is_empty());
         assert_eq!(bus.dead_letters(&subscription).unwrap().len(), 1);
     }
 }

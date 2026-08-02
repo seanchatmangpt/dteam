@@ -17,11 +17,7 @@ pub struct Route {
 
 impl Route {
     #[must_use]
-    pub fn new(
-        name: impl Into<String>,
-        capability: CapabilityId,
-        operation: OperationId,
-    ) -> Self {
+    pub fn new(name: impl Into<String>, capability: CapabilityId, operation: OperationId) -> Self {
         Self {
             name: name.into(),
             capability,
@@ -292,7 +288,10 @@ impl ProcessResult {
 /// Typed refusal or infrastructure failure from the runtime.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ProcessError {
-    RouteNotFound { route: String, trace: ProcessTrace },
+    RouteNotFound {
+        route: String,
+        trace: ProcessTrace,
+    },
     AdmissionRefused {
         violations: Vec<Violation>,
         trace: ProcessTrace,
@@ -305,7 +304,11 @@ impl Display for ProcessError {
         match self {
             Self::RouteNotFound { route, .. } => write!(formatter, "route `{route}` not found"),
             Self::AdmissionRefused { violations, .. } => {
-                write!(formatter, "admission refused by {} rule(s)", violations.len())
+                write!(
+                    formatter,
+                    "admission refused by {} rule(s)",
+                    violations.len()
+                )
             }
             Self::Broker(error) => Display::fmt(error, formatter),
         }
@@ -480,15 +483,14 @@ mod tests {
         let broker = Broker::new("broker", graph, 10).unwrap();
         let mut router = Router::new();
         router.insert(Route::new("notifications.send", capability, operation));
-        let policy = AdmissionPolicy::new(PolicyId::new("policy").unwrap(), 1).with_rule(
-            Rule::new(
+        let policy =
+            AdmissionPolicy::new(PolicyId::new("policy").unwrap(), 1).with_rule(Rule::new(
                 "ready",
                 Predicate::Equals {
                     key: "ready".to_owned(),
                     expected: true.into(),
                 },
-            ),
-        );
+            ));
         Runtime::new(router, policy, broker)
     }
 

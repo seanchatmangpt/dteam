@@ -256,7 +256,10 @@ impl InnovationAudit {
 
     fn from_findings(mut findings: Vec<InnovationFinding>, doctor_json: String) -> Self {
         findings.sort_by(|left, right| left.id.cmp(&right.id));
-        let total_impact = findings.iter().map(|finding| u32::from(finding.impact)).sum::<u32>();
+        let total_impact = findings
+            .iter()
+            .map(|finding| u32::from(finding.impact))
+            .sum::<u32>();
         let closed_impact = findings
             .iter()
             .filter(|finding| finding.after == CapabilityStanding::Alive)
@@ -454,18 +457,9 @@ impl InnovationAudit {
         writeln!(output, "## Complete findings").expect("string write");
         writeln!(output).expect("string write");
         for finding in &self.findings {
-            writeln!(
-                output,
-                "### `{}` — {}",
-                finding.id, finding.title
-            )
-            .expect("string write");
-            writeln!(
-                output,
-                "- dimension: `{}`",
-                finding.dimension.as_str()
-            )
-            .expect("string write");
+            writeln!(output, "### `{}` — {}", finding.id, finding.title).expect("string write");
+            writeln!(output, "- dimension: `{}`", finding.dimension.as_str())
+                .expect("string write");
             writeln!(output, "- standing: {} → {}", finding.before, finding.after)
                 .expect("string write");
             writeln!(output, "- remedy: {}", finding.remedy).expect("string write");
@@ -499,7 +493,9 @@ impl AuditSnapshot {
         let mut encoder = CanonicalEncoder::new();
         encoder.text("type", "innovation-snapshot-v1");
         for (id, standing) in &standings {
-            encoder.text("finding", id).text("standing", &standing.to_string());
+            encoder
+                .text("finding", id)
+                .text("standing", &standing.to_string());
         }
         Self {
             standings,
@@ -518,11 +514,7 @@ impl AuditSnapshot {
     }
 
     #[must_use]
-    pub fn with_standing(
-        &self,
-        id: impl Into<String>,
-        standing: CapabilityStanding,
-    ) -> Self {
+    pub fn with_standing(&self, id: impl Into<String>, standing: CapabilityStanding) -> Self {
         let mut standings = self.standings.clone();
         standings.insert(id.into(), standing);
         Self::new(standings)
@@ -564,9 +556,7 @@ impl AuditSnapshot {
         let entries = self
             .standings
             .iter()
-            .map(|(id, standing)| {
-                format!("\"{}\":\"{}\"", escape(id), standing)
-            })
+            .map(|(id, standing)| format!("\"{}\":\"{}\"", escape(id), standing))
             .collect::<Vec<_>>()
             .join(",");
         format!(
@@ -723,7 +713,10 @@ fn support_digest(audit_json: &str, doctor_json: &str, commands: &[String]) -> D
 }
 
 fn select_eighty_twenty(findings: &[InnovationFinding]) -> Vec<String> {
-    let total = findings.iter().map(|finding| u32::from(finding.impact)).sum::<u32>();
+    let total = findings
+        .iter()
+        .map(|finding| u32::from(finding.impact))
+        .sum::<u32>();
     let target = total.saturating_mul(80).saturating_add(99) / 100;
     let mut ordered = findings.iter().collect::<Vec<_>>();
     ordered.sort_by(|left, right| {
@@ -911,7 +904,9 @@ fn run_scenario_probe() -> Result<Vec<String>, String> {
             .explore(plan.request())
             .map_err(|error| error.to_string())?;
         if space.lawful().is_empty() || space.pareto().is_empty() {
-            return Err(format!("preset `{preset}` has no lawful Pareto composition"));
+            return Err(format!(
+                "preset `{preset}` has no lawful Pareto composition"
+            ));
         }
         evidence.push(format!(
             "preset={preset};lawful={};pareto={};plan={};space={}",
@@ -1092,7 +1087,9 @@ mod tests {
         let audit = InnovationAudit::run();
         assert_eq!(audit.standing(), CapabilityStanding::Alive);
         assert_eq!(audit.coverage_ppm(), 1_000_000);
-        assert!(audit.selected_impact().saturating_mul(100) >= audit.total_impact().saturating_mul(80));
+        assert!(
+            audit.selected_impact().saturating_mul(100) >= audit.total_impact().saturating_mul(80)
+        );
         assert!(audit
             .findings()
             .iter()
@@ -1109,10 +1106,8 @@ mod tests {
     #[test]
     fn snapshot_diff_detects_regression() {
         let snapshot = InnovationAudit::run().snapshot();
-        let regressed = snapshot.with_standing(
-            "runtime-tracer-bullet",
-            CapabilityStanding::Blocked,
-        );
+        let regressed =
+            snapshot.with_standing("runtime-tracer-bullet", CapabilityStanding::Blocked);
         let diff = snapshot.diff(&regressed);
         assert_eq!(diff.regressed(), &["runtime-tracer-bullet"]);
         assert!(diff.improved().is_empty());

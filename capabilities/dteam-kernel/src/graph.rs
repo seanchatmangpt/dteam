@@ -160,7 +160,10 @@ pub enum GraphError {
         dependency: CapabilityId,
     },
     Cycle(Vec<CapabilityId>),
-    BudgetExceeded { required: u64, maximum: u64 },
+    BudgetExceeded {
+        required: u64,
+        maximum: u64,
+    },
 }
 
 impl Display for GraphError {
@@ -324,7 +327,8 @@ impl CapabilityGraph {
         }
 
         let total_cost = ordered.iter().try_fold(0_u64, |total, id| {
-            total.checked_add(self.capabilities[id].cost())
+            total
+                .checked_add(self.capabilities[id].cost())
                 .ok_or(GraphError::BudgetExceeded {
                     required: u64::MAX,
                     maximum: maximum_cost.unwrap_or(u64::MAX),

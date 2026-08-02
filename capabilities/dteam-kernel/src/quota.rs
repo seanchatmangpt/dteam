@@ -365,7 +365,9 @@ pub enum QuotaAction {
         policy: QuotaPolicy,
         logical_time: u64,
     },
-    Reserved { request: ReservationRequest },
+    Reserved {
+        request: ReservationRequest,
+    },
     Committed {
         reservation: ReservationId,
         logical_time: u64,
@@ -507,7 +509,10 @@ pub enum QuotaError {
     EmptyIdentifier(&'static str),
     ZeroCapacity,
     ZeroRefillInterval,
-    InvalidMaximumReservation { maximum: u64, capacity: u64 },
+    InvalidMaximumReservation {
+        maximum: u64,
+        capacity: u64,
+    },
     ZeroLeaseDuration,
     ZeroClaim,
     EmptyClaims,
@@ -542,11 +547,26 @@ pub enum QuotaError {
         expires_at: u64,
         logical_time: u64,
     },
-    LogicalTimeRegression { previous: u64, actual: u64 },
-    ReceiptIndex { expected: u64, actual: u64 },
-    ReceiptPrevious { expected: Digest, actual: Digest },
-    ReceiptState { index: u64, expected: Digest, actual: Digest },
-    ReceiptDigest { index: u64 },
+    LogicalTimeRegression {
+        previous: u64,
+        actual: u64,
+    },
+    ReceiptIndex {
+        expected: u64,
+        actual: u64,
+    },
+    ReceiptPrevious {
+        expected: Digest,
+        actual: Digest,
+    },
+    ReceiptState {
+        index: u64,
+        expected: Digest,
+        actual: Digest,
+    },
+    ReceiptDigest {
+        index: u64,
+    },
 }
 
 impl Display for QuotaError {
@@ -688,10 +708,7 @@ impl QuotaManager {
     }
 
     /// Atomically reserves every claim or changes nothing.
-    pub fn reserve(
-        &mut self,
-        request: ReservationRequest,
-    ) -> Result<&QuotaReceipt, QuotaError> {
+    pub fn reserve(&mut self, request: ReservationRequest) -> Result<&QuotaReceipt, QuotaError> {
         if self.reservations.contains_key(request.id()) {
             let existing = &self.reservations[request.id()];
             if existing.request().digest() == request.digest() {
@@ -699,11 +716,13 @@ impl QuotaManager {
                     .receipts
                     .iter()
                     .rev()
-                    .find(|receipt| matches!(
-                        receipt.action(),
-                        QuotaAction::Reserved { request: recorded }
-                            if recorded.digest() == request.digest()
-                    ))
+                    .find(|receipt| {
+                        matches!(
+                            receipt.action(),
+                            QuotaAction::Reserved { request: recorded }
+                                if recorded.digest() == request.digest()
+                        )
+                    })
                     .ok_or_else(|| QuotaError::ReservationMissing(request.id().clone()));
             }
             return Err(QuotaError::DuplicateReservation(request.id().clone()));
@@ -829,7 +848,9 @@ impl QuotaManager {
 
     #[must_use]
     pub fn head(&self) -> Digest {
-        self.receipts.last().map_or(Digest::ZERO, QuotaReceipt::digest)
+        self.receipts
+            .last()
+            .map_or(Digest::ZERO, QuotaReceipt::digest)
     }
 
     #[must_use]
@@ -989,7 +1010,10 @@ impl QuotaManager {
             self.refill_key(&key, logical_time)?;
             let capacity = self.policies[&key].capacity();
             let bucket = self.buckets.get_mut(&key).expect("policy created bucket");
-            bucket.available = bucket.available.saturating_add(claim.amount()).min(capacity);
+            bucket.available = bucket
+                .available
+                .saturating_add(claim.amount())
+                .min(capacity);
         }
         Ok(())
     }
@@ -1016,13 +1040,13 @@ impl QuotaManager {
                 let mut lease_duration = u64::MAX;
                 for claim in request.claims() {
                     let key = (claim.principal().clone(), claim.resource().clone());
-                    let policy = self
-                        .policies
-                        .get(&key)
-                        .ok_or_else(|| QuotaError::PolicyMissing {
-                            principal: claim.principal().clone(),
-                            resource: claim.resource().clone(),
-                        })?;
+                    let policy =
+                        self.policies
+                            .get(&key)
+                            .ok_or_else(|| QuotaError::PolicyMissing {
+                                principal: claim.principal().clone(),
+                                resource: claim.resource().clone(),
+                            })?;
                     lease_duration = lease_duration.min(policy.lease_duration());
                     let bucket = candidate
                         .entry(key)
@@ -1129,7 +1153,10 @@ fn quota_state_digest(
             .text("principal", principal.as_str())
             .text("resource", resource.as_str())
             .field("policy", &policy.digest().0)
-            .field("bucket", &buckets[&(principal.clone(), resource.clone())].digest().0);
+            .field(
+                "bucket",
+                &buckets[&(principal.clone(), resource.clone())].digest().0,
+            );
     }
     encoder.u64("reservation-count", reservations.len() as u64);
     for reservation in reservations.values() {
@@ -1189,7 +1216,12 @@ mod tests {
         )
         .unwrap();
         manager.reserve(request).unwrap();
-        assert_eq!(manager.available(&principal("team"), &resource("cpu"), 1).unwrap(), 50);
+        assert_eq!(
+            manager
+                .available(&principal("team"), &resource("cpu"), 1)
+                .unwrap(),
+            50
+        );
         assert_eq!(
             manager
                 .available(&principal("team"), &resource("memory"), 1)
@@ -1215,7 +1247,12 @@ mod tests {
             manager.reserve(request),
             Err(QuotaError::ClaimTooLarge { .. })
         ));
-        assert_eq!(manager.available(&principal("team"), &resource("cpu"), 1).unwrap(), 100);
+        assert_eq!(
+            manager
+                .available(&principal("team"), &resource("cpu"), 1)
+                .unwrap(),
+            100
+        );
         assert_eq!(
             manager
                 .available(&principal("team"), &resource("memory"), 1)
@@ -1239,8 +1276,16 @@ mod tests {
             )
             .unwrap();
         manager.release(&id, 2).unwrap();
-        assert_eq!(manager.available(&principal("team"), &resource("cpu"), 2).unwrap(), 100);
-        assert_eq!(manager.reservation(&id).unwrap().state(), ReservationState::Released);
+        assert_eq!(
+            manager
+                .available(&principal("team"), &resource("cpu"), 2)
+                .unwrap(),
+            100
+        );
+        assert_eq!(
+            manager.reservation(&id).unwrap().state(),
+            ReservationState::Released
+        );
     }
 
     #[test]
@@ -1258,8 +1303,16 @@ mod tests {
             )
             .unwrap();
         assert_eq!(manager.expire(21).unwrap().len(), 1);
-        assert_eq!(manager.reservation(&id).unwrap().state(), ReservationState::Expired);
-        assert_eq!(manager.available(&principal("team"), &resource("cpu"), 21).unwrap(), 100);
+        assert_eq!(
+            manager.reservation(&id).unwrap().state(),
+            ReservationState::Expired
+        );
+        assert_eq!(
+            manager
+                .available(&principal("team"), &resource("cpu"), 21)
+                .unwrap(),
+            100
+        );
     }
 
     #[test]
@@ -1278,6 +1331,9 @@ mod tests {
             .unwrap();
         manager.commit(&id, 2).unwrap();
         assert_eq!(manager.expire(100).unwrap().len(), 0);
-        assert_eq!(manager.reservation(&id).unwrap().state(), ReservationState::Committed);
+        assert_eq!(
+            manager.reservation(&id).unwrap().state(),
+            ReservationState::Committed
+        );
     }
 }

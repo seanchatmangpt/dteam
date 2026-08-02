@@ -201,7 +201,10 @@ impl Display for LedgerError {
                 write!(formatter, "receipt index {actual}, expected {expected}")
             }
             Self::PreviousMismatch { expected, actual } => {
-                write!(formatter, "receipt predecessor {actual}, expected {expected}")
+                write!(
+                    formatter,
+                    "receipt predecessor {actual}, expected {expected}"
+                )
             }
             Self::DigestMismatch { index } => {
                 write!(formatter, "receipt {index} digest does not match content")

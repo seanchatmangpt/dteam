@@ -43,30 +43,63 @@ state_id!(TransitionId);
 /// Side-effect-free guard evaluated against an observation.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Guard {
-    Present { key: String },
-    Absent { key: String },
-    Equals { key: String, value: FactValue },
-    NotEquals { key: String, value: FactValue },
-    Bool { key: String, expected: bool },
-    I64AtLeast { key: String, minimum: i64 },
-    I64AtMost { key: String, maximum: i64 },
-    U64AtLeast { key: String, minimum: u64 },
-    U64AtMost { key: String, maximum: u64 },
-    TextOneOf { key: String, allowed: BTreeSet<String> },
-    TextSetContains { key: String, member: String },
+    Present {
+        key: String,
+    },
+    Absent {
+        key: String,
+    },
+    Equals {
+        key: String,
+        value: FactValue,
+    },
+    NotEquals {
+        key: String,
+        value: FactValue,
+    },
+    Bool {
+        key: String,
+        expected: bool,
+    },
+    I64AtLeast {
+        key: String,
+        minimum: i64,
+    },
+    I64AtMost {
+        key: String,
+        maximum: i64,
+    },
+    U64AtLeast {
+        key: String,
+        minimum: u64,
+    },
+    U64AtMost {
+        key: String,
+        maximum: u64,
+    },
+    TextOneOf {
+        key: String,
+        allowed: BTreeSet<String>,
+    },
+    TextSetContains {
+        key: String,
+        member: String,
+    },
 }
 
 impl Guard {
     fn evaluate(&self, observation: &Observation) -> Result<(), GuardFailure> {
         let failure = |code, detail| Err(GuardFailure { code, detail });
         match self {
-            Self::Present { key } => observation
-                .fact(key)
-                .map(|_| ())
-                .ok_or_else(|| GuardFailure {
-                    code: "MISSING_FACT",
-                    detail: format!("fact `{key}` is absent"),
-                }),
+            Self::Present { key } => {
+                observation
+                    .fact(key)
+                    .map(|_| ())
+                    .ok_or_else(|| GuardFailure {
+                        code: "MISSING_FACT",
+                        detail: format!("fact `{key}` is absent"),
+                    })
+            }
             Self::Absent { key } => {
                 if observation.fact(key).is_none() {
                     Ok(())
@@ -273,12 +306,7 @@ pub struct Transition {
 
 impl Transition {
     #[must_use]
-    pub fn new(
-        id: TransitionId,
-        from: StateId,
-        event: EventKind,
-        to: StateId,
-    ) -> Self {
+    pub fn new(id: TransitionId, from: StateId, event: EventKind, to: StateId) -> Self {
         Self {
             id,
             from,
@@ -583,7 +611,10 @@ impl StateMachine {
             .filter(|transition| transition.from() == state && transition.event() == event)
             .collect::<Vec<_>>();
         candidates.sort_by_key(|transition| {
-            (Reverse(transition.priority_value()), transition.id().clone())
+            (
+                Reverse(transition.priority_value()),
+                transition.id().clone(),
+            )
         });
 
         let mut evaluations = Vec::with_capacity(candidates.len());
@@ -1004,7 +1035,9 @@ impl MachineInstance {
 
     #[must_use]
     pub fn head(&self) -> Digest {
-        self.receipts.last().map_or(Digest::ZERO, StateReceipt::digest)
+        self.receipts
+            .last()
+            .map_or(Digest::ZERO, StateReceipt::digest)
     }
 
     /// Applies one event only if the caller observed the current revision.
@@ -1040,9 +1073,7 @@ impl MachineInstance {
             decision @ DispatchDecision::NoTransition { .. } => {
                 Ok(ApplyResult::NoTransition(decision))
             }
-            decision @ DispatchDecision::Ambiguous { .. } => {
-                Ok(ApplyResult::Ambiguous(decision))
-            }
+            decision @ DispatchDecision::Ambiguous { .. } => Ok(ApplyResult::Ambiguous(decision)),
         }
     }
 
@@ -1076,9 +1107,9 @@ impl MachineInstance {
             let transition = machine
                 .transitions
                 .get(receipt.transition())
-                .ok_or_else(|| InstanceVerificationError::TransitionMissing(
-                    receipt.transition().clone(),
-                ))?;
+                .ok_or_else(|| {
+                    InstanceVerificationError::TransitionMissing(receipt.transition().clone())
+                })?;
             if transition.from() != receipt.state_before()
                 || transition.to() != receipt.state_after()
                 || transition.event() != receipt.event()
@@ -1120,12 +1151,24 @@ impl MachineInstance {
 /// Receipt replay failure.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum InstanceVerificationError {
-    Revision { expected: u64, before: u64, after: u64 },
-    State { expected: StateId, actual: StateId },
-    Previous { expected: Digest, actual: Digest },
+    Revision {
+        expected: u64,
+        before: u64,
+        after: u64,
+    },
+    State {
+        expected: StateId,
+        actual: StateId,
+    },
+    Previous {
+        expected: Digest,
+        actual: Digest,
+    },
     TransitionMissing(TransitionId),
     TransitionMismatch(TransitionId),
-    Digest { revision: u64 },
+    Digest {
+        revision: u64,
+    },
     SnapshotMismatch {
         expected_state: StateId,
         actual_state: StateId,
@@ -1172,8 +1215,8 @@ impl std::error::Error for InstanceVerificationError {}
 #[cfg(test)]
 mod tests {
     use super::{
-        ApplyResult, DispatchDecision, EventKind, Guard, MachineFinding, MachineInstance,
-        StateId, StateMachine, Transition, TransitionId,
+        ApplyResult, DispatchDecision, EventKind, Guard, MachineFinding, MachineInstance, StateId,
+        StateMachine, Transition, TransitionId,
     };
     use crate::model::{Observation, SubjectId};
 

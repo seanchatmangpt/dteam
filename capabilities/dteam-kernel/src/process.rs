@@ -194,7 +194,9 @@ impl Display for ProcessError {
             Self::DuplicateObject(id) => write!(formatter, "duplicate object `{id}`"),
             Self::DuplicateEvent(id) => write!(formatter, "duplicate event `{id}`"),
             Self::UnknownObject(id) => write!(formatter, "event references unknown object `{id}`"),
-            Self::EventWithoutObjects(id) => write!(formatter, "event `{id}` has no related objects"),
+            Self::EventWithoutObjects(id) => {
+                write!(formatter, "event `{id}` has no related objects")
+            }
             Self::LogicalTimeRegression { previous, actual } => write!(
                 formatter,
                 "logical time regressed from {previous} to {actual}"
@@ -438,9 +440,7 @@ impl TransitionSystem {
         }
         encoder.u64("edge-count", self.edges.len() as u64);
         for (from, to) in &self.edges {
-            encoder
-                .text("from", from.as_str())
-                .text("to", to.as_str());
+            encoder.text("from", from.as_str()).text("to", to.as_str());
         }
         encoder.digest()
     }
