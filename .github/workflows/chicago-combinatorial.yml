@@ -1,0 +1,55 @@
+name: chicago-combinatorial
+
+on:
+  pull_request:
+    paths:
+      - "capabilities/dteam-kernel/**"
+      - "tools/chicago_validator.py"
+      - "tools/tests/test_chicago_validator.py"
+      - ".github/workflows/chicago-combinatorial.yml"
+
+concurrency:
+  group: chicago-combinatorial-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+    env:
+      CARGO_INCREMENTAL: "0"
+      RUSTFLAGS: "-C debuginfo=0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Test autonomous validator contracts
+        run: python -m unittest tools.tests.test_chicago_validator -v
+      - name: Execute full Chicago combinatorial validation
+        run: |
+          python tools/chicago_validator.py \
+            --root . \
+            --manifest capabilities/dteam-kernel/Cargo.toml \
+            --output artifacts/chicago/receipt.json
+      - name: Verify ALIVE crown
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          receipt = json.loads(Path("artifacts/chicago/receipt.json").read_text())
+          assert receipt["standing"] == "ALIVE", receipt
+          assert not receipt["uncovered_modules"], receipt
+          assert receipt["failed"] == 0, receipt
+          assert receipt["scenario_count"] == receipt["passed"], receipt
+          assert set(receipt["profiles"]) == {"developer", "edge", "telco", "enterprise"}, receipt
+          PY
+      - name: Upload autonomous validation receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: chicago-combinatorial-receipt
+          path: artifacts/chicago/receipt.json
+          if-no-files-found: error
