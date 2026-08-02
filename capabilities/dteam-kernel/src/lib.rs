@@ -4,7 +4,7 @@
 //! The crate is deliberately standalone: it provides a runnable nucleus while the
 //! larger workspace's sibling repositories are unavailable. Its execution path is:
 //!
-//! `observe → route → admit/refuse → decide → plan → transition → authorize → actuate → receipt → replay`.
+//! `observe → route → admit/refuse → decide → plan → transition → transact → authorize → actuate → receipt → replay`.
 
 pub mod broker;
 pub mod decision;
@@ -17,6 +17,7 @@ pub mod process;
 pub mod runtime;
 pub mod scheduler;
 pub mod state_machine;
+pub mod store;
 
 pub use broker::{
     ActuationEvidence, AuthorizationLedger, AuthorizationReceipt, BatchEvidence, BatchMode, Broker,
@@ -54,6 +55,10 @@ pub use state_machine::{
     MachineAnalysis, MachineError, MachineFinding, MachineInstance, StateId, StateMachine,
     StateReceipt, Transition, TransitionEvaluation, TransitionId,
 };
+pub use store::{
+    Change, CommitReceipt, ExpectedVersion, Mutation, Record, RecordKey, StoreError, StoreSnapshot,
+    StoreVerification, Transaction, TransactionalStore,
+};
 
 /// Common imports for applications embedding the capability kernel.
 pub mod prelude {
@@ -61,10 +66,10 @@ pub mod prelude {
         discover_transition_system, execute_schedule, Activity, AdmissionPolicy, ApplyResult,
         AuthorityId, BatchMode, Broker, Capability, CapabilityGraph, CapabilityId, Condition,
         DecisionEffect, DecisionOutcome, DecisionRule, DecisionTable, EventId, EventKind,
-        EventRecord, Executor, FactValue, Guard, Intent, MachineInstance, ObjectEventLog, ObjectId,
-        ObjectRecord, ObjectType, Observation, OperationId, Outcome, PolicyId, Predicate,
-        PreflightRefusal, ReceiptQuery, Route, Router, Rule, Runtime, StateId, StateMachine,
-        SubjectId, Task, TaskExecutor, TaskGraph, TaskId, TaskOutcome, Transition, TransitionId,
-        TransitionSystem,
+        EventRecord, Executor, ExpectedVersion, FactValue, Guard, Intent, MachineInstance, Mutation,
+        ObjectEventLog, ObjectId, ObjectRecord, ObjectType, Observation, OperationId, Outcome,
+        PolicyId, Predicate, PreflightRefusal, ReceiptQuery, RecordKey, Route, Router, Rule, Runtime,
+        StateId, StateMachine, SubjectId, Task, TaskExecutor, TaskGraph, TaskId, TaskOutcome,
+        Transaction, TransactionalStore, Transition, TransitionId, TransitionSystem,
     };
 }
