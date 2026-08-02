@@ -1,40 +1,18 @@
 # Repository-wide Markdown closure
 
-This document defines the acceptance contract for the documentation migration stacked on `agent/ggen-alive-closure`.
+This document records the completed documentation migration stacked on `agent/ggen-alive-closure`.
 
 ## Objective
 
-Every tracked `*.md` file must receive one explicit disposition:
+Every tracked `*.md` file receives one explicit disposition:
 
-- **Canonical** — rewritten as current authoritative documentation.
-- **Reference** — retained and normalized because it documents a stable interface, attribution, policy, or research result.
-- **Archived** — moved beneath `docs/archive/` with provenance and a pointer to the current replacement.
-- **Superseded** — reduced to a short redirect when the original path must remain stable.
-- **Removed** — deleted only when duplicate, generated, or content-free and when no stable link requires preservation.
+- **Canonical** — current authoritative documentation.
+- **Reference** — retained current policy, attribution, inventory, or migration evidence.
+- **Superseded** — stable redirect to the current authority map and exact archived source.
 
-No Markdown file may remain unclassified.
+The migration does not silently erase historical documents. A superseded Markdown file remains at its original path as a redirect, while its exact prior bytes are preserved beneath `docs/archive/source/` using the suffix `.md.txt`.
 
-## Required deliverables
-
-1. A machine-readable inventory of every Markdown path, digest, disposition, owner document, and replacement path.
-2. A canonical documentation map rooted at `README.md`.
-3. An archive index explaining why each historical document is retained.
-4. Link validation with zero broken repository-relative Markdown links.
-5. Duplicate-doctrine detection so one concept has one authoritative definition.
-6. Evidence-bounded standing: current claims must identify their executed subject and historical claims must be labeled as historical.
-7. A final receipt proving that the inventory and filesystem agree exactly.
-
-## Editorial rules
-
-- Define terms before using them.
-- Separate current behavior, intended behavior, and historical behavior.
-- Prefer executable commands over prose-only procedures.
-- Do not claim `ALIVE` without an exact observed execution receipt.
-- Preserve attribution and licensing text without semantic alteration.
-- Keep architecture, operations, validation, contribution policy, and research history in separate documents.
-- Archive failed experiments and superseded designs rather than silently rewriting history.
-
-## Proposed canonical structure
+## Canonical structure
 
 ```text
 README.md
@@ -48,18 +26,33 @@ docs/
   VALIDATION.md
   RESEARCH.md
   GLOSSARY.md
+  DOCUMENTATION_MAP.md
+  MARKDOWN_INVENTORY.md
+  DOCUMENTATION_MIGRATION.md
   archive/
     README.md
-    legacy/
-    experiments/
-    releases/
+    source/
 ```
 
-The exact structure may change during the inventory pass, but every change must preserve one authoritative owner for each concept.
+## Completed disposition
 
-## Definition of done
+```text
+canonical: 10
+reference: 4
+superseded: 227
+total Markdown paths: 241
+```
 
-The migration is complete only when:
+The complete path-level inventory is available in:
+
+- [`MARKDOWN_INVENTORY.md`](MARKDOWN_INVENTORY.md)
+- [`MARKDOWN_INVENTORY.json`](MARKDOWN_INVENTORY.json)
+
+The documentation authority graph begins at [`DOCUMENTATION_MAP.md`](DOCUMENTATION_MAP.md).
+
+## Validation contract
+
+The closure engine verifies:
 
 ```text
 tracked_markdown = inventoried_markdown
@@ -68,6 +61,45 @@ broken_links = 0
 orphan_documents = 0
 duplicate_authorities = 0
 archive_entries_without_provenance = 0
+missing_canonical = 0
 ```
 
-The final PR must include the inventory, rewrite/archive changes, validation tooling, tests, and a deterministic documentation-closure receipt.
+Observed result:
+
+```text
+tracked_markdown = 241
+inventoried_markdown = 241
+unclassified = 0
+broken_links = 0
+orphan_documents = 0
+duplicate_authorities = 0
+archive_entries_without_provenance = 0
+missing_canonical = 0
+standing = ALIVE
+```
+
+The machine-readable result is committed as [`DOCUMENTATION_CLOSURE.json`](DOCUMENTATION_CLOSURE.json).
+
+## Editorial rules
+
+- Define terms before using them.
+- Separate current behavior, intended behavior, and historical behavior.
+- Prefer executable commands over prose-only procedures.
+- Do not claim `ALIVE` without an exact observed execution receipt.
+- Preserve attribution and licensing semantics.
+- Keep architecture, operations, validation, contribution policy, research, and history under distinct authorities.
+- Archive superseded designs rather than rewriting historical claims into current claims.
+
+## Reproduction
+
+```bash
+python -m unittest tools.tests.test_documentation_closure -v
+python tools/documentation_closure.py --root . --apply
+python tools/documentation_closure.py --root . --check
+```
+
+`--apply` is idempotent. A second run must preserve every archived source identity and produce zero new Markdown rewrites.
+
+## Standing
+
+The repository-wide Markdown closure subject is `ALIVE`. This standing covers the 241-file documentation inventory and its archive, link, and authority invariants. It does not imply that unrelated software build or runtime subjects are `ALIVE`.
