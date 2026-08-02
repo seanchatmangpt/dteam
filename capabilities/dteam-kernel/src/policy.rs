@@ -217,7 +217,7 @@ fn evaluate_rule(rule: &Rule, observation: &Observation) -> Option<Violation> {
             _ => None,
         },
         Predicate::MinI64 { key, minimum } => match observation.fact(key) {
-            Some(FactValue::I64(actual)) if actual >= minimum => None,
+            Some(FactValue::I64(actual)) if *actual >= *minimum => None,
             Some(FactValue::I64(actual)) => violation(
                 "BELOW_MINIMUM",
                 format!("fact `{key}` was {actual}, minimum is {minimum}"),
@@ -229,7 +229,7 @@ fn evaluate_rule(rule: &Rule, observation: &Observation) -> Option<Violation> {
             None => violation("MISSING_FACT", format!("fact `{key}` is absent")),
         },
         Predicate::MaxI64 { key, maximum } => match observation.fact(key) {
-            Some(FactValue::I64(actual)) if actual <= maximum => None,
+            Some(FactValue::I64(actual)) if *actual <= *maximum => None,
             Some(FactValue::I64(actual)) => violation(
                 "ABOVE_MAXIMUM",
                 format!("fact `{key}` was {actual}, maximum is {maximum}"),
@@ -241,7 +241,7 @@ fn evaluate_rule(rule: &Rule, observation: &Observation) -> Option<Violation> {
             None => violation("MISSING_FACT", format!("fact `{key}` is absent")),
         },
         Predicate::MinU64 { key, minimum } => match observation.fact(key) {
-            Some(FactValue::U64(actual)) if actual >= minimum => None,
+            Some(FactValue::U64(actual)) if *actual >= *minimum => None,
             Some(FactValue::U64(actual)) => violation(
                 "BELOW_MINIMUM",
                 format!("fact `{key}` was {actual}, minimum is {minimum}"),
@@ -253,7 +253,7 @@ fn evaluate_rule(rule: &Rule, observation: &Observation) -> Option<Violation> {
             None => violation("MISSING_FACT", format!("fact `{key}` is absent")),
         },
         Predicate::MaxU64 { key, maximum } => match observation.fact(key) {
-            Some(FactValue::U64(actual)) if actual <= maximum => None,
+            Some(FactValue::U64(actual)) if *actual <= *maximum => None,
             Some(FactValue::U64(actual)) => violation(
                 "ABOVE_MAXIMUM",
                 format!("fact `{key}` was {actual}, maximum is {maximum}"),
