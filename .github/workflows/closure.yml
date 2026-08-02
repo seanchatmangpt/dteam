@@ -2,13 +2,9 @@ name: closure
 
 on:
   pull_request:
-  push:
-    branches:
-      - main
-      - agent/**
 
 concurrency:
-  group: closure-${{ github.event.pull_request.number || github.ref }}
+  group: closure-pr-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 permissions:
