@@ -488,6 +488,7 @@ impl Broker {
             return self.complete(executor.id(), intent, outcome, logical_start, None);
         }
 
+        let authorization_time = self.tick();
         let authorization = AuthorizationReceipt::manufacture(
             self.authorizations.receipts().len() as u64,
             self.authorizations.head(),
@@ -495,7 +496,7 @@ impl Broker {
             executor.id(),
             intent,
             &plan,
-            self.tick(),
+            authorization_time,
         );
         self.authorizations.append(authorization.clone())?;
 

@@ -3,7 +3,7 @@
 use crate::hash::{CanonicalEncoder, Digest};
 use crate::model::{FactValue, Observation, OperationId};
 use std::cmp::Reverse;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 use std::fmt::{Display, Formatter};
 
 /// One side-effect-free predicate over an observation.

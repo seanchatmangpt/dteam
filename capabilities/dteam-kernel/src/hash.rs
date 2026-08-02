@@ -54,7 +54,7 @@ pub fn sha256(input: &[u8]) -> Digest {
     padded.resize(padded_len - 8, 0);
     padded.extend_from_slice(&bit_len.to_be_bytes());
 
-    let mut state = [
+    let mut state: [u32; 8] = [
         0x6a09_e667,
         0xbb67_ae85,
         0x3c6e_f372,

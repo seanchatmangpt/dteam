@@ -73,7 +73,7 @@ impl Task {
     }
 
     #[must_use]
-    pub const fn max_attempts(mut self, value: u32) -> Self {
+    pub fn max_attempts(mut self, value: u32) -> Self {
         self.max_attempts = value.max(1);
         self
     }
