@@ -1,0 +1,56 @@
+name: container-capsule
+
+on:
+  pull_request:
+    paths:
+      - "capabilities/dteam-kernel/**"
+      - "tools/chicago_validator.py"
+      - ".github/workflows/container-capsule.yml"
+
+concurrency:
+  group: container-capsule-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  manufacture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      MANIFEST: capabilities/dteam-kernel/Cargo.toml
+      CARGO_INCREMENTAL: "0"
+      RUSTFLAGS: "-C debuginfo=0"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile all tests and binaries
+        run: |
+          cargo test --manifest-path "$MANIFEST" --all-targets --no-run
+          cargo build --manifest-path "$MANIFEST" --bins
+      - name: Assemble portable capsule
+        shell: bash
+        run: |
+          set -euo pipefail
+          root=artifacts/container-capsule
+          mkdir -p "$root/source" "$root/bin" "$root/tests" "$root/meta"
+          cp -a capabilities/dteam-kernel "$root/source/"
+          cp -a tools/chicago_validator.py "$root/source/"
+          for name in dteam-capabilities dteam-dense-demo dteam-doctor; do
+            test -x "capabilities/dteam-kernel/target/debug/$name"
+            cp "capabilities/dteam-kernel/target/debug/$name" "$root/bin/"
+          done
+          find capabilities/dteam-kernel/target/debug/deps -maxdepth 1 -type f -perm -111 \
+            -name 'dteam_capability_kernel-*' -print0 | xargs -0 -r -I{} cp {} "$root/tests/"
+          git rev-parse HEAD > "$root/meta/HEAD"
+          rustc -Vv > "$root/meta/rustc.txt"
+          cargo -V > "$root/meta/cargo.txt"
+          uname -a > "$root/meta/uname.txt"
+          (cd "$root" && find . -type f -print0 | sort -z | xargs -0 sha256sum) > "$root/meta/SHA256SUMS"
+          tar -C artifacts -czf artifacts/dteam-container-capsule.tgz container-capsule
+      - name: Upload capsule
+        uses: actions/upload-artifact@v4
+        with:
+          name: dteam-container-capsule
+          path: artifacts/dteam-container-capsule.tgz
+          if-no-files-found: error
