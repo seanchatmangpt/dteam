@@ -1,8 +1,13 @@
-import os
-import re
+#!/usr/bin/env python3
+"""Generate the benchmark TeX tables at an explicit output path."""
 
-def generate_performance_tex():
-    # RL Agent Data
+from __future__ import annotations
+
+import argparse
+from pathlib import Path
+
+
+def render_performance_tex() -> str:
     agent_data = [
         ("QLearning", "select\\_action", "3.00 ns"),
         ("QLearning", "update", "134.86 ns"),
@@ -15,9 +20,7 @@ def generate_performance_tex():
         ("REINFORCE", "select\\_action", "63.70 ns"),
         ("REINFORCE", "update", "194.03 ns"),
     ]
-
-    # Algorithm Data
-    algo_data = [
+    algorithm_data = [
         ("XESReader", "read (Domestic)", "142.10 ms"),
         ("PetriNet", "is\\_structural\\_workflow\\_net", "840.00 ns"),
         ("TBR", "Standard Replayer", "6.52 $\\mu$s"),
@@ -25,27 +28,62 @@ def generate_performance_tex():
         ("TBR", "BCINR Pure Bitset Replayer", "975.25 ns"),
     ]
 
-    # Generate Agent Table
-    tex = "\\begin{table}[ht]\n\\centering\n\\begin{tabular}{llr}\n\\toprule\n"
-    tex += "Agent Class & Operation & Latency \\\\\n\\midrule\n"
-    for agent, op, latency in agent_data:
-        tex += f"{agent} & {op} & {latency} \\\\\n"
-    tex += "\\bottomrule\n\\end{tabular}\n"
-    tex += "\\caption{Reinforcement Learning Agent Micro-Benchmarks}\n"
-    tex += "\\label{tab:agent_performance}\n\\end{table}\n\n"
+    lines = [
+        "\\begin{table}[ht]",
+        "\\centering",
+        "\\begin{tabular}{llr}",
+        "\\toprule",
+        "Agent Class & Operation & Latency \\\\",
+        "\\midrule",
+    ]
+    lines.extend(f"{agent} & {operation} & {latency} \\\\" for agent, operation, latency in agent_data)
+    lines.extend(
+        [
+            "\\bottomrule",
+            "\\end{tabular}",
+            "\\caption{Reinforcement Learning Agent Micro-Benchmarks}",
+            "\\label{tab:agent_performance}",
+            "\\end{table}",
+            "",
+            "\\begin{table}[ht]",
+            "\\centering",
+            "\\begin{tabular}{llr}",
+            "\\toprule",
+            "Component & Operation & Performance \\\\",
+            "\\midrule",
+        ]
+    )
+    lines.extend(f"{component} & {operation} & {performance} \\\\" for component, operation, performance in algorithm_data)
+    lines.extend(
+        [
+            "\\bottomrule",
+            "\\end{tabular}",
+            "\\caption{Core Process Mining Algorithm Benchmarks}",
+            "\\label{tab:algo_performance}",
+            "\\end{table}",
+            "",
+        ]
+    )
+    return "\n".join(lines)
 
-    # Generate Algorithm Table
-    tex += "\\begin{table}[ht]\n\\centering\n\\begin{tabular}{llr}\n\\toprule\n"
-    tex += "Component & Operation & Performance \\\\\n\\midrule\n"
-    for comp, op, perf in algo_data:
-        tex += f"{comp} & {op} & {perf} \\\\\n"
-    tex += "\\bottomrule\n\\end{tabular}\n"
-    tex += "\\caption{Core Process Mining Algorithm Benchmarks}\n"
-    tex += "\\label{tab:algo_performance}\n\\end{table}\n"
 
-    with open("performance_results.tex", "w") as f:
-        f.write(tex)
-    print("Generated performance_results.tex with BCINR Bitset results")
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("output", type=Path, help="Destination .tex file")
+    parser.add_argument("--force", action="store_true", help="Replace an existing output")
+    args = parser.parse_args()
+
+    output = args.output.resolve()
+    if output.suffix != ".tex":
+        parser.error("output must use the .tex extension")
+    if output.exists() and not args.force:
+        parser.error(f"refusing to overwrite existing file: {output}")
+
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(render_performance_tex(), encoding="utf-8")
+    print(f"generated: {output}")
+    return 0
+
 
 if __name__ == "__main__":
-    generate_performance_tex()
+    raise SystemExit(main())
