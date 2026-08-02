@@ -1,0 +1,14 @@
+{
+  "active_python_roots": [
+    "tools",
+    "scripts"
+  ],
+  "excluded_python_roots": [
+    "tools/tests"
+  ],
+  "archived_python_roots": [
+    "crates/ccog",
+    "docs/thesis"
+  ],
+  "archive_rationale": "Historical migration and one-shot reconstruction scripts are retained as lineage evidence, not admitted runtime or release capabilities. Active tooling lives under tools/ and scripts/. All Python remains syntax-checked."
+}
