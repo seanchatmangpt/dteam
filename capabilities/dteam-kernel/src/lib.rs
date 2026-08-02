@@ -68,20 +68,21 @@ pub use provenance::{
 };
 pub use quota::{
     PrincipalId, QuotaAction, QuotaClaim, QuotaError, QuotaManager, QuotaPolicy, QuotaReceipt,
-    QuotaVerification, Reservation, ReservationId, ReservationRequest, ReservationState, ResourceId,
+    QuotaVerification, Reservation, ReservationId, ReservationRequest, ReservationState,
+    ResourceId,
 };
 pub use runtime::{
     ProcessError as RuntimeError, ProcessResult, ProcessTrace, Route, Router, Runtime, TraceError,
     TraceEvent, TraceStage,
 };
 pub use scheduler::{
-    execute_schedule, ScheduleError, ScheduleExecution, SchedulePlan, Task, TaskExecutor, TaskGraph,
-    TaskId, TaskOutcome, TaskReceipt,
+    execute_schedule, ScheduleError, ScheduleExecution, SchedulePlan, Task, TaskExecutor,
+    TaskGraph, TaskId, TaskOutcome, TaskReceipt,
 };
 pub use schema::{
     CompatibilityChange, CompatibilityReport, Constraint, Document, DocumentSchema, FieldSchema,
-    MigrationPlan, MigrationResult, MigrationStep, SchemaError, UnknownFieldPolicy, ValidationIssue,
-    ValidationReport, ValueType,
+    MigrationPlan, MigrationResult, MigrationStep, SchemaError, UnknownFieldPolicy,
+    ValidationIssue, ValidationReport, ValueType,
 };
 pub use state_machine::{
     ApplyResult, DispatchDecision, EventKind, Guard, GuardFailure, InstanceVerificationError,
@@ -109,7 +110,7 @@ pub mod prelude {
         Relation, RepairPlan, ReservationId, ReservationRequest, ResourceId, Route, Router, Rule,
         Runtime, ServiceObjective, StateId, StateMachine, SubjectId, Task, TaskExecutor, TaskGraph,
         TaskId, TaskOutcome, TelcoTopology, Transaction, TransactionalStore, Transition,
-        TransitionId, TransitionSystem, UnknownFieldPolicy, ValueType, Vision2030, VisionCapability,
-        VisionStratum, VisionWizard, WizardValue,
+        TransitionId, TransitionSystem, UnknownFieldPolicy, ValueType, Vision2030,
+        VisionCapability, VisionStratum, VisionWizard, WizardValue,
     };
 }
