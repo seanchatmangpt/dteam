@@ -1,0 +1,22 @@
+[package]
+name = "dteam-capability-kernel"
+version = "0.1.0"
+edition = "2021"
+license = "BUSL-1.1"
+description = "Standalone deterministic capability, admission, broker, receipt, and replay kernel for dteam"
+
+[workspace]
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "dteam-capabilities"
+path = "src/bin/dteam-capabilities.rs"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = "deny"
+pedantic = "warn"
