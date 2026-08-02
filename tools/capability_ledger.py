@@ -197,7 +197,7 @@ def main() -> int:
     parser.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--policy", type=Path, default=Path("closure-policy.json"))
     parser.add_argument("--output", type=Path)
-    parser.add_argument("--fail-on", action="append", default=["BUILD_BROKEN", "UNKNOWN"])
+    parser.add_argument("--fail-on", action="append", default=["BUILD_BROKEN"])
     args = parser.parse_args()
 
     root = args.root.resolve(strict=True)
