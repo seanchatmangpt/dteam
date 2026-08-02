@@ -5,4 +5,4 @@ info: downloading 6 components
 src/quota.rs:386:8: warning: method `logical_time` is never used
 warning: `dteam-capability-kernel` (lib) generated 1 warning
 warning: `dteam-capability-kernel` (lib test) generated 1 warning (1 duplicate)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.97s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.48s

@@ -10,7 +10,7 @@ warning: method `logical_time` is never used
     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
 
 warning: `dteam-capability-kernel` (lib test) generated 1 warning
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.12s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.92s
      Running unittests src/lib.rs (capabilities/dteam-kernel/target/debug/deps/dteam_capability_kernel-e0cc73f7c2273a18)
 
 running 76 tests
@@ -26,7 +26,7 @@ test broker::tests::duplicate_intent_executes_once ... ok
 test combinatorial::tests::composition_search_preserves_multiple_lawful_options ... ok
 test combinatorial::tests::impossible_slo_is_blocked ... ok
 test combinatorial::tests::telco_assessment_requires_redundant_compliant_paths ... 
-thread 'combinatorial::tests::telco_assessment_requires_redundant_compliant_paths' (2182) panicked at src/combinatorial.rs:1240:9:
+thread 'combinatorial::tests::telco_assessment_requires_redundant_compliant_paths' (2462) panicked at src/combinatorial.rs:1240:9:
 assertion `left == right` failed
   left: "PARTIAL_ALIVE"
  right: "ALIVE"
@@ -51,7 +51,7 @@ test hook::tests::linter_finds_unconditional_shadow ... ok
 test hook::tests::matching_hook_manufactures_intent_without_execution ... ok
 test hook::tests::subject_mismatch_is_refused ... ok
 test innovation::tests::audit_closes_selected_eighty_twenty_surface ... 
-thread 'innovation::tests::audit_closes_selected_eighty_twenty_surface' (2201) panicked at src/innovation.rs:1088:9:
+thread 'innovation::tests::audit_closes_selected_eighty_twenty_surface' (2481) panicked at src/innovation.rs:1088:9:
 assertion `left == right` failed
   left: Blocked
  right: Alive
@@ -108,6 +108,6 @@ failures:
     combinatorial::tests::telco_assessment_requires_redundant_compliant_paths
     innovation::tests::audit_closes_selected_eighty_twenty_surface
 
-test result: FAILED. 74 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+test result: FAILED. 74 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
 
 error: test failed, to rerun pass `--lib`
