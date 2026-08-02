@@ -4,12 +4,13 @@
 //! The crate is deliberately standalone: it provides a runnable nucleus while the
 //! larger workspace's sibling repositories are unavailable. Its execution path is:
 //!
-//! `observe → validate → route → admit/refuse → decide → plan → transition → transact → authorize → actuate → provenance → receipt → replay`.
+//! `observe → validate → route → admit/refuse → decide → hook → plan → transition → transact → authorize → actuate → provenance → receipt → replay`.
 
 pub mod broker;
 pub mod decision;
 pub mod graph;
 pub mod hash;
+pub mod hook;
 pub mod ledger;
 pub mod model;
 pub mod policy;
@@ -31,6 +32,10 @@ pub use decision::{
 };
 pub use graph::{Capability, CapabilityGraph, CapabilityPlan, GraphError};
 pub use hash::{sha256, CanonicalEncoder, Digest};
+pub use hook::{
+    Hook, HookError, HookEvaluation, HookEvent, HookLint, HookRegistry, HookReport, IntentTemplate,
+    PayloadTemplate,
+};
 pub use ledger::{
     LedgerError, Receipt, ReceiptKind, ReceiptLedger, ReceiptQuery, ReplayReport,
 };
@@ -77,11 +82,12 @@ pub mod prelude {
         AuthorityId, BatchMode, Broker, Capability, CapabilityGraph, CapabilityId, Condition,
         Constraint, DecisionEffect, DecisionOutcome, DecisionRule, DecisionTable, Document,
         DocumentSchema, EventId, EventKind, EventRecord, Executor, ExpectedVersion, FactValue,
-        FieldSchema, Guard, Intent, MachineInstance, MigrationPlan, MigrationStep, Mutation, NodeId,
-        ObjectEventLog, ObjectId, ObjectRecord, ObjectType, Observation, OperationId, Outcome,
-        PolicyId, Predicate, PreflightRefusal, ProvenanceGraph, ProvenanceNode, ReceiptQuery,
-        RecordKey, Relation, Route, Router, Rule, Runtime, StateId, StateMachine, SubjectId, Task,
-        TaskExecutor, TaskGraph, TaskId, TaskOutcome, Transaction, TransactionalStore, Transition,
-        TransitionId, TransitionSystem, UnknownFieldPolicy, ValueType,
+        FieldSchema, Guard, Hook, HookEvent, HookRegistry, Intent, IntentTemplate, MachineInstance,
+        MigrationPlan, MigrationStep, Mutation, NodeId, ObjectEventLog, ObjectId, ObjectRecord,
+        ObjectType, Observation, OperationId, Outcome, PayloadTemplate, PolicyId, Predicate,
+        PreflightRefusal, ProvenanceGraph, ProvenanceNode, ReceiptQuery, RecordKey, Relation, Route,
+        Router, Rule, Runtime, StateId, StateMachine, SubjectId, Task, TaskExecutor, TaskGraph,
+        TaskId, TaskOutcome, Transaction, TransactionalStore, Transition, TransitionId,
+        TransitionSystem, UnknownFieldPolicy, ValueType,
     };
 }
