@@ -160,7 +160,8 @@ pub fn forbidden_regressions_fully_linked() -> bool {
             ForbiddenRegression::DemonstrationProvValue => "DemonstrationProvValue",
             ForbiddenRegression::DerivedFromPrefLabelDemonstration => {
                 "DerivedFromPrefLabelDemonstration"
-            }            ForbiddenRegression::ShaclInstanceMisuse => "ShaclInstanceMisuse",
+            }
+            ForbiddenRegression::ShaclInstanceMisuse => "ShaclInstanceMisuse",
             ForbiddenRegression::TimestampReceiptIdentity => "TimestampReceiptIdentity",
             ForbiddenRegression::FusedDecideMaterialize => "FusedDecideMaterialize",
             ForbiddenRegression::ManualTriggerAutoFire => "ManualTriggerAutoFire",
