@@ -47,23 +47,37 @@ INNOVATION_REPAIRS = (
     (
         "let selected = selected_80_20.iter().collect::<BTreeSet<_>>();",
         "let selected = selected_80_20\n            .iter()\n            .map(String::as_str)\n            .collect::<BTreeSet<_>>();",
+        False,
     ),
     (
         "selected.contains(&finding.id)",
         "selected.contains(finding.id.as_str())",
+        True,
     ),
     (
         'assert_eq!(diff.regressed(), &["runtime-tracer-bullet"]);',
         'assert_eq!(diff.regressed(), &["runtime-tracer-bullet".to_owned()]);',
+        False,
     ),
 )
 
 
-def replace_once(path: Path, old: str, new: str, label: str) -> bool:
+def replace_subject(
+    path: Path,
+    old: str,
+    new: str,
+    label: str,
+    replace_all: bool = False,
+) -> bool:
     text = path.read_text(encoding="utf-8")
-    if old in text:
-        path.write_text(text.replace(old, new, 1), encoding="utf-8")
-        print(f"patched {label}")
+    count = text.count(old)
+    if count:
+        replacement_count = count if replace_all else 1
+        path.write_text(
+            text.replace(old, new, replacement_count),
+            encoding="utf-8",
+        )
+        print(f"patched {label} occurrences={replacement_count}")
         return True
     if new in text:
         print(f"{label} already patched")
@@ -72,9 +86,20 @@ def replace_once(path: Path, old: str, new: str, label: str) -> bool:
 
 
 def main() -> int:
-    replace_once(TELCO_TARGET, TELCO_OLD, TELCO_NEW, "telco transit disjointness")
-    for index, (old, new) in enumerate(INNOVATION_REPAIRS, start=1):
-        replace_once(INNOVATION_TARGET, old, new, f"innovation compile guard {index}")
+    replace_subject(
+        TELCO_TARGET,
+        TELCO_OLD,
+        TELCO_NEW,
+        "telco transit disjointness",
+    )
+    for index, (old, new, replace_all) in enumerate(INNOVATION_REPAIRS, start=1):
+        replace_subject(
+            INNOVATION_TARGET,
+            old,
+            new,
+            f"innovation compile guard {index}",
+            replace_all=replace_all,
+        )
     return 0
 
 
