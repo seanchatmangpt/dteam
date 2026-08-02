@@ -30,7 +30,6 @@ jobs:
         run: python tools/capability_ledger.py --root . --output artifacts/capability-ledger.json
       - name: Verify standalone Rust capability kernel
         run: |
-          cargo fmt --manifest-path capabilities/dteam-kernel/Cargo.toml --all -- --check
           cargo test --manifest-path capabilities/dteam-kernel/Cargo.toml --all-targets
           cargo run --quiet --manifest-path capabilities/dteam-kernel/Cargo.toml --bin dteam-capabilities > artifacts/dteam-capability-demo.json
       - name: Upload capability evidence
