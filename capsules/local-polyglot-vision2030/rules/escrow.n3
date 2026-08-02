@@ -1,0 +1,2 @@
+@prefix dt: <https://dteam.ai/vision2030#> .
+{ ?m dt:quorum true ; dt:majority true . } => { ?m dt:standing "adopted-awaiting-brce" . } .

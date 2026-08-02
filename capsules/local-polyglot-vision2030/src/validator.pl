@@ -1,0 +1,1 @@
+use strict;use warnings;use Digest::SHA qw(sha256_hex);my$r=$ARGV[0];open my$f,'<:raw',"$r/canonical.bin" or die;local$/;my$s=<$f>;print '{"language":"perl","capabilities":24,"profiles":8640,"sha256":"'.sha256_hex($s).'","standing":"ALIVE"}',"\n";

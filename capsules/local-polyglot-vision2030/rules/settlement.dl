@@ -1,0 +1,2 @@
+adopted(M) :- quorum(M), majority(M).
+settle(M) :- adopted(M), authorized(M).

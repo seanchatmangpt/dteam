@@ -1,0 +1,31 @@
+capability	group	reversible	enabled	verifier
+semantic-world	semantic	true	true	world.ttl
+shacl-admission	semantic	true	true	shapes.ttl
+sparql-projection	semantic	true	true	extract.rq
+n3-escrow	governance	true	true	escrow.n3
+datalog-closure	governance	true	true	settlement.dl
+rust-wasm-body	runtime	true	true	cargo-test
+unrdf-runtime	runtime	true	true	query-execution
+mermaid-mmdio	projection	true	true	render
+deckgl-spatial	projection	true	true	layer-plan
+remote-intents	interaction	true	true	intent-test
+accessibility	qol	true	true	a11y-test
+localization	qol	true	true	locale-test
+semantic-resume	qol	true	true	resume-test
+doctor	dx	true	true	doctor-test
+wizard	dx	true	true	wizard-test
+telco-local	telco	true	true	transport-test
+telco-lan	telco	true	true	transport-test
+telco-federated	telco	true	true	transport-test
+telco-delay	telco	true	true	transport-test
+roberts-rules	governance	true	true	procedure-test
+escrow	market	true	true	settlement-test
+blake3-receipt	evidence	true	true	receipt-test
+replay	evidence	true	true	replay-test
+combinatorial-planner	planning	true	true	profile-test
+mode	cinema,matrix,construct,governance,market,receipt
+device	browser,tv,venue,apple-tv,android-tv,low-resource
+transport	local,lan,federated,delay-tolerant
+accessibility	default,captions,audio-description,high-contrast,reduced-motion
+language	en,es,ja
+standing	UNKNOWN,PARTIAL_ALIVE,ALIVE,BLOCKED

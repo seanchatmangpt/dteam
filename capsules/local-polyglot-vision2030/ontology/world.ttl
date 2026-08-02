@@ -1,0 +1,3 @@
+@prefix dt: <https://dteam.ai/vision2030#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+dt:Platform a dt:CombinatorialPlatform ; dct:title "DTeam Vision 2030 Local Capsule" ; dt:profileCount 8640 .
