@@ -1,0 +1,65 @@
+name: innovation-80-20
+
+on:
+  push:
+    branches:
+      - agent/innovation-80-20-closure
+  pull_request:
+    paths:
+      - "capabilities/dteam-kernel/**"
+      - "tools/innovation_80_20_patch.py"
+      - ".github/workflows/innovation-80-20.yml"
+
+concurrency:
+  group: innovation-80-20-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  PYTHONDONTWRITEBYTECODE: "1"
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Apply audited core repair
+        run: python3 tools/innovation_80_20_patch.py
+      - name: Format
+        run: cargo fmt --manifest-path capabilities/dteam-kernel/Cargo.toml --all
+      - name: Check
+        run: cargo check --manifest-path capabilities/dteam-kernel/Cargo.toml --all-targets
+      - name: Test
+        run: cargo test --manifest-path capabilities/dteam-kernel/Cargo.toml --all-targets -- --test-threads=1
+      - name: Lint
+        run: cargo clippy --manifest-path capabilities/dteam-kernel/Cargo.toml --all-targets
+      - name: Manufacture innovation evidence
+        run: |
+          mkdir -p artifacts/innovation-80-20
+          cargo run --quiet --manifest-path capabilities/dteam-kernel/Cargo.toml --bin dteam-doctor -- innovation-json | tee artifacts/innovation-80-20/audit.json.txt
+          cargo run --quiet --manifest-path capabilities/dteam-kernel/Cargo.toml --bin dteam-doctor -- snapshot | tee artifacts/innovation-80-20/snapshot.json.txt
+          cargo run --quiet --manifest-path capabilities/dteam-kernel/Cargo.toml --bin dteam-doctor -- support | tee artifacts/innovation-80-20/support.json.txt
+          cargo run --quiet --manifest-path capabilities/dteam-kernel/Cargo.toml --bin dteam-doctor -- telco | tee artifacts/innovation-80-20/telco.txt
+          grep -q '"standing":"ALIVE"' artifacts/innovation-80-20/audit.json.txt
+          grep -q 'TELCO standing=ALIVE' artifacts/innovation-80-20/telco.txt
+      - name: Commit exact closure subject
+        run: |
+          git config user.name "dteam-innovation-closure"
+          git config user.email "dteam-innovation-closure@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "innovation closure already stable"
+            exit 0
+          fi
+          git commit -m "feat: close 80/20 innovation gaps"
+          git push origin HEAD:${{ github.event.pull_request.head.ref || github.ref_name }}
