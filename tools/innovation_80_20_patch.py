@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-"""Apply the audited endpoint-tolerant telco redundancy repair exactly once."""
+"""Apply the audited 80/20 source repairs exactly once."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-TARGET = Path("capabilities/dteam-kernel/src/combinatorial.rs")
+TELCO_TARGET = Path("capabilities/dteam-kernel/src/combinatorial.rs")
+INNOVATION_TARGET = Path("capabilities/dteam-kernel/src/innovation.rs")
 
-OLD = """fn maximum_domain_disjoint(paths: &[TelcoPath]) -> usize {
+TELCO_OLD = """fn maximum_domain_disjoint(paths: &[TelcoPath]) -> usize {
     let mut selected: Vec<&TelcoPath> = Vec::new();
     'candidate: for path in paths {
         let internal = path.failure_domains.iter().cloned().collect::<BTreeSet<_>>();
@@ -21,7 +22,7 @@ OLD = """fn maximum_domain_disjoint(paths: &[TelcoPath]) -> usize {
 }
 """
 
-NEW = """fn maximum_domain_disjoint(paths: &[TelcoPath]) -> usize {
+TELCO_NEW = """fn maximum_domain_disjoint(paths: &[TelcoPath]) -> usize {
     let mut selected = Vec::<BTreeSet<String>>::new();
     'candidate: for path in paths {
         let internal = path
@@ -42,17 +43,39 @@ NEW = """fn maximum_domain_disjoint(paths: &[TelcoPath]) -> usize {
 }
 """
 
+INNOVATION_REPAIRS = (
+    (
+        "let selected = selected_80_20.iter().collect::<BTreeSet<_>>();",
+        "let selected = selected_80_20\n            .iter()\n            .map(String::as_str)\n            .collect::<BTreeSet<_>>();",
+    ),
+    (
+        "selected.contains(&finding.id)",
+        "selected.contains(finding.id.as_str())",
+    ),
+    (
+        'assert_eq!(diff.regressed(), &["runtime-tracer-bullet"]);',
+        'assert_eq!(diff.regressed(), &["runtime-tracer-bullet".to_owned()]);',
+    ),
+)
+
+
+def replace_once(path: Path, old: str, new: str, label: str) -> bool:
+    text = path.read_text(encoding="utf-8")
+    if old in text:
+        path.write_text(text.replace(old, new, 1), encoding="utf-8")
+        print(f"patched {label}")
+        return True
+    if new in text:
+        print(f"{label} already patched")
+        return False
+    raise SystemExit(f"refused: expected subject not found for {label}")
+
 
 def main() -> int:
-    text = TARGET.read_text(encoding="utf-8")
-    if OLD in text:
-        TARGET.write_text(text.replace(OLD, NEW, 1), encoding="utf-8")
-        print("patched telco transit disjointness")
-        return 0
-    if NEW in text:
-        print("telco transit disjointness already patched")
-        return 0
-    raise SystemExit("refused: expected telco disjointness subject not found")
+    replace_once(TELCO_TARGET, TELCO_OLD, TELCO_NEW, "telco transit disjointness")
+    for index, (old, new) in enumerate(INNOVATION_REPAIRS, start=1):
+        replace_once(INNOVATION_TARGET, old, new, f"innovation compile guard {index}")
+    return 0
 
 
 if __name__ == "__main__":
