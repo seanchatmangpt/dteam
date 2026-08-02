@@ -1125,13 +1125,13 @@
     {
       "archive": null,
       "archived_source_sha256": null,
-      "bytes": 2670,
+      "bytes": 2570,
       "disposition": "canonical",
-      "lines": 42,
+      "lines": 40,
       "owner": "documentation authority map",
       "path": "docs/DOCUMENTATION_MAP.md",
       "replacement": null,
-      "sha256": "51beae9cb717d4e8789a6cad8e3486888b1c23212eaa91b5586302e5e39f0d00"
+      "sha256": "0432b426b2d88673e686df3dedfae798bcd2fbc3ed179822c1900aa1774600c9"
     },
     {
       "archive": null,

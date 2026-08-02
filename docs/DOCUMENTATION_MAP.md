@@ -37,6 +37,4 @@ This page is the authoritative index for repository documentation. A concept has
 
 The complete path inventory is available in [`docs/MARKDOWN_INVENTORY.md`](MARKDOWN_INVENTORY.md).
 
-The complete path inventory is available in [`docs/MARKDOWN_INVENTORY.md`](MARKDOWN_INVENTORY.md).
-
 A historical file may explain lineage, but it may not override a canonical owner.

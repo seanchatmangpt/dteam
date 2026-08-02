@@ -1,7 +1,7 @@
 {
-  "inventory_sha256": "b7c074717d0ace3c0424ac0296f2f9485fc1b4ce84b0f7123c9b85ce72c641b8",
-  "markdown_set_sha256": "acd69e122c1936e892d35a81c06a926b0741e77f7759648af03b59e96da5322c",
-  "receipt_sha256": "df6c3a6ede9c8ca73ccfd064d4972f19b5d3cc98686e2b8a9e06dad509e02992",
+  "inventory_sha256": "c4617fa2796549cafdd0e0ed9b19c5cb223096629fad39e96b991a2c5ee77319",
+  "markdown_set_sha256": "ec9ece661f43986a2281ef6b661aa122f71e09142400fc0e04431856ba23ac16",
+  "receipt_sha256": "1c7afa67449634aab2a6dce72acedf2424e35709d394e6c23b1454985af37dcf",
   "schema": "urn:dteam:documentation-closure:v1",
   "standing": "ALIVE",
   "validation": {
