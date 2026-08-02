@@ -3,7 +3,7 @@ name = "dteam-capability-kernel"
 version = "0.1.0"
 edition = "2021"
 license = "BUSL-1.1"
-description = "Standalone deterministic capability, admission, broker, receipt, and replay kernel for dteam"
+description = "Standalone deterministic capability, admission, broker, receipt, replay, and Vision 2030 doctor kernel for dteam"
 
 [workspace]
 
@@ -13,6 +13,10 @@ path = "src/lib.rs"
 [[bin]]
 name = "dteam-capabilities"
 path = "src/bin/dteam-capabilities.rs"
+
+[[bin]]
+name = "dteam-doctor"
+path = "src/bin/dteam-doctor.rs"
 
 [lints.rust]
 unsafe_code = "forbid"
