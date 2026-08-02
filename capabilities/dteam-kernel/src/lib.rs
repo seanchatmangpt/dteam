@@ -4,7 +4,7 @@
 //! The crate is deliberately standalone: it provides a runnable nucleus while the
 //! larger workspace's sibling repositories are unavailable. Its execution path is:
 //!
-//! `observe → route → admit/refuse → decide → plan → authorize → actuate → receipt → replay`.
+//! `observe → route → admit/refuse → decide → plan → transition → authorize → actuate → receipt → replay`.
 
 pub mod broker;
 pub mod decision;
@@ -16,6 +16,7 @@ pub mod policy;
 pub mod process;
 pub mod runtime;
 pub mod scheduler;
+pub mod state_machine;
 
 pub use broker::{
     ActuationEvidence, AuthorizationLedger, AuthorizationReceipt, BatchEvidence, BatchMode, Broker,
@@ -48,15 +49,22 @@ pub use scheduler::{
     execute_schedule, ScheduleError, ScheduleExecution, SchedulePlan, Task, TaskExecutor, TaskGraph,
     TaskId, TaskOutcome, TaskReceipt,
 };
+pub use state_machine::{
+    ApplyResult, DispatchDecision, EventKind, Guard, GuardFailure, InstanceVerificationError,
+    MachineAnalysis, MachineError, MachineFinding, MachineInstance, StateId, StateMachine,
+    StateReceipt, Transition, TransitionEvaluation, TransitionId,
+};
 
 /// Common imports for applications embedding the capability kernel.
 pub mod prelude {
     pub use crate::{
-        discover_transition_system, execute_schedule, Activity, AdmissionPolicy, AuthorityId,
-        BatchMode, Broker, Capability, CapabilityGraph, CapabilityId, Condition, DecisionEffect,
-        DecisionOutcome, DecisionRule, DecisionTable, EventId, EventRecord, Executor, FactValue,
-        Intent, ObjectEventLog, ObjectId, ObjectRecord, ObjectType, Observation, OperationId,
-        Outcome, PolicyId, Predicate, PreflightRefusal, ReceiptQuery, Route, Router, Rule, Runtime,
-        SubjectId, Task, TaskExecutor, TaskGraph, TaskId, TaskOutcome, TransitionSystem,
+        discover_transition_system, execute_schedule, Activity, AdmissionPolicy, ApplyResult,
+        AuthorityId, BatchMode, Broker, Capability, CapabilityGraph, CapabilityId, Condition,
+        DecisionEffect, DecisionOutcome, DecisionRule, DecisionTable, EventId, EventKind,
+        EventRecord, Executor, FactValue, Guard, Intent, MachineInstance, ObjectEventLog, ObjectId,
+        ObjectRecord, ObjectType, Observation, OperationId, Outcome, PolicyId, Predicate,
+        PreflightRefusal, ReceiptQuery, Route, Router, Rule, Runtime, StateId, StateMachine,
+        SubjectId, Task, TaskExecutor, TaskGraph, TaskId, TaskOutcome, Transition, TransitionId,
+        TransitionSystem,
     };
 }
