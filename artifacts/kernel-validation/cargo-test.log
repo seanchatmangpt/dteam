@@ -1,0 +1,103 @@
+   Compiling dteam-capability-kernel v0.1.0 (/home/runner/work/dteam/dteam/capabilities/dteam-kernel)
+warning: method `logical_time` is never used
+   --> src/quota.rs:384:8
+    |
+383 | impl QuotaAction {
+    | ---------------- method in this implementation
+384 |     fn logical_time(&self) -> u64 {
+    |        ^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `dteam-capability-kernel` (lib test) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.97s
+     Running unittests src/lib.rs (capabilities/dteam-kernel/target/debug/build/dteam-capability-kernel/e0cc73f7c2273a18/out/dteam_capability_kernel-e0cc73f7c2273a18)
+
+running 72 tests
+test access::tests::bounded_delegation_activates_role ... ok
+test access::tests::contextual_grant_refuses_then_allows ... ok
+test access::tests::deny_overrides_allow_at_more_specific_scope ... ok
+test access::tests::inheritance_returns_shortest_permission_witness ... ok
+test access::tests::separation_of_duties_refuses_conflicting_assignment ... ok
+test broker::tests::authorization_exists_before_success_completion ... ok
+test broker::tests::batch_can_stop_on_refusal ... ok
+test broker::tests::denied_authority_is_receipted_without_execution ... ok
+test broker::tests::duplicate_intent_executes_once ... ok
+test combinatorial::tests::composition_search_preserves_multiple_lawful_options ... ok
+test combinatorial::tests::impossible_slo_is_blocked ... ok
+test combinatorial::tests::telco_assessment_requires_redundant_compliant_paths ... 
+thread 'combinatorial::tests::telco_assessment_requires_redundant_compliant_paths' (2384) panicked at src/combinatorial.rs:792:9:
+assertion `left == right` failed
+  left: "PARTIAL_ALIVE"
+ right: "ALIVE"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+test combinatorial::tests::wizard_compiles_telco_carrier_constraints ... ok
+test decision::tests::equal_priority_distinct_effects_are_conflict ... ok
+test decision::tests::highest_priority_match_is_selected_with_full_trace ... ok
+test decision::tests::linter_finds_unconditional_shadow ... ok
+test event_bus::tests::acknowledgement_advances_offset ... ok
+test event_bus::tests::event_id_content_conflict_is_refused ... ok
+test event_bus::tests::lease_expiry_redelivers_with_incremented_attempt ... ok
+test event_bus::tests::publish_is_exactly_once_by_identity_and_content ... ok
+test event_bus::tests::repeated_rejection_dead_letters_event ... ok
+test graph::tests::bounded_resolution_refuses_excess_cost ... ok
+test graph::tests::closure_orders_dependencies_before_dependents ... ok
+test graph::tests::cycle_is_refused_with_path ... ok
+test hash::tests::canonical_encoding_is_order_sensitive_and_length_delimited ... ok
+test hash::tests::sha256_matches_standard_vectors ... ok
+test hook::tests::exact_intents_are_deduplicated ... ok
+test hook::tests::linter_finds_unconditional_shadow ... ok
+test hook::tests::matching_hook_manufactures_intent_without_execution ... ok
+test hook::tests::subject_mismatch_is_refused ... ok
+test ledger::tests::chain_replays_and_queries ... ok
+test ledger::tests::intent_lookup_supports_idempotency ... ok
+test phase_change::tests::doctor_reports_partial_until_crown_is_alive ... ok
+test phase_change::tests::qol_profiles_are_deterministic ... ok
+test phase_change::tests::repair_plan_targets_only_non_alive_capabilities ... ok
+test phase_change::tests::standard_vision_is_dependency_closed ... ok
+test policy::tests::admission_binds_policy_epoch ... ok
+test policy::tests::admission_collects_every_violation ... ok
+test process::tests::discovered_model_replays_source_log ... ok
+test process::tests::metrics_capture_variants_and_edges ... ok
+test process::tests::unknown_transition_is_reported ... ok
+test provenance::tests::derivation_cycle_is_refused_and_rolled_back ... ok
+test provenance::tests::lineage_and_impact_cross_activity_boundaries ... ok
+test provenance::tests::relation_endpoint_types_are_enforced ... ok
+test provenance::tests::shortest_path_returns_relation_witness ... ok
+test quota::tests::committed_quota_is_not_restored ... ok
+test quota::tests::expiry_restores_pending_lease ... ok
+test quota::tests::failed_claim_leaves_all_buckets_unchanged ... ok
+test quota::tests::multi_resource_reservation_is_atomic ... ok
+test quota::tests::release_restores_reserved_tokens ... ok
+test runtime::tests::admission_refusal_has_no_actuation_receipt ... ok
+test runtime::tests::process_executes_complete_transition_chain ... ok
+test saga::tests::failed_forward_path_compensates_reverse_order ... ok
+test saga::tests::retryable_step_retries_with_receipts ... ok
+test saga::tests::successful_saga_completes_and_verifies ... ok
+test scheduler::tests::bounded_waves_and_critical_path_are_deterministic ... ok
+test scheduler::tests::capacity_refuses_oversized_task ... ok
+test scheduler::tests::failed_dependency_skips_downstream_work ... ok
+test scheduler::tests::retryable_task_retries_and_dependents_execute ... ok
+test schema::tests::compatibility_reports_breaking_required_addition ... ok
+test schema::tests::migration_renames_and_defaults_atomically ... ok
+test schema::tests::validation_applies_defaults_and_drops_unknown_fields ... ok
+test schema::tests::validation_collects_type_and_constraint_issues ... ok
+test state_machine::tests::analysis_finds_unreachable_state ... ok
+test state_machine::tests::guarded_dispatch_records_failures ... ok
+test state_machine::tests::instance_applies_and_replays_receipts ... ok
+test state_machine::tests::shortest_path_is_dependency_ordered ... ok
+test store::tests::duplicate_transaction_is_exactly_once ... ok
+test store::tests::failed_precondition_changes_nothing ... ok
+test store::tests::logical_expiry_hides_record_without_mutation ... ok
+test store::tests::multi_key_commit_is_atomic_and_replayable ... ok
+test store::tests::tombstone_preserves_monotonic_version ... ok
+
+failures:
+
+failures:
+    combinatorial::tests::telco_assessment_requires_redundant_compliant_paths
+
+test result: FAILED. 71 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+error: test failed, to rerun pass `--lib`
