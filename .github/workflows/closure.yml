@@ -26,6 +26,12 @@ jobs:
           from pathlib import Path
 
           replacements = {
+              "capabilities/dteam-kernel/src/hash.rs": [
+                  ("    let mut state = [\n", "    let mut state: [u32; 8] = [\n"),
+              ],
+              "capabilities/dteam-kernel/src/decision.rs": [
+                  ("use std::collections::{BTreeMap, BTreeSet};", "use std::collections::BTreeSet;"),
+              ],
               "capabilities/dteam-kernel/src/schema.rs": [
                   ("pub const fn default_value(&self) -> Option<&FactValue>",
                    "pub fn default_value(&self) -> Option<&FactValue>"),
@@ -38,12 +44,17 @@ jobs:
               ],
               "capabilities/dteam-kernel/src/scheduler.rs": [
                   ("(Some(id.clone()), value)", "(Some((*id).clone()), value)"),
+                  ("pub const fn max_attempts", "pub fn max_attempts"),
               ],
               "capabilities/dteam-kernel/src/state_machine.rs": [
                   ("let selected = top[0].clone();", "let selected = (*top[0]).clone();"),
               ],
               "capabilities/dteam-kernel/src/quota.rs": [
                   ("                candidate.shrink_to_fit();\n", ""),
+              ],
+              "capabilities/dteam-kernel/src/broker.rs": [
+                  ("        let authorization = AuthorizationReceipt::manufacture(\n            self.authorizations.receipts().len() as u64,\n            self.authorizations.head(),\n            &self.id,\n            executor.id(),\n            intent,\n            &plan,\n            self.tick(),\n        );",
+                   "        let authorization_time = self.tick();\n        let authorization = AuthorizationReceipt::manufacture(\n            self.authorizations.receipts().len() as u64,\n            self.authorizations.head(),\n            &self.id,\n            executor.id(),\n            intent,\n            &plan,\n            authorization_time,\n        );"),
               ],
               "tools/capability_ledger.py": [
                   ('parser.add_argument("--fail-on", action="append", default=["BUILD_BROKEN", "UNKNOWN"])',
