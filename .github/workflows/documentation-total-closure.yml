@@ -27,21 +27,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Normalize closure-engine source
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          path = Path("tools/documentation_closure.py")
-          text = path.read_text(encoding="utf-8")
-          text = text.replace(
-              '"tracked_markdown": len(markdown_paths(root, include_untracked=False)),',
-              '"tracked_markdown": len(markdown_paths(root, include_untracked=True)),',
-          )
-          line = '            "The complete path inventory is available in [`docs/MARKDOWN_INVENTORY.md`](MARKDOWN_INVENTORY.md).",\n            "",\n'
-          while line + line in text:
-              text = text.replace(line + line, line)
-          path.write_text(text, encoding="utf-8")
-          PY
       - name: Test closure engine
         run: python -m unittest tools.tests.test_documentation_closure -v
       - name: Rewrite or archive every Markdown file
