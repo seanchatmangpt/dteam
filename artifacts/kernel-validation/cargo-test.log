@@ -1,19 +1,19 @@
    Compiling dteam-capability-kernel v0.1.0 (/home/runner/work/dteam/dteam/capabilities/dteam-kernel)
 warning: method `logical_time` is never used
-   --> src/quota.rs:384:8
+   --> src/quota.rs:386:8
     |
-383 | impl QuotaAction {
+385 | impl QuotaAction {
     | ---------------- method in this implementation
-384 |     fn logical_time(&self) -> u64 {
+386 |     fn logical_time(&self) -> u64 {
     |        ^^^^^^^^^^^^
     |
     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
 
 warning: `dteam-capability-kernel` (lib test) generated 1 warning
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.97s
-     Running unittests src/lib.rs (capabilities/dteam-kernel/target/debug/build/dteam-capability-kernel/e0cc73f7c2273a18/out/dteam_capability_kernel-e0cc73f7c2273a18)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.12s
+     Running unittests src/lib.rs (capabilities/dteam-kernel/target/debug/deps/dteam_capability_kernel-e0cc73f7c2273a18)
 
-running 72 tests
+running 76 tests
 test access::tests::bounded_delegation_activates_role ... ok
 test access::tests::contextual_grant_refuses_then_allows ... ok
 test access::tests::deny_overrides_allow_at_more_specific_scope ... ok
@@ -26,7 +26,7 @@ test broker::tests::duplicate_intent_executes_once ... ok
 test combinatorial::tests::composition_search_preserves_multiple_lawful_options ... ok
 test combinatorial::tests::impossible_slo_is_blocked ... ok
 test combinatorial::tests::telco_assessment_requires_redundant_compliant_paths ... 
-thread 'combinatorial::tests::telco_assessment_requires_redundant_compliant_paths' (2384) panicked at src/combinatorial.rs:792:9:
+thread 'combinatorial::tests::telco_assessment_requires_redundant_compliant_paths' (2182) panicked at src/combinatorial.rs:1240:9:
 assertion `left == right` failed
   left: "PARTIAL_ALIVE"
  right: "ALIVE"
@@ -50,6 +50,15 @@ test hook::tests::exact_intents_are_deduplicated ... ok
 test hook::tests::linter_finds_unconditional_shadow ... ok
 test hook::tests::matching_hook_manufactures_intent_without_execution ... ok
 test hook::tests::subject_mismatch_is_refused ... ok
+test innovation::tests::audit_closes_selected_eighty_twenty_surface ... 
+thread 'innovation::tests::audit_closes_selected_eighty_twenty_surface' (2201) panicked at src/innovation.rs:1088:9:
+assertion `left == right` failed
+  left: Blocked
+ right: Alive
+FAILED
+test innovation::tests::snapshot_diff_detects_regression ... ok
+test innovation::tests::support_bundle_is_self_verifying ... ok
+test innovation::tests::transit_disjointness_allows_shared_service_endpoints ... ok
 test ledger::tests::chain_replays_and_queries ... ok
 test ledger::tests::intent_lookup_supports_idempotency ... ok
 test phase_change::tests::doctor_reports_partial_until_crown_is_alive ... ok
@@ -97,7 +106,8 @@ failures:
 
 failures:
     combinatorial::tests::telco_assessment_requires_redundant_compliant_paths
+    innovation::tests::audit_closes_selected_eighty_twenty_surface
 
-test result: FAILED. 71 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+test result: FAILED. 74 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
 
 error: test failed, to rerun pass `--lib`
