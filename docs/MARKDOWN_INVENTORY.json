@@ -1136,13 +1136,13 @@
     {
       "archive": null,
       "archived_source_sha256": null,
-      "bytes": 2728,
+      "bytes": 3031,
       "disposition": "reference",
-      "lines": 73,
+      "lines": 105,
       "owner": "repository-wide migration contract",
       "path": "docs/DOCUMENTATION_MIGRATION.md",
       "replacement": null,
-      "sha256": "d99582a6328b8aeb9563eedec0115a71ddec97422a5681a0020612819df41d22"
+      "sha256": "f10cf4845243231c97c598c3a10023b868c267f65a86f1797a202610895a8d5a"
     },
     {
       "archive": null,
