@@ -1,0 +1,130 @@
+name: kernel-receipt
+
+on:
+  pull_request:
+    paths:
+      - "capabilities/dteam-kernel/**"
+      - ".github/workflows/kernel-receipt.yml"
+
+concurrency:
+  group: kernel-receipt-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  receipt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CARGO_INCREMENTAL: "0"
+      RUSTFLAGS: "-C debuginfo=0"
+      MANIFEST: capabilities/dteam-kernel/Cargo.toml
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+      - name: Execute bounded validation ladder
+        id: validate
+        shell: bash
+        run: |
+          set +e
+          mkdir -p artifacts/kernel-validation
+
+          cargo check --manifest-path "$MANIFEST" --all-targets --message-format=short \
+            > artifacts/kernel-validation/cargo-check.log 2>&1
+          CHECK_EXIT=$?
+
+          TEST_EXIT=125
+          DEMO_EXIT=125
+          if [ "$CHECK_EXIT" -eq 0 ]; then
+            cargo test --manifest-path "$MANIFEST" --lib -- --test-threads=1 --nocapture \
+              > artifacts/kernel-validation/cargo-test.log 2>&1
+            TEST_EXIT=$?
+          else
+            printf 'skipped: cargo check failed\n' > artifacts/kernel-validation/cargo-test.log
+          fi
+
+          if [ "$CHECK_EXIT" -eq 0 ] && [ "$TEST_EXIT" -eq 0 ]; then
+            cargo run --quiet --manifest-path "$MANIFEST" --bin dteam-capabilities \
+              > artifacts/kernel-validation/demo.json 2> artifacts/kernel-validation/demo.stderr.log
+            DEMO_EXIT=$?
+          else
+            printf '{}\n' > artifacts/kernel-validation/demo.json
+            printf 'skipped: earlier validation gate failed\n' > artifacts/kernel-validation/demo.stderr.log
+          fi
+
+          export CHECK_EXIT TEST_EXIT DEMO_EXIT
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path("artifacts/kernel-validation")
+
+          def digest(path: Path) -> str:
+              return hashlib.sha256(path.read_bytes()).hexdigest()
+
+          def tail(path: Path, lines: int = 200) -> list[str]:
+              return path.read_text(encoding="utf-8", errors="replace").splitlines()[-lines:]
+
+          check_exit = int(os.environ["CHECK_EXIT"])
+          test_exit = int(os.environ["TEST_EXIT"])
+          demo_exit = int(os.environ["DEMO_EXIT"])
+          standing = "ALIVE" if (check_exit, test_exit, demo_exit) == (0, 0, 0) else "BUILD_BROKEN"
+          receipt = {
+              "schema": "urn:dteam:kernel-validation-receipt:v1",
+              "standing": standing,
+              "subject": {
+                  "repository": os.environ.get("GITHUB_REPOSITORY"),
+                  "sha": os.environ.get("GITHUB_SHA"),
+                  "ref": os.environ.get("GITHUB_HEAD_REF"),
+                  "manifest": os.environ.get("MANIFEST"),
+              },
+              "commands": [
+                  {"name": "cargo-check", "exit": check_exit, "log_sha256": digest(root / "cargo-check.log")},
+                  {"name": "cargo-test-lib", "exit": test_exit, "log_sha256": digest(root / "cargo-test.log")},
+                  {"name": "cargo-run-demo", "exit": demo_exit, "log_sha256": digest(root / "demo.stderr.log")},
+              ],
+              "diagnostics": {
+                  "cargo_check_tail": tail(root / "cargo-check.log"),
+                  "cargo_test_tail": tail(root / "cargo-test.log"),
+                  "demo_stderr_tail": tail(root / "demo.stderr.log"),
+              },
+          }
+          encoded = json.dumps(receipt, indent=2, sort_keys=True) + "\n"
+          (root / "receipt.json").write_text(encoded, encoding="utf-8")
+          print(encoded)
+          PY
+
+          echo "check_exit=$CHECK_EXIT" >> "$GITHUB_OUTPUT"
+          echo "test_exit=$TEST_EXIT" >> "$GITHUB_OUTPUT"
+          echo "demo_exit=$DEMO_EXIT" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Publish replayable receipt on branch
+        shell: bash
+        run: |
+          git config user.name "dteam-kernel-receipt-bot"
+          git config user.email "dteam-kernel-receipt-bot@users.noreply.github.com"
+          git add artifacts/kernel-validation
+          if git diff --cached --quiet; then
+            echo "receipt unchanged"
+          else
+            git commit -m "chore(kernel): publish exact-head validation receipt"
+            git push origin HEAD:${{ github.event.pull_request.head.ref }}
+          fi
+      - name: Upload complete validation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-validation-receipt
+          path: artifacts/kernel-validation
+          if-no-files-found: error
+      - name: Enforce standing
+        shell: bash
+        run: |
+          test "${{ steps.validate.outputs.check_exit }}" = "0"
+          test "${{ steps.validate.outputs.test_exit }}" = "0"
+          test "${{ steps.validate.outputs.demo_exit }}" = "0"
