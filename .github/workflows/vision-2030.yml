@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "capabilities/dteam-kernel/src/phase_change.rs"
+      - "capabilities/dteam-kernel/src/combinatorial.rs"
       - "capabilities/dteam-kernel/src/bin/dteam-doctor.rs"
       - "capabilities/dteam-kernel/src/lib.rs"
       - "capabilities/dteam-kernel/Cargo.toml"
@@ -19,18 +20,20 @@ permissions:
 jobs:
   prove:
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       MANIFEST: capabilities/dteam-kernel/Cargo.toml
       CARGO_INCREMENTAL: "0"
       RUSTFLAGS: "-C debuginfo=0"
     steps:
       - uses: actions/checkout@v4
-      - name: Type-check doctor surface
+      - name: Type-check maximalist control plane
         run: cargo check --manifest-path "$MANIFEST" --bin dteam-doctor
-      - name: Execute control-plane tests
-        run: cargo test --manifest-path "$MANIFEST" phase_change::tests -- --test-threads=1
-      - name: Manufacture Vision 2030 evidence
+      - name: Execute control-plane and combinatorial tests
+        run: |
+          cargo test --manifest-path "$MANIFEST" phase_change::tests -- --test-threads=1
+          cargo test --manifest-path "$MANIFEST" combinatorial::tests -- --test-threads=1
+      - name: Manufacture Vision 2030 maximalist evidence
         shell: bash
         run: |
           mkdir -p artifacts/vision-2030
@@ -38,6 +41,10 @@ jobs:
           cargo run --quiet --manifest-path "$MANIFEST" --bin dteam-doctor -- graph > artifacts/vision-2030/graph.txt
           cargo run --quiet --manifest-path "$MANIFEST" --bin dteam-doctor -- repair > artifacts/vision-2030/repair.txt
           cargo run --quiet --manifest-path "$MANIFEST" --bin dteam-doctor -- qol prove > artifacts/vision-2030/qol-prove.txt
+          cargo run --quiet --manifest-path "$MANIFEST" --bin dteam-doctor -- wizard telco > artifacts/vision-2030/wizard-telco.txt
+          cargo run --quiet --manifest-path "$MANIFEST" --bin dteam-doctor -- compose developer > artifacts/vision-2030/compose-developer.txt
+          cargo run --quiet --manifest-path "$MANIFEST" --bin dteam-doctor -- compose telco > artifacts/vision-2030/compose-telco.txt
+          cargo run --quiet --manifest-path "$MANIFEST" --bin dteam-doctor -- telco > artifacts/vision-2030/telco.txt
           set +e
           cargo run --quiet --manifest-path "$MANIFEST" --bin dteam-doctor -- crown > artifacts/vision-2030/crown.txt
           crown_exit=$?
@@ -53,12 +60,15 @@ jobs:
           for path in sorted(root.iterdir()):
               files[path.name] = hashlib.sha256(path.read_bytes()).hexdigest()
           receipt = {
-              "schema": "urn:dteam:vision-2030-receipt:v1",
+              "schema": "urn:dteam:vision-2030-combinatorial-receipt:v2",
               "repository": os.environ.get("GITHUB_REPOSITORY"),
               "sha": os.environ.get("GITHUB_SHA"),
               "standing": doctor["standing"],
               "score": doctor["score"],
               "doctor_digest": doctor["digest"],
+              "wizard": "wizard-telco.txt" in files,
+              "compositions": ["compose-developer.txt", "compose-telco.txt"],
+              "telco": "telco.txt" in files,
               "files": files,
           }
           (root / "receipt.json").write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n")
@@ -67,6 +77,6 @@ jobs:
       - name: Upload Vision 2030 receipt
         uses: actions/upload-artifact@v4
         with:
-          name: vision-2030-evidence
+          name: vision-2030-combinatorial-evidence
           path: artifacts/vision-2030
           if-no-files-found: error
