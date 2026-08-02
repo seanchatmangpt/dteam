@@ -4,7 +4,7 @@
 //! The crate is deliberately standalone: it provides a runnable nucleus while the
 //! larger workspace's sibling repositories are unavailable. Its execution path is:
 //!
-//! `observe → route → admit/refuse → decide → plan → transition → transact → authorize → actuate → provenance → receipt → replay`.
+//! `observe → validate → route → admit/refuse → decide → plan → transition → transact → authorize → actuate → provenance → receipt → replay`.
 
 pub mod broker;
 pub mod decision;
@@ -17,6 +17,7 @@ pub mod process;
 pub mod provenance;
 pub mod runtime;
 pub mod scheduler;
+pub mod schema;
 pub mod state_machine;
 pub mod store;
 
@@ -54,6 +55,11 @@ pub use scheduler::{
     execute_schedule, ScheduleError, ScheduleExecution, SchedulePlan, Task, TaskExecutor, TaskGraph,
     TaskId, TaskOutcome, TaskReceipt,
 };
+pub use schema::{
+    CompatibilityChange, CompatibilityReport, Constraint, Document, DocumentSchema, FieldSchema,
+    MigrationPlan, MigrationResult, MigrationStep, SchemaError, UnknownFieldPolicy, ValidationIssue,
+    ValidationReport, ValueType,
+};
 pub use state_machine::{
     ApplyResult, DispatchDecision, EventKind, Guard, GuardFailure, InstanceVerificationError,
     MachineAnalysis, MachineError, MachineFinding, MachineInstance, StateId, StateMachine,
@@ -69,12 +75,13 @@ pub mod prelude {
     pub use crate::{
         discover_transition_system, execute_schedule, Activity, AdmissionPolicy, ApplyResult,
         AuthorityId, BatchMode, Broker, Capability, CapabilityGraph, CapabilityId, Condition,
-        DecisionEffect, DecisionOutcome, DecisionRule, DecisionTable, EventId, EventKind,
-        EventRecord, Executor, ExpectedVersion, FactValue, Guard, Intent, MachineInstance, Mutation,
-        NodeId, ObjectEventLog, ObjectId, ObjectRecord, ObjectType, Observation, OperationId,
-        Outcome, PolicyId, Predicate, PreflightRefusal, ProvenanceGraph, ProvenanceNode, ReceiptQuery,
+        Constraint, DecisionEffect, DecisionOutcome, DecisionRule, DecisionTable, Document,
+        DocumentSchema, EventId, EventKind, EventRecord, Executor, ExpectedVersion, FactValue,
+        FieldSchema, Guard, Intent, MachineInstance, MigrationPlan, MigrationStep, Mutation, NodeId,
+        ObjectEventLog, ObjectId, ObjectRecord, ObjectType, Observation, OperationId, Outcome,
+        PolicyId, Predicate, PreflightRefusal, ProvenanceGraph, ProvenanceNode, ReceiptQuery,
         RecordKey, Relation, Route, Router, Rule, Runtime, StateId, StateMachine, SubjectId, Task,
         TaskExecutor, TaskGraph, TaskId, TaskOutcome, Transaction, TransactionalStore, Transition,
-        TransitionId, TransitionSystem,
+        TransitionId, TransitionSystem, UnknownFieldPolicy, ValueType,
     };
 }
