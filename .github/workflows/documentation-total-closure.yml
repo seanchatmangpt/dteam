@@ -47,14 +47,15 @@ jobs:
         run: python tools/documentation_closure.py --root . --check
       - name: Commit manufactured documentation closure
         run: |
-          if git diff --quiet && [ -z "$(git ls-files --others --exclude-standard)" ]; then
-            echo "documentation closure already stable"
-            exit 0
-          fi
           git config user.name "dteam-documentation-closure"
           git config user.email "dteam-documentation-closure@users.noreply.github.com"
           git add -A
-          git commit -m "docs: close complete markdown inventory"
+          git add -f docs/MARKDOWN_INVENTORY.json docs/DOCUMENTATION_CLOSURE.json
+          if git diff --cached --quiet; then
+            echo "documentation closure already stable"
+            exit 0
+          fi
+          git commit -m "docs: publish complete markdown closure receipt"
           git push origin HEAD:${{ github.event.pull_request.head.ref || github.ref_name }}
       - name: Publish receipt summary
         if: always()
