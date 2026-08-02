@@ -1,12 +1,5 @@
 #!/usr/bin/env python3
-"""Autonomous Chicago-style TDD validator for the dteam capability kernel.
-
-The validator exercises real compiled collaborators and observable state. It does
-not mock kernel modules. Coverage is structural: every public module declared in
-src/lib.rs must be owned by at least one executable scenario. The combinatorial
-matrix expands every supported wizard profile through wizard and composition
-surfaces, then validates telco and crown negative controls.
-"""
+"""Autonomous Chicago-style TDD validator for the dteam capability kernel."""
 
 from __future__ import annotations
 
@@ -16,7 +9,6 @@ import json
 import os
 import re
 import subprocess
-import sys
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -78,12 +70,14 @@ def cargo(manifest: Path, *args: str) -> tuple[str, ...]:
 
 
 def scenarios(manifest: Path) -> tuple[Scenario, ...]:
+    all_modules = (
+        "access", "broker", "combinatorial", "decision", "event_bus", "graph", "hash",
+        "hook", "ledger", "model", "phase_change", "policy", "process", "provenance",
+        "quota", "runtime", "saga", "scheduler", "schema", "state_machine", "store",
+    )
     base = [
-        Scenario(
-            "compile-all-targets",
-            ("broker", "combinatorial", "decision", "graph", "hash", "hook", "ledger", "model", "phase_change", "policy", "process", "provenance", "quota", "runtime", "scheduler", "schema", "state_machine", "store"),
-            cargo(manifest, "check", "--all-targets"),
-        ),
+        Scenario("compile-all-targets", all_modules, cargo(manifest, "check", "--all-targets")),
+        Scenario("access-state", ("access",), cargo(manifest, "test", "access::tests", "--", "--test-threads=1")),
         Scenario("identity-state", ("hash", "model"), cargo(manifest, "test", "hash::tests", "--", "--test-threads=1")),
         Scenario("schema-state", ("schema",), cargo(manifest, "test", "schema::tests", "--", "--test-threads=1")),
         Scenario("transaction-state", ("store",), cargo(manifest, "test", "store::tests", "--", "--test-threads=1")),
@@ -92,17 +86,46 @@ def scenarios(manifest: Path) -> tuple[Scenario, ...]:
         Scenario("decision-state", ("decision",), cargo(manifest, "test", "decision::tests", "--", "--test-threads=1")),
         Scenario("planning-state", ("graph",), cargo(manifest, "test", "graph::tests", "--", "--test-threads=1")),
         Scenario("broker-state", ("broker",), cargo(manifest, "test", "broker::tests", "--", "--test-threads=1")),
+        Scenario("event-bus-state", ("event_bus",), cargo(manifest, "test", "event_bus::tests", "--", "--test-threads=1")),
         Scenario("hook-state", ("hook",), cargo(manifest, "test", "hook::tests", "--", "--test-threads=1")),
         Scenario("process-state", ("process",), cargo(manifest, "test", "process::tests", "--", "--test-threads=1")),
         Scenario("provenance-state", ("provenance",), cargo(manifest, "test", "provenance::tests", "--", "--test-threads=1")),
         Scenario("quota-state", ("quota",), cargo(manifest, "test", "quota::tests", "--", "--test-threads=1")),
+        Scenario("saga-state", ("saga",), cargo(manifest, "test", "saga::tests", "--", "--test-threads=1")),
         Scenario("scheduler-state", ("scheduler",), cargo(manifest, "test", "scheduler::tests", "--", "--test-threads=1")),
         Scenario("machine-state", ("state_machine",), cargo(manifest, "test", "state_machine::tests", "--", "--test-threads=1")),
-        Scenario("runtime-system", ("runtime", "broker", "ledger", "policy", "graph"), cargo(manifest, "run", "--quiet", "--bin", "dteam-capabilities"), required_text=("standing", "completion_receipt")),
-        Scenario("doctor-state", ("phase_change",), cargo(manifest, "run", "--quiet", "--bin", "dteam-doctor", "--", "--json"), required_text=("standing", "score", "digest")),
+        Scenario(
+            "runtime-system",
+            ("runtime", "broker", "ledger", "policy", "graph"),
+            cargo(manifest, "run", "--quiet", "--bin", "dteam-capabilities"),
+            required_text=("standing", "completion_receipt"),
+        ),
+        Scenario(
+            "dense-system",
+            ("access", "event_bus", "saga", "runtime", "quota", "store"),
+            cargo(manifest, "run", "--quiet", "--bin", "dteam-dense-demo"),
+            required_text=("standing",),
+        ),
+        Scenario(
+            "doctor-state",
+            ("phase_change",),
+            cargo(manifest, "run", "--quiet", "--bin", "dteam-doctor", "--", "--json"),
+            required_text=("standing", "score", "digest"),
+        ),
         Scenario("combinatorial-state", ("combinatorial",), cargo(manifest, "test", "combinatorial::tests", "--", "--test-threads=1")),
-        Scenario("telco-state", ("combinatorial",), cargo(manifest, "run", "--quiet", "--bin", "dteam-doctor", "--", "telco"), required_text=("standing=", "compliant_paths=", "digest=")),
-        Scenario("crown-negative-control", ("phase_change",), cargo(manifest, "run", "--quiet", "--bin", "dteam-doctor", "--", "crown"), expected_exit=3, required_text=("VISION_2030",)),
+        Scenario(
+            "telco-state",
+            ("combinatorial",),
+            cargo(manifest, "run", "--quiet", "--bin", "dteam-doctor", "--", "telco"),
+            required_text=("standing=", "compliant_paths=", "digest="),
+        ),
+        Scenario(
+            "crown-negative-control",
+            ("phase_change",),
+            cargo(manifest, "run", "--quiet", "--bin", "dteam-doctor", "--", "crown"),
+            expected_exit=3,
+            required_text=("VISION_2030",),
+        ),
     ]
     for profile in PROFILES:
         base.extend(
