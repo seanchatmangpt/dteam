@@ -445,7 +445,7 @@ fn critical_path(
             .dependencies()
             .map(|dependency| (dependency, distance[dependency]))
             .max_by_key(|(dependency, value)| (*value, Reverse((*dependency).clone())))
-            .map_or((None, 0), |(id, value)| (Some(id.clone()), value));
+            .map_or((None, 0), |(id, value)| (Some((*id).clone()), value));
         let current = parent_distance
             .checked_add(task.cost())
             .ok_or(ScheduleError::CostOverflow)?;

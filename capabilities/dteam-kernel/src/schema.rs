@@ -388,7 +388,7 @@ impl FieldSchema {
     }
 
     #[must_use]
-    pub const fn default_value(&self) -> Option<&FactValue> {
+    pub fn default_value(&self) -> Option<&FactValue> {
         self.default.as_ref()
     }
 
@@ -1121,7 +1121,7 @@ pub struct MigrationResult {
 
 impl MigrationResult {
     #[must_use]
-    pub const fn output(&self) -> &Document {
+    pub fn output(&self) -> &Document {
         &self.output
     }
 
@@ -1245,8 +1245,8 @@ mod tests {
         )
         .unwrap();
         let result = plan.apply(&input).unwrap();
-        assert_eq!(result.output().get("status"), Some(&"open".into()));
-        assert_eq!(result.output().get("priority"), Some(&1_u64.into()));
+        assert_eq!(result.output().get("status"), Some(&FactValue::Text("open".to_owned())));
+        assert_eq!(result.output().get("priority"), Some(&FactValue::U64(1)));
         assert!(input.get("state").is_some());
     }
 }

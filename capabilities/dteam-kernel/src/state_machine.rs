@@ -648,7 +648,7 @@ impl StateMachine {
             };
         }
 
-        let selected = top[0].clone();
+        let selected = (*top[0]).clone();
         let digest = dispatch_digest("selected", state, event, &evaluations, &[top[0]]);
         DispatchDecision::Selected {
             transition: selected,

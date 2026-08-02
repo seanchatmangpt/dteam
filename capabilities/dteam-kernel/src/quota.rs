@@ -1031,7 +1031,6 @@ impl QuotaManager {
                     bucket.available -= claim.amount();
                 }
                 let expires_at = request.logical_time().saturating_add(lease_duration);
-                candidate.shrink_to_fit();
                 self.buckets = candidate;
                 self.reservations
                     .insert(request.id().clone(), Reservation::new(request, expires_at));
