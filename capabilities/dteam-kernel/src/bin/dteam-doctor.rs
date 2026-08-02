@@ -1,10 +1,10 @@
 use dteam_capability_kernel::{
-    standard_combinatorial_engine, FeatureId, QolCatalog, ServiceObjective, TelcoTopology,
-    Vision2030, VisionWizard, WizardValue,
+    standard_combinatorial_engine, FeatureId, InnovationAudit, QolCatalog, ServiceObjective,
+    TelcoTopology, Vision2030, VisionWizard, WizardValue,
 };
 
 fn print_help() {
-    println!("dteam-doctor [--json|status|repair|graph|qol <profile>|wizard [preset]|compose [preset]|telco|crown]");
+    println!("dteam-doctor [--json|status|repair|graph|qol <profile>|wizard [preset]|compose [preset]|telco|innovation|innovation-json|snapshot|support|crown]");
     println!("presets: developer | edge | telco | enterprise");
 }
 
@@ -84,6 +84,14 @@ fn print_telco() {
     if assessment.standing() == "BLOCKED" { std::process::exit(4); }
 }
 
+fn print_innovation_json() {
+    let audit = InnovationAudit::run();
+    println!("{}", audit.to_json());
+    if !audit.standing().is_usable() {
+        std::process::exit(5);
+    }
+}
+
 fn main() {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
     let vision = Vision2030::standard();
@@ -92,9 +100,9 @@ fn main() {
         "--json" | "status" => println!("{}", report.to_json()),
         "repair" => {
             let plan = vision.repair_plan();
-            println!("standing={} current_score={} projected_score={} plan={}", report.standing(), report.score(), plan.projected_score(), plan.digest());
+            println!("standing={} current_score={} projected_score_if_all_actions_succeed={} plan={}", report.standing(), report.score(), plan.projected_score(), plan.digest());
             for (index, action) in plan.actions().iter().enumerate() {
-                println!("{}. [{} impact={}] {}", index + 1, action.capability(), action.impact(), action.command());
+                println!("{}. [{} impact={} reversible={}] {} :: {}", index + 1, action.capability(), action.impact(), action.reversible(), action.command(), action.reason());
             }
         }
         "graph" => {
@@ -135,6 +143,29 @@ fn main() {
             print_compositions(preset);
         }
         "telco" => print_telco(),
+        "innovation" => {
+            let audit = InnovationAudit::run();
+            print!("{}", audit.to_markdown());
+            if !audit.standing().is_usable() {
+                std::process::exit(5);
+            }
+        }
+        "innovation-json" => print_innovation_json(),
+        "snapshot" => {
+            let audit = InnovationAudit::run();
+            println!("{}", audit.snapshot().to_json());
+            if !audit.standing().is_usable() {
+                std::process::exit(5);
+            }
+        }
+        "support" => {
+            let audit = InnovationAudit::run();
+            let bundle = audit.support_bundle();
+            println!("{}", bundle.to_json());
+            if !bundle.verify() || !audit.standing().is_usable() {
+                std::process::exit(5);
+            }
+        }
         "feature" => {
             let Some(name) = args.get(1) else { eprintln!("feature name required"); std::process::exit(2); };
             match FeatureId::new(name.clone()) {
