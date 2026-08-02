@@ -1,0 +1,11 @@
+checkpoint	lineage	principle	observable	admission	falsifier
+G1	John Gall	Start from a working simple system	run-local.sh completes from a clean tree	exit=0 and standing=ALIVE	clean replay fails
+G2	Wil van der Aalst	Record behavior as event evidence	nine runtime evidence documents	all runtime observations present	missing execution evidence
+G3	Wil van der Aalst	Conformance before optimization	all runtime results agree on subject and cardinality	9/9 exact SHA-256 and semantic agreement	any divergent result
+G4	Wil van der Aalst et al.	Preserve process model and event correspondence	capability graph and Cartesian profile topology	24 capabilities and 8640 profiles	model/evidence cardinality mismatch
+G5	Robert C. Martin	Dependencies point toward policy	authority tables and declarative rules do not depend on validators	canonical authority is runtime-independent	validator-specific authority
+G6	Robert C. Martin	Keep boundaries explicit and independently testable	each language validator is replaceable behind one JSON contract	all validators satisfy the same contract	shared hidden implementation dependency
+G7	Hunt and Thomas	Use tracer bullets for executable feedback	one command crosses every available local runtime	local runner provides immediate complete feedback	manual unverifiable step
+G8	Hunt and Thomas	Automate repetition and make failures loud	clean rebuild compiles and executes every local body	set -euo pipefail and typed nonzero exits	silent partial success
+G9	Hunt and Thomas et al.	Preserve reversibility and orthogonality	all capability selections remain reversible and separately named	24/24 reversible capability edges	irreversible hidden coupling
+G10	Gall + van der Aalst + Martin + Hunt/Thomas	Extend only after the smaller system is observed alive	innovation layer adds evidence without changing prior profile semantics	previous 8640-profile crown still passes plus 10/10 checkpoints	extension breaks prior standing
