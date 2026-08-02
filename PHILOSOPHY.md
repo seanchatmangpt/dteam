@@ -1,185 +1,98 @@
-# Philosophy: Civilization-First Licensing for Compiled Cognition
+# Project philosophy
 
-## The Blue River Dam Pattern
+dteam exists to make computational decisions inspectable, bounded, reproducible, and locally operable.
 
-In the 1950s, the U.S. Corps of Engineers dammed the Blue River in Colorado. The dam was built to provide flood control, water storage, and power generation—public goods that benefited civilization.
+This document explains the project’s design and licensing motivation. It is not legal advice and does not replace [`LICENSE`](LICENSE).
 
-Then Congress privatized the dam's management. The agency that operated it could now extract rent from water users, farmers, and cities downriver. A public good became a private tollbooth.
+## Engineering position
 
-**This happens in technology**, and Compiled Cognition must prevent it.
+The governing model is:
 
----
-
-## Why Permissive Licensing Enables Platform Capture
-
-Suppose dteam is released under MIT or Apache 2.0 (fully permissive, no restrictions).
-
-A large AI infrastructure company (call it "Platform X") could:
-
-1. **Fork dteam**
-2. **Wrap it in a managed cloud service** ("Compiled Cognition Cloud")
-3. **Charge per decision, per deployment, or per audit**
-
-Platform X has now **recreated the exact dependency tax that Compiled Cognition was designed to eliminate**.
-
-The math:
-- Before: organizations had to use an external LLM API (rent-seeking)
-- After: organizations thought they had escaped dependency rent
-- But: now they pay Platform X instead (rent still extracted, just rebranded)
-
-**Platform X did nothing wrong under a permissive license.** But they violated the *spirit* of the invention: freedom from dependency.
-
----
-
-## The Three-Layer Solution
-
-Compiled Cognition uses a **three-layer release model** to prevent this:
-
-### Layer 1: Public Theory
-The thesis, equations, principles, and arguments are published freely.
-
-- `docs/COMPILED_COGNITION.md`
-- `docs/thesis/thesis.md`
-- `PHILOSOPHY.md` (this document)
-- Academic papers, talks, teaching materials
-
-**Goal**: Civilization learns the pattern. If anyone reinvents it independently, good.
-
-### Layer 2: Source-Available Implementation
-The reference implementation is readable, inspectable, and usable under BUSL 1.1.
-
-- **Permitted**: Study, research, education, personal use, small organization production
-- **Restricted**: Platform capture, commercial embedding, dependency-rent recreation
-- **Mechanism**: Business Source License with a Change Date
-
-**Goal**: Developers can inspect, learn, and experiment. Megacorps cannot immediately enclose it.
-
-### Layer 3: Commercial Sustainability
-Large commercial users can license the technology under mission-aligned terms.
-
-- **Who**: Organizations >$1M revenue, or those embedding in commercial products
-- **What**: Production support, certification, audit readiness, patent coverage
-- **Mission Covenant**: You may use this to remove dams, not to build a larger dam downstream
-
-**Goal**: The creators can sustain development. Commercial users can build on dteam. But neither recreates dependency rent.
-
----
-
-## Governing Equation
-
-The license implements a governance equation:
-
-```
-License_CC = Read ∧ Learn ∧ Experiment ∧ NonExtractiveUse ∧ DelayedCommons ∧ ¬PlatformCapture
+```text
+A = μ(O*)
+R = receipt(A)
 ```
 
-Parsed:
+- `O*` is an admitted observation: typed, bounded, and policy-valid.
+- `μ` is a deterministic lawful transition.
+- `A` is the resulting artifact, decision, plan, or actuation.
+- `R` records identity, authority, outcome, and replay evidence.
 
-- **Read**: The source is available. You can inspect it.
-- **Learn**: You can study it, teach from it, understand the pattern.
-- **Experiment**: You can use it for research, prototyping, internal projects.
-- **NonExtractiveUse**: You can use it as long as you're not recreating dependency rent.
-- **DelayedCommons**: On April 18, 2029, it becomes Apache 2.0. The promise is written into law.
-- **¬PlatformCapture**: You cannot use it to build a platform that extracts rent from the same dependency Compiled Cognition removes.
+The model produces several practical rules:
 
----
+1. **Observation is not authority.** Reading state does not grant permission to mutate it.
+2. **Selection is not actuation.** Planners and semantic systems may manufacture alternatives, but only an admitted execution boundary may perform effects.
+3. **Claims require evidence.** Source inspection, generated files, and workflow definitions do not establish runtime standing.
+4. **Local operation matters.** A user should be able to inspect, execute, verify, and retain the system without mandatory dependence on a hosted inference or control service.
+5. **History should remain visible.** Failed experiments and superseded designs are archived rather than silently rewritten as though they never existed.
 
-## Why April 18, 2029?
+## Civilization-first objective
 
-The Change Date is not arbitrary.
+The project is intended to reduce dependency rents around decision and process infrastructure. Source availability serves three purposes:
 
-- **4 years** is long enough for the creators to build a sustainable business
-- **4 years** is short enough that no megacorp can lock in customers on a dependency
-- **April 18, 2029** is a specific date, locked in the LICENSE file. It's a promise written into code.
+- people can inspect and challenge the implementation;
+- researchers and practitioners can reproduce the ideas;
+- organizations can develop internal competence rather than outsourcing every decision to an opaque service.
 
-When that date arrives, dteam becomes Apache 2.0. Permissive. Open. Commons.
+At the same time, immediate unrestricted platform capture could recreate the same dependency structure under a new provider. The licensing model therefore separates learning and bounded use from unrestricted commercial enclosure during the source-available period.
 
-**There is no ambiguity, no fine print, no "we might extend it." On April 18, 2029, it's open source.**
+## Release model
 
----
+The project uses three layers.
 
-## Contrast with Other Models
+### Public theory
 
-### Permissive OSS (MIT, Apache 2.0)
-- **Pros**: Maximum reuse, immediate adoption, no friction
-- **Cons**: Enables immediate platform capture; the Blue River Dam pattern succeeds
+Concepts, equations, architectural arguments, and research results are documented for study and critique.
 
-### Proprietary (Closed Source)
-- **Pros**: Creator controls the business model
-- **Cons**: Civilization cannot inspect it; adoption is bottlenecked; theory spreads slowly
+### Source-available implementation
 
-### BUSL with Civilization-First Grant
-- **Pros**: Theory spreads (Layer 1); adoption happens (Layer 2); capture prevented (Layer 2 restriction); commons guaranteed (Layer 3 timing); sustainability (Layer 3 licensing)
-- **Cons**: Requires clarity, enforcement, and trust in the Change Date
+The implementation can be inspected and used under the terms and additional grant in [`LICENSE`](LICENSE). The license text, not this document, controls.
 
----
+### Delayed commons
 
-## Why BUSL, Not Other Approaches?
+The Business Source License parameters specify a change date of **April 18, 2029**, after which the licensed work converts to the stated change license. Consult [`LICENSE`](LICENSE) for the exact legal terms.
 
-Other restricted licenses exist:
+## Bounded intelligence
 
-- **Elastic License**: Restricts use by competitors; too narrow
-- **Server Side Public License (SSPL)**: Requires source release of entire application; too broad and legally uncertain
-- **Commons Clause**: Adds a commercial-use restriction to OSS; but doesn't solve the Blue River problem (you can't prevent Platform X from licensing separately)
+dteam favors systems that are:
 
-**BUSL is ideal because:**
+- **bounded** — explicit inputs, limits, and refusal conditions;
+- **lawful** — policy and authority are checked before effect;
+- **non-sovereign** — no component receives unlimited ambient control;
+- **replayable** — decisions and effects can be reconstructed from evidence;
+- **replaceable** — components are connected through explicit contracts rather than institutional dependence.
 
-1. It explicitly permits non-commercial, research, and small-org use
-2. The Additional Use Grant can articulate the civilization-first principle
-3. The Change Date is a hard commitment to openness
-4. It's legally established (used by MariaDB, MongoDB post-revert, Stripe, etc.)
-5. It clearly communicates: "today source-available, later Apache 2.0"
+This is a technical discipline, not a claim that software can eliminate judgment, politics, or organizational responsibility.
 
----
+## Evidence discipline
 
-## The Angelic AI Connection
+The repository uses typed standing:
 
-Compiled Cognition is a form of **Angelic AI**: bounded, lawful, non-sovereign intelligence.
+- `UNKNOWN` when evidence is insufficient;
+- `PARTIAL_ALIVE` when only part of the admitted subject executed;
+- `ALIVE` when the exact subject executed successfully with matching evidence;
+- `BLOCKED` when an external dependency or authority boundary prevents execution;
+- `BUILD_BROKEN` when the admitted source fails its required build or verifier;
+- `UNSUPPORTED` when the requested capability is outside the implementation.
 
-The license enforces this socially:
+The standing belongs to a named subject and receipt. It must not be generalized beyond that boundary.
 
-- **Bounded**: Restricted use cases prevent a system from becoming a universal platform
-- **Lawful**: The Additional Use Grant defines what uses are permitted, what forbidden
-- **Non-Sovereign**: No single entity can impose arbitrary changes; the Change Date is law
+## Design principles
 
-**The license prevents Angelic AI from becoming OracleAI** (a new dependency) **or SovereignAI** (an unrestricted platform).
+1. Preserve the distinction between `SELECT`, `CONSTRUCT`, and `DO`.
+2. Permit actuation only through an explicit broker or equivalent authority boundary.
+3. Prefer deterministic representations and canonical identities.
+4. Record provenance and receipts for consequential transitions.
+5. Keep local execution and independent verification viable.
+6. Make failure states explicit rather than converting them into success-shaped output.
+7. Preserve historical evidence while maintaining one current authority per concept.
+8. Treat documentation, tests, and operational receipts as parts of the system contract.
 
----
+## Related authorities
 
-## Enterprise Trust
-
-Large organizations worry: "Will this license change? Will the creators go proprietary later?"
-
-The answer is in the LICENSE file, legally binding:
-
-> "On April 18, 2029, this License will automatically terminate and the Licensed Work will thereafter be licensed under the Change License: Apache License 2.0."
-
-This is not a promise. It's a legal obligation. Changing it would breach the BUSL 1.1 specification.
-
-Enterprise users can:
-- Fork before April 18, 2029, and keep their fork under BUSL indefinitely
-- Wait until April 18, 2029, and get Apache 2.0 automatically
-- License commercially today and keep their license indefinitely
-
----
-
-## Principles Summary
-
-1. **Release the source, not the extraction rights**
-2. **Civilization deserves to learn the pattern**
-3. **Small organizations deserve to use it freely**
-4. **Large commercial users can license it affordably**
-5. **The eventual destination is the commons**
-6. **The path is BUSL with a fixed Change Date, not forever proprietary**
-
----
-
-## See Also
-
-- `LICENSE` — The legal text (BUSL 1.1)
-- `USE-GRANT.md` — Plain English: what you can/cannot do
-- `COMMERCIAL.md` — Commercial licensing terms
-- `PATENTS.md` — Patent strategy and no-offensive-use covenant
-- `CONTRIBUTING.md` — How to contribute
-- `docs/COMPILED_COGNITION.md` — The technical theory
-
+- [`README.md`](README.md) — project identity and entry point
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — component and authority boundaries
+- [`docs/VALIDATION.md`](docs/VALIDATION.md) — evidence and release criteria
+- [`docs/RESEARCH.md`](docs/RESEARCH.md) — research questions and evaluation discipline
+- [`docs/DOCUMENTATION_MAP.md`](docs/DOCUMENTATION_MAP.md) — documentation authorities
+- [`LICENSE`](LICENSE) — controlling license text
