@@ -1,0 +1,46 @@
+name: documentation-total-closure
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: documentation-total-closure-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  close-markdown:
+    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'agent/documentation-total-closure'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Test closure engine
+        run: python -m unittest tools.tests.test_documentation_closure -v
+      - name: Rewrite or archive every Markdown file
+        run: python tools/documentation_closure.py --root . --apply
+      - name: Verify documentation closure
+        run: python tools/documentation_closure.py --root . --check
+      - name: Commit manufactured documentation closure
+        run: |
+          if git diff --quiet && [ -z "$(git ls-files --others --exclude-standard)" ]; then
+            echo "documentation closure already stable"
+            exit 0
+          fi
+          git config user.name "dteam-documentation-closure"
+          git config user.email "dteam-documentation-closure@users.noreply.github.com"
+          git add -A
+          git commit -m "docs: close complete markdown inventory"
+          git push origin HEAD:${{ github.event.pull_request.head.ref || github.ref_name }}
+      - name: Publish receipt summary
+        if: always()
+        run: |
+          test -f docs/DOCUMENTATION_CLOSURE.json && cat docs/DOCUMENTATION_CLOSURE.json || true
