@@ -18,7 +18,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Verify closure tool
+      - name: Verify closure capabilities
         run: python -m unittest discover -s tools/tests -p 'test_*.py' -v
       - name: Verify repository source closure
         run: python tools/verify_repository.py --root .
