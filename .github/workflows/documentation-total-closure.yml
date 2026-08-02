@@ -11,6 +11,9 @@ concurrency:
 permissions:
   contents: write
 
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+
 jobs:
   close-markdown:
     if: github.event_name == 'workflow_dispatch' || github.head_ref == 'agent/documentation-total-closure'
@@ -24,7 +27,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Apply observed closure-engine corrections
+      - name: Normalize closure-engine source
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -34,10 +37,9 @@ jobs:
               '"tracked_markdown": len(markdown_paths(root, include_untracked=False)),',
               '"tracked_markdown": len(markdown_paths(root, include_untracked=True)),',
           )
-          text = text.replace(
-              '"A historical file may explain lineage, but it may not override a canonical owner.",',
-              '"The complete path inventory is available in [`docs/MARKDOWN_INVENTORY.md`](MARKDOWN_INVENTORY.md).",\n            "",\n            "A historical file may explain lineage, but it may not override a canonical owner.",',
-          )
+          line = '            "The complete path inventory is available in [`docs/MARKDOWN_INVENTORY.md`](MARKDOWN_INVENTORY.md).",\n            "",\n'
+          while line + line in text:
+              text = text.replace(line + line, line)
           path.write_text(text, encoding="utf-8")
           PY
       - name: Test closure engine
@@ -56,7 +58,7 @@ jobs:
             echo "documentation closure already stable"
             exit 0
           fi
-          git commit -m "docs: publish complete markdown closure receipt"
+          git commit -m "docs: stabilize complete markdown closure"
           git push origin HEAD:${{ github.event.pull_request.head.ref || github.ref_name }}
       - name: Publish receipt summary
         if: always()
