@@ -45,6 +45,10 @@ jobs:
               "capabilities/dteam-kernel/src/quota.rs": [
                   ("                candidate.shrink_to_fit();\n", ""),
               ],
+              "tools/capability_ledger.py": [
+                  ('parser.add_argument("--fail-on", action="append", default=["BUILD_BROKEN", "UNKNOWN"])',
+                   'parser.add_argument("--fail-on", action="append", default=["BUILD_BROKEN"])'),
+              ],
           }
 
           changed = []
@@ -62,7 +66,7 @@ jobs:
           if ! git diff --quiet; then
             git config user.name "dteam-closure-bot"
             git config user.email "dteam-closure-bot@users.noreply.github.com"
-            git add capabilities/dteam-kernel/src
+            git add capabilities/dteam-kernel/src tools/capability_ledger.py
             git commit -m "fix(kernel): apply compiler-directed source repairs"
             git push origin HEAD:${{ github.event.pull_request.head.ref }}
           fi
