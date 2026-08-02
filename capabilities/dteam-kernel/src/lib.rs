@@ -4,9 +4,10 @@
 //! The crate is deliberately standalone: it provides a runnable nucleus while the
 //! larger workspace's sibling repositories are unavailable. Its execution path is:
 //!
-//! `observe → route → admit/refuse → construct → authorize → actuate → receipt → replay`.
+//! `observe → route → admit/refuse → decide → construct → authorize → actuate → receipt → replay`.
 
 pub mod broker;
+pub mod decision;
 pub mod graph;
 pub mod hash;
 pub mod ledger;
@@ -19,6 +20,10 @@ pub use broker::{
     ActuationEvidence, AuthorizationLedger, AuthorizationReceipt, BatchEvidence, BatchMode, Broker,
     BrokerError, BrokerVerification, Executor, PreflightRefusal,
 };
+pub use decision::{
+    Condition, DecisionEffect, DecisionLint, DecisionOutcome, DecisionRule, DecisionTable,
+    RuleEvaluation,
+};
 pub use graph::{Capability, CapabilityGraph, CapabilityPlan, GraphError};
 pub use hash::{sha256, CanonicalEncoder, Digest};
 pub use ledger::{
@@ -28,9 +33,7 @@ pub use model::{
     AdmittedObservation, AuthorityId, CapabilityId, FactValue, Intent, ModelError, Observation,
     OperationId, Outcome, PolicyId, Standing, SubjectId,
 };
-pub use policy::{
-    AdmissionDecision, AdmissionPolicy, Predicate, Rule, Violation,
-};
+pub use policy::{AdmissionDecision, AdmissionPolicy, Predicate, Rule, Violation};
 pub use process::{
     discover_transition_system, Activity, ConformanceReport, ConformanceViolation, EventId,
     EventRecord, ObjectEventLog, ObjectId, ObjectRecord, ObjectType, ProcessError, ProcessMetrics,
@@ -45,9 +48,10 @@ pub use runtime::{
 pub mod prelude {
     pub use crate::{
         discover_transition_system, Activity, AdmissionPolicy, AuthorityId, BatchMode, Broker,
-        Capability, CapabilityGraph, CapabilityId, EventId, EventRecord, Executor, FactValue,
-        Intent, ObjectEventLog, ObjectId, ObjectRecord, ObjectType, Observation, OperationId,
-        Outcome, PolicyId, Predicate, PreflightRefusal, ReceiptQuery, Route, Router, Rule, Runtime,
-        SubjectId, TransitionSystem,
+        Capability, CapabilityGraph, CapabilityId, Condition, DecisionEffect, DecisionOutcome,
+        DecisionRule, DecisionTable, EventId, EventRecord, Executor, FactValue, Intent,
+        ObjectEventLog, ObjectId, ObjectRecord, ObjectType, Observation, OperationId, Outcome,
+        PolicyId, Predicate, PreflightRefusal, ReceiptQuery, Route, Router, Rule, Runtime, SubjectId,
+        TransitionSystem,
     };
 }
