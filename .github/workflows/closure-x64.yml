@@ -1,0 +1,49 @@
+name: closure-x64
+
+on:
+  pull_request:
+
+concurrency:
+  group: closure-x64-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  kernel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CARGO_INCREMENTAL: "0"
+      RUSTFLAGS: "-C debuginfo=0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify tooling tests
+        run: python -m unittest discover -s tools/tests -p 'test_*.py' -v
+      - name: Verify admitted source closure
+        run: python tools/verify_repository.py --root .
+      - name: Compile capability ledger
+        run: python tools/capability_ledger.py --root . --output artifacts/capability-ledger.json
+      - name: Type-check capability kernel
+        run: |
+          set -o pipefail
+          cargo check --manifest-path capabilities/dteam-kernel/Cargo.toml --all-targets --message-format=short 2>&1 | tee artifacts/cargo-check.log
+      - name: Execute capability tests
+        run: |
+          set -o pipefail
+          cargo test --manifest-path capabilities/dteam-kernel/Cargo.toml --lib -- --test-threads=1 --nocapture 2>&1 | tee artifacts/cargo-test.log
+      - name: Execute capability demo
+        run: |
+          set -o pipefail
+          cargo run --quiet --manifest-path capabilities/dteam-kernel/Cargo.toml --bin dteam-capabilities 2>&1 | tee artifacts/dteam-capability-demo.json
+      - name: Upload capability evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: capability-evidence-x64
+          path: artifacts/*
+          if-no-files-found: warn
