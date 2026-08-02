@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -10,6 +11,7 @@ MODULE_PATH = Path(__file__).resolve().parents[1] / "compile_tex.py"
 SPEC = importlib.util.spec_from_file_location("compile_tex", MODULE_PATH)
 assert SPEC and SPEC.loader
 COMPILE = importlib.util.module_from_spec(SPEC)
+sys.modules[SPEC.name] = COMPILE
 SPEC.loader.exec_module(COMPILE)
 
 
