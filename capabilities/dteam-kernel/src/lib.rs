@@ -4,9 +4,10 @@
 //! The crate is deliberately standalone: it provides a runnable nucleus while the
 //! larger workspace's sibling repositories are unavailable. Its execution path is:
 //!
-//! `observe → validate → route → admit/refuse → decide → hook → plan → reserve → transition → transact → authorize → actuate → provenance → receipt → replay → diagnose → repair`.
+//! `observe → validate → route → admit/refuse → decide → hook → compose → plan → reserve → transition → transact → authorize → actuate → provenance → receipt → replay → diagnose → repair`.
 
 pub mod broker;
+pub mod combinatorial;
 pub mod decision;
 pub mod graph;
 pub mod hash;
@@ -27,6 +28,12 @@ pub mod store;
 pub use broker::{
     ActuationEvidence, AuthorizationLedger, AuthorizationReceipt, BatchEvidence, BatchMode, Broker,
     BrokerError, BrokerVerification, Executor, PreflightRefusal,
+};
+pub use combinatorial::{
+    standard_combinatorial_engine, CombinatorialEngine, ComponentOption, Composition,
+    CompositionError, CompositionRequest, CompositionSpace, FailureDomain, FeatureId,
+    ServiceObjective, TelcoAssessment, TelcoLink, TelcoNode, TelcoPath, TelcoRole, TelcoTopology,
+    VisionWizard, WizardError, WizardPlan, WizardQuestion, WizardValue,
 };
 pub use decision::{
     Condition, DecisionEffect, DecisionLint, DecisionOutcome, DecisionRule, DecisionTable,
@@ -86,18 +93,20 @@ pub use store::{
 /// Common imports for applications embedding the capability kernel.
 pub mod prelude {
     pub use crate::{
-        discover_transition_system, execute_schedule, Activity, AdmissionPolicy, ApplyResult,
-        AuthorityId, BatchMode, Broker, Capability, CapabilityGraph, CapabilityId,
-        CapabilityStanding, Condition, Constraint, DecisionEffect, DecisionOutcome, DecisionRule,
-        DecisionTable, DoctorReport, Document, DocumentSchema, EventId, EventKind, EventRecord,
-        Executor, ExpectedVersion, FactValue, FieldSchema, Guard, Hook, HookEvent, HookRegistry,
+        discover_transition_system, execute_schedule, standard_combinatorial_engine, Activity,
+        AdmissionPolicy, ApplyResult, AuthorityId, BatchMode, Broker, Capability, CapabilityGraph,
+        CapabilityId, CapabilityStanding, CombinatorialEngine, ComponentOption, CompositionRequest,
+        Condition, Constraint, DecisionEffect, DecisionOutcome, DecisionRule, DecisionTable,
+        DoctorReport, Document, DocumentSchema, EventId, EventKind, EventRecord, Executor,
+        ExpectedVersion, FactValue, FeatureId, FieldSchema, Guard, Hook, HookEvent, HookRegistry,
         Intent, IntentTemplate, MachineInstance, MigrationPlan, MigrationStep, Mutation, NodeId,
         ObjectEventLog, ObjectId, ObjectRecord, ObjectType, Observation, OperationId, Outcome,
         PayloadTemplate, PolicyId, Predicate, PreflightRefusal, PrincipalId, ProvenanceGraph,
         ProvenanceNode, QolCatalog, QuotaClaim, QuotaManager, QuotaPolicy, ReceiptQuery, RecordKey,
         Relation, RepairPlan, ReservationId, ReservationRequest, ResourceId, Route, Router, Rule,
-        Runtime, StateId, StateMachine, SubjectId, Task, TaskExecutor, TaskGraph, TaskId, TaskOutcome,
-        Transaction, TransactionalStore, Transition, TransitionId, TransitionSystem,
-        UnknownFieldPolicy, ValueType, Vision2030, VisionCapability, VisionStratum,
+        Runtime, ServiceObjective, StateId, StateMachine, SubjectId, Task, TaskExecutor, TaskGraph,
+        TaskId, TaskOutcome, TelcoTopology, Transaction, TransactionalStore, Transition,
+        TransitionId, TransitionSystem, UnknownFieldPolicy, ValueType, Vision2030, VisionCapability,
+        VisionStratum, VisionWizard, WizardValue,
     };
 }
