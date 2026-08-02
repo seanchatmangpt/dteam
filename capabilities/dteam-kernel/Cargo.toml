@@ -3,7 +3,7 @@ name = "dteam-capability-kernel"
 version = "0.1.0"
 edition = "2021"
 license = "BUSL-1.1"
-description = "Standalone deterministic capability, admission, broker, receipt, replay, and Vision 2030 doctor kernel for dteam"
+description = "Standalone deterministic capability, admission, broker, receipt, replay, doctor, wizard, composition, and telco kernel for dteam"
 
 [workspace]
 
