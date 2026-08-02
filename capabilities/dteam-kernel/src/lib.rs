@@ -4,7 +4,7 @@
 //! The crate is deliberately standalone: it provides a runnable nucleus while the
 //! larger workspace's sibling repositories are unavailable. Its execution path is:
 //!
-//! `observe → route → admit/refuse → decide → construct → authorize → actuate → receipt → replay`.
+//! `observe → route → admit/refuse → decide → plan → authorize → actuate → receipt → replay`.
 
 pub mod broker;
 pub mod decision;
@@ -15,6 +15,7 @@ pub mod model;
 pub mod policy;
 pub mod process;
 pub mod runtime;
+pub mod scheduler;
 
 pub use broker::{
     ActuationEvidence, AuthorizationLedger, AuthorizationReceipt, BatchEvidence, BatchMode, Broker,
@@ -43,15 +44,19 @@ pub use runtime::{
     ProcessError as RuntimeError, ProcessResult, ProcessTrace, Route, Router, Runtime, TraceError,
     TraceEvent, TraceStage,
 };
+pub use scheduler::{
+    execute_schedule, ScheduleError, ScheduleExecution, SchedulePlan, Task, TaskExecutor, TaskGraph,
+    TaskId, TaskOutcome, TaskReceipt,
+};
 
 /// Common imports for applications embedding the capability kernel.
 pub mod prelude {
     pub use crate::{
-        discover_transition_system, Activity, AdmissionPolicy, AuthorityId, BatchMode, Broker,
-        Capability, CapabilityGraph, CapabilityId, Condition, DecisionEffect, DecisionOutcome,
-        DecisionRule, DecisionTable, EventId, EventRecord, Executor, FactValue, Intent,
-        ObjectEventLog, ObjectId, ObjectRecord, ObjectType, Observation, OperationId, Outcome,
-        PolicyId, Predicate, PreflightRefusal, ReceiptQuery, Route, Router, Rule, Runtime, SubjectId,
-        TransitionSystem,
+        discover_transition_system, execute_schedule, Activity, AdmissionPolicy, AuthorityId,
+        BatchMode, Broker, Capability, CapabilityGraph, CapabilityId, Condition, DecisionEffect,
+        DecisionOutcome, DecisionRule, DecisionTable, EventId, EventRecord, Executor, FactValue,
+        Intent, ObjectEventLog, ObjectId, ObjectRecord, ObjectType, Observation, OperationId,
+        Outcome, PolicyId, Predicate, PreflightRefusal, ReceiptQuery, Route, Router, Rule, Runtime,
+        SubjectId, Task, TaskExecutor, TaskGraph, TaskId, TaskOutcome, TransitionSystem,
     };
 }
