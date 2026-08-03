@@ -47,11 +47,7 @@ pub struct SagaOperation {
 
 impl SagaOperation {
     #[must_use]
-    pub const fn new(
-        capability: CapabilityId,
-        operation: OperationId,
-        payload: Vec<u8>,
-    ) -> Self {
+    pub const fn new(capability: CapabilityId, operation: OperationId, payload: Vec<u8>) -> Self {
         Self {
             capability,
             operation,
@@ -253,7 +249,10 @@ impl SagaDefinition {
 /// Executor result for one forward or compensation operation.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum SagaOperationResult {
-    Succeeded { output: Vec<u8>, elapsed: u64 },
+    Succeeded {
+        output: Vec<u8>,
+        elapsed: u64,
+    },
     Retryable {
         code: String,
         detail: String,
@@ -402,7 +401,9 @@ impl SagaStepState {
 /// One immutable saga transition.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum SagaAction {
-    Started { input: Vec<u8> },
+    Started {
+        input: Vec<u8>,
+    },
     StepAttempted {
         step: SagaStepId,
         attempt: u32,
@@ -413,7 +414,10 @@ pub enum SagaAction {
         attempt: u32,
         result: SagaOperationResult,
     },
-    StateChanged { from: SagaState, to: SagaState },
+    StateChanged {
+        from: SagaState,
+        to: SagaState,
+    },
 }
 
 impl SagaAction {
@@ -592,7 +596,9 @@ impl SagaInstance {
 
     #[must_use]
     pub fn head(&self) -> Digest {
-        self.receipts.last().map_or(Digest::ZERO, SagaReceipt::digest)
+        self.receipts
+            .last()
+            .map_or(Digest::ZERO, SagaReceipt::digest)
     }
 
     #[must_use]
@@ -639,12 +645,29 @@ pub enum SagaError {
     ZeroStepTimeout(SagaStepId),
     DuplicateSaga(SagaId),
     SagaMissing(SagaId),
-    DefinitionMismatch { saga: SagaId },
-    SagaNotRunnable { saga: SagaId, state: SagaState },
-    ReceiptIndex { expected: u64, actual: u64 },
-    ReceiptPrevious { expected: Digest, actual: Digest },
-    ReceiptState { index: u64, expected: Digest, actual: Digest },
-    ReceiptDigest { index: u64 },
+    DefinitionMismatch {
+        saga: SagaId,
+    },
+    SagaNotRunnable {
+        saga: SagaId,
+        state: SagaState,
+    },
+    ReceiptIndex {
+        expected: u64,
+        actual: u64,
+    },
+    ReceiptPrevious {
+        expected: Digest,
+        actual: Digest,
+    },
+    ReceiptState {
+        index: u64,
+        expected: Digest,
+        actual: Digest,
+    },
+    ReceiptDigest {
+        index: u64,
+    },
 }
 
 impl Display for SagaError {
@@ -665,7 +688,10 @@ impl Display for SagaError {
                 state.as_str()
             ),
             Self::ReceiptIndex { expected, actual } => {
-                write!(formatter, "saga receipt index {actual}, expected {expected}")
+                write!(
+                    formatter,
+                    "saga receipt index {actual}, expected {expected}"
+                )
             }
             Self::ReceiptPrevious { expected, actual } => {
                 write!(formatter, "saga predecessor {actual}, expected {expected}")
@@ -783,9 +809,7 @@ impl SagaCoordinator {
                     result: normalized.clone(),
                 });
                 match normalized {
-                    SagaOperationResult::Retryable { .. }
-                        if attempt < step.maximum_attempts() =>
-                    {
+                    SagaOperationResult::Retryable { .. } if attempt < step.maximum_attempts() => {
                         attempt += 1;
                     }
                     final_result => break final_result,
@@ -855,7 +879,10 @@ impl SagaCoordinator {
             }
             previous = receipt.digest();
         }
-        if instance.receipts().last().is_some_and(|receipt| receipt.state_digest() != instance.digest())
+        if instance
+            .receipts()
+            .last()
+            .is_some_and(|receipt| receipt.state_digest() != instance.digest())
         {
             return Err(SagaError::ReceiptState {
                 index: instance.receipts().len() as u64,
@@ -911,10 +938,9 @@ fn compensate<E: SagaExecutor>(
                 .step_states
                 .insert(step.id().clone(), SagaStepState::Compensated);
         } else {
-            instance.step_states.insert(
-                step.id().clone(),
-                SagaStepState::CompensationFailed,
-            );
+            instance
+                .step_states
+                .insert(step.id().clone(), SagaStepState::CompensationFailed);
             instance.transition(SagaState::CompensationFailed);
             return;
         }
@@ -1020,8 +1046,7 @@ mod tests {
                 SagaStep::new(SagaStepId::new("charge").unwrap(), operation("charge"))
                     .compensate_with(operation("refund"))
                     .retry(2, 0),
-                SagaStep::new(SagaStepId::new("ship").unwrap(), operation("ship"))
-                    .retry(2, 0),
+                SagaStep::new(SagaStepId::new("ship").unwrap(), operation("ship")).retry(2, 0),
             ],
         )
         .unwrap()
@@ -1065,10 +1090,11 @@ mod tests {
         coordinator
             .start(id.clone(), &definition, b"order".to_vec())
             .unwrap();
-        coordinator
-            .run(&id, &definition, &mut Successful)
-            .unwrap();
-        assert_eq!(coordinator.instance(&id).unwrap().state(), SagaState::Completed);
+        coordinator.run(&id, &definition, &mut Successful).unwrap();
+        assert_eq!(
+            coordinator.instance(&id).unwrap().state(),
+            SagaState::Completed
+        );
         assert_eq!(coordinator.verify(&id, &definition).unwrap().steps(), 3);
     }
 

@@ -139,7 +139,10 @@ impl Display for AuthorizationError {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::IndexMismatch { expected, actual } => {
-                write!(formatter, "authorization index {actual}, expected {expected}")
+                write!(
+                    formatter,
+                    "authorization index {actual}, expected {expected}"
+                )
             }
             Self::PreviousMismatch { expected, actual } => write!(
                 formatter,
@@ -291,8 +294,14 @@ impl BatchEvidence {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum BrokerError {
     UnknownCapability(String),
-    UnsupportedOperation { capability: String, operation: String },
-    AuthorityDenied { capability: String, authority: String },
+    UnsupportedOperation {
+        capability: String,
+        operation: String,
+    },
+    AuthorityDenied {
+        capability: String,
+        authority: String,
+    },
     Plan(GraphError),
     Authorization(AuthorizationError),
     Ledger(LedgerError),
@@ -476,10 +485,9 @@ impl Broker {
             return self.complete(executor.id(), intent, outcome, logical_start, None);
         }
 
-        let plan = self.graph.resolve_bounded(
-            [intent.capability().clone()],
-            self.maximum_plan_cost,
-        )?;
+        let plan = self
+            .graph
+            .resolve_bounded([intent.capability().clone()], self.maximum_plan_cost)?;
         if let Err(refusal) = executor.preflight(intent) {
             let outcome = Outcome::Refused {
                 code: refusal.code,
@@ -542,10 +550,12 @@ impl Broker {
             let completion_receipt = self
                 .completions
                 .by_intent(receipt.intent_digest())
-                .ok_or_else(|| BrokerError::Ledger(LedgerError::IndexMismatch {
-                    expected: receipt.index(),
-                    actual: u64::MAX,
-                }))?;
+                .ok_or_else(|| {
+                    BrokerError::Ledger(LedgerError::IndexMismatch {
+                        expected: receipt.index(),
+                        actual: u64::MAX,
+                    })
+                })?;
             if completion_receipt.intent_digest() != receipt.intent_digest() {
                 return Err(BrokerError::Ledger(LedgerError::DigestMismatch {
                     index: completion_receipt.index(),
@@ -705,7 +715,11 @@ mod tests {
     fn batch_can_stop_on_refusal() {
         let mut broker = broker();
         let mut executor = CountingExecutor::default();
-        let intents = [intent("release", 1), intent("intruder", 2), intent("release", 3)];
+        let intents = [
+            intent("release", 1),
+            intent("intruder", 2),
+            intent("release", 3),
+        ];
         let evidence = broker
             .actuate_batch(&mut executor, &intents, BatchMode::StopOnNonApplied)
             .unwrap();

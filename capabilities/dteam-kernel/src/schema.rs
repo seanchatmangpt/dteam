@@ -264,11 +264,7 @@ impl Constraint {
     }
 }
 
-fn encode_i64_bounds(
-    encoder: &mut CanonicalEncoder,
-    minimum: Option<i64>,
-    maximum: Option<i64>,
-) {
+fn encode_i64_bounds(encoder: &mut CanonicalEncoder, minimum: Option<i64>, maximum: Option<i64>) {
     match minimum {
         Some(value) => {
             encoder.boolean("has-minimum", true).i64("minimum", value);
@@ -287,11 +283,7 @@ fn encode_i64_bounds(
     }
 }
 
-fn encode_u64_bounds(
-    encoder: &mut CanonicalEncoder,
-    minimum: Option<u64>,
-    maximum: Option<u64>,
-) {
+fn encode_u64_bounds(encoder: &mut CanonicalEncoder, minimum: Option<u64>, maximum: Option<u64>) {
     match minimum {
         Some(value) => {
             encoder.boolean("has-minimum", true).u64("minimum", value);
@@ -482,9 +474,7 @@ impl Document {
     }
 
     pub fn fields(&self) -> impl ExactSizeIterator<Item = (&str, &FactValue)> {
-        self.fields
-            .iter()
-            .map(|(key, value)| (key.as_str(), value))
+        self.fields.iter().map(|(key, value)| (key.as_str(), value))
     }
 
     #[must_use]
@@ -679,7 +669,9 @@ impl DocumentSchema {
                             to: next.value_type(),
                         });
                     }
-                    if !existing.is_required() && next.is_required() && next.default_value().is_none()
+                    if !existing.is_required()
+                        && next.is_required()
+                        && next.default_value().is_none()
                     {
                         changes.push(CompatibilityChange::FieldBecameRequired {
                             field: name.clone(),
@@ -748,8 +740,14 @@ pub enum SchemaError {
     EmptySchemaId,
     EmptyFieldName,
     DuplicateField(String),
-    DefaultType { field: String, expected: ValueType },
-    InvalidDefault { field: String, issue: ValidationIssue },
+    DefaultType {
+        field: String,
+        expected: ValueType,
+    },
+    InvalidDefault {
+        field: String,
+        issue: ValidationIssue,
+    },
     DuplicateMigrationTarget(String),
     MissingMigrationSource(String),
     MigrationTargetExists(String),
@@ -848,16 +846,29 @@ impl ValidationReport {
 /// Schema compatibility delta.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum CompatibilityChange {
-    SchemaIdentityChanged { from: String, to: String },
-    FieldRemoved { field: String, breaking: bool },
-    FieldAdded { field: String, breaking: bool },
+    SchemaIdentityChanged {
+        from: String,
+        to: String,
+    },
+    FieldRemoved {
+        field: String,
+        breaking: bool,
+    },
+    FieldAdded {
+        field: String,
+        breaking: bool,
+    },
     TypeChanged {
         field: String,
         from: ValueType,
         to: ValueType,
     },
-    FieldBecameRequired { field: String },
-    ConstraintsChanged { field: String },
+    FieldBecameRequired {
+        field: String,
+    },
+    ConstraintsChanged {
+        field: String,
+    },
     UnknownFieldsClosed,
 }
 
@@ -1178,7 +1189,10 @@ mod tests {
         document.insert("unknown", true);
         let report = schema.validate(&document);
         assert!(report.valid());
-        assert_eq!(report.normalized().get("priority"), Some(&FactValue::U64(1)));
+        assert_eq!(
+            report.normalized().get("priority"),
+            Some(&FactValue::U64(1))
+        );
         assert!(report.normalized().get("unknown").is_none());
     }
 
@@ -1245,7 +1259,10 @@ mod tests {
         )
         .unwrap();
         let result = plan.apply(&input).unwrap();
-        assert_eq!(result.output().get("status"), Some(&FactValue::Text("open".to_owned())));
+        assert_eq!(
+            result.output().get("status"),
+            Some(&FactValue::Text("open".to_owned()))
+        );
         assert_eq!(result.output().get("priority"), Some(&FactValue::U64(1)));
         assert!(input.get("state").is_some());
     }

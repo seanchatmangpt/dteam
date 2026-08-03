@@ -81,7 +81,10 @@ impl ResourceScope {
 
     #[must_use]
     pub fn specificity(&self) -> usize {
-        self.prefix.split('/').filter(|segment| !segment.is_empty()).count()
+        self.prefix
+            .split('/')
+            .filter(|segment| !segment.is_empty())
+            .count()
     }
 }
 
@@ -130,9 +133,7 @@ impl AccessConstraint {
                 Some(FactValue::TextSet(_)) => {
                     Err(format!("fact `{key}` does not contain `{member}`"))
                 }
-                Some(actual) => Err(format!(
-                    "fact `{key}` was {actual:?}, expected text set"
-                )),
+                Some(actual) => Err(format!("fact `{key}` was {actual:?}, expected text set")),
                 None => Err(format!("fact `{key}` is absent")),
             },
         }
@@ -141,15 +142,11 @@ impl AccessConstraint {
     fn encode(&self, encoder: &mut CanonicalEncoder) {
         match self {
             Self::FactEquals { key, expected } => {
-                encoder
-                    .text("constraint", "fact-equals")
-                    .text("key", key);
+                encoder.text("constraint", "fact-equals").text("key", key);
                 expected.encode(encoder, "expected-type");
             }
             Self::FactPresent { key } => {
-                encoder
-                    .text("constraint", "fact-present")
-                    .text("key", key);
+                encoder.text("constraint", "fact-present").text("key", key);
             }
             Self::U64AtMost { key, maximum } => {
                 encoder
@@ -563,7 +560,10 @@ pub enum AccessError {
         requested: ResourceScope,
     },
     EmptySeparationId,
-    InvalidSeparationRule { roles: usize, maximum: usize },
+    InvalidSeparationRule {
+        roles: usize,
+        maximum: usize,
+    },
     SeparationViolation {
         principal: AccessPrincipalId,
         rule: String,
@@ -597,7 +597,10 @@ impl Display for AccessError {
                 "validity window starts at {valid_from} and ends at {valid_until:?}"
             ),
             Self::SelfDelegation(principal) => {
-                write!(formatter, "principal `{principal}` cannot delegate to itself")
+                write!(
+                    formatter,
+                    "principal `{principal}` cannot delegate to itself"
+                )
             }
             Self::DelegatorLacksRole { delegator, role } => write!(
                 formatter,
@@ -748,11 +751,7 @@ impl AccessPolicy {
         let mut candidates = self
             .grants
             .values()
-            .filter_map(|grant| {
-                roles
-                    .get(grant.role())
-                    .map(|path| (grant, path.clone()))
-            })
+            .filter_map(|grant| roles.get(grant.role()).map(|path| (grant, path.clone())))
             .filter(|(grant, _)| grant.permission() == permission)
             .collect::<Vec<_>>();
         candidates.sort_by_key(|(grant, _)| {
@@ -965,7 +964,9 @@ impl AccessPolicy {
                 .u64("valid-from", assignment.valid_from);
             match assignment.valid_until {
                 Some(value) => {
-                    encoder.boolean("has-valid-until", true).u64("valid-until", value);
+                    encoder
+                        .boolean("has-valid-until", true)
+                        .u64("valid-until", value);
                 }
                 None => {
                     encoder.boolean("has-valid-until", false);

@@ -95,7 +95,9 @@ impl FactValue {
                 encoder.text(tag, "bytes").field("value", value);
             }
             Self::TextSet(values) => {
-                encoder.text(tag, "text-set").u64("len", values.len() as u64);
+                encoder
+                    .text(tag, "text-set")
+                    .u64("len", values.len() as u64);
                 for value in values {
                     encoder.text("item", value);
                 }

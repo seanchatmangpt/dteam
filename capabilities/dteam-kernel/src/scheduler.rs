@@ -136,7 +136,10 @@ impl Task {
 pub enum ScheduleError {
     EmptyTaskId,
     DuplicateTask(TaskId),
-    MissingDependency { task: TaskId, dependency: TaskId },
+    MissingDependency {
+        task: TaskId,
+        dependency: TaskId,
+    },
     Cycle(Vec<TaskId>),
     ZeroCapacity,
     TaskExceedsCapacity {
@@ -240,7 +243,8 @@ impl TaskGraph {
         let ordered = topological_order(&self.tasks)?;
         let waves = bounded_waves(&self.tasks, capacity)?;
         let total_cost = self.tasks.values().try_fold(0_u64, |sum, task| {
-            sum.checked_add(task.cost()).ok_or(ScheduleError::CostOverflow)
+            sum.checked_add(task.cost())
+                .ok_or(ScheduleError::CostOverflow)
         })?;
         let critical_path = critical_path(&self.tasks, &ordered)?;
         let critical_cost = critical_path.iter().try_fold(0_u64, |sum, id| {
@@ -417,7 +421,11 @@ fn bounded_waves(
             }
         }
         if wave.is_empty() {
-            let id = remaining.iter().next().expect("non-empty remaining").clone();
+            let id = remaining
+                .iter()
+                .next()
+                .expect("non-empty remaining")
+                .clone();
             return Err(ScheduleError::TaskExceedsCapacity {
                 task: id.clone(),
                 cost: tasks[&id].cost(),
@@ -626,7 +634,11 @@ pub fn execute_schedule<E: TaskExecutor>(
         let task = &graph.tasks[id];
         if let Some(dependency) = task
             .dependencies()
-            .find(|dependency| !outcomes.get(*dependency).is_some_and(TaskOutcome::succeeded))
+            .find(|dependency| {
+                !outcomes
+                    .get(*dependency)
+                    .is_some_and(TaskOutcome::succeeded)
+            })
             .cloned()
         {
             let outcome = TaskOutcome::Skipped { dependency };
@@ -668,7 +680,9 @@ pub fn execute_schedule<E: TaskExecutor>(
 
 #[cfg(test)]
 mod tests {
-    use super::{execute_schedule, ScheduleError, Task, TaskExecutor, TaskGraph, TaskId, TaskOutcome};
+    use super::{
+        execute_schedule, ScheduleError, Task, TaskExecutor, TaskGraph, TaskId, TaskOutcome,
+    };
 
     fn id(value: &str) -> TaskId {
         TaskId::new(value).unwrap()

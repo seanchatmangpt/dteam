@@ -9,10 +9,20 @@ use std::fmt::{Display, Formatter};
 /// One side-effect-free predicate over an observation.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Condition {
-    Present { key: String },
-    Absent { key: String },
-    Equals { key: String, value: FactValue },
-    NotEquals { key: String, value: FactValue },
+    Present {
+        key: String,
+    },
+    Absent {
+        key: String,
+    },
+    Equals {
+        key: String,
+        value: FactValue,
+    },
+    NotEquals {
+        key: String,
+        value: FactValue,
+    },
     I64Range {
         key: String,
         minimum: Option<i64>,
@@ -23,9 +33,18 @@ pub enum Condition {
         minimum: Option<u64>,
         maximum: Option<u64>,
     },
-    TextPrefix { key: String, prefix: String },
-    TextContains { key: String, fragment: String },
-    TextSetContains { key: String, member: String },
+    TextPrefix {
+        key: String,
+        prefix: String,
+    },
+    TextContains {
+        key: String,
+        fragment: String,
+    },
+    TextSetContains {
+        key: String,
+        member: String,
+    },
 }
 
 impl Condition {
@@ -89,9 +108,9 @@ impl Condition {
             },
             Self::TextPrefix { key, prefix } => match observation.fact(key) {
                 Some(FactValue::Text(actual)) if actual.starts_with(prefix) => Ok(()),
-                Some(FactValue::Text(actual)) => {
-                    Err(format!("`{key}` value `{actual}` does not start with `{prefix}`"))
-                }
+                Some(FactValue::Text(actual)) => Err(format!(
+                    "`{key}` value `{actual}` does not start with `{prefix}`"
+                )),
                 Some(actual) => Err(format!("`{key}` was {actual:?}, expected text")),
                 None => Err(format!("`{key}` is absent")),
             },
@@ -105,9 +124,7 @@ impl Condition {
             },
             Self::TextSetContains { key, member } => match observation.fact(key) {
                 Some(FactValue::TextSet(actual)) if actual.contains(member) => Ok(()),
-                Some(FactValue::TextSet(_)) => {
-                    Err(format!("`{key}` does not contain `{member}`"))
-                }
+                Some(FactValue::TextSet(_)) => Err(format!("`{key}` does not contain `{member}`")),
                 Some(actual) => Err(format!("`{key}` was {actual:?}, expected text set")),
                 None => Err(format!("`{key}` is absent")),
             },
@@ -127,9 +144,7 @@ impl Condition {
                 value.encode(encoder, "value-type");
             }
             Self::NotEquals { key, value } => {
-                encoder
-                    .text("condition", "not-equals")
-                    .text("key", key);
+                encoder.text("condition", "not-equals").text("key", key);
                 value.encode(encoder, "value-type");
             }
             Self::I64Range {
@@ -184,9 +199,16 @@ impl Condition {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum DecisionEffect {
     Allow,
-    Deny { code: String },
-    Escalate { queue: String },
-    Emit { operation: OperationId, payload: Vec<u8> },
+    Deny {
+        code: String,
+    },
+    Escalate {
+        queue: String,
+    },
+    Emit {
+        operation: OperationId,
+        payload: Vec<u8>,
+    },
 }
 
 impl DecisionEffect {
@@ -199,9 +221,7 @@ impl DecisionEffect {
                 encoder.text("effect", "deny").text("code", code);
             }
             Self::Escalate { queue } => {
-                encoder
-                    .text("effect", "escalate")
-                    .text("queue", queue);
+                encoder.text("effect", "escalate").text("queue", queue);
             }
             Self::Emit { operation, payload } => {
                 encoder
@@ -433,10 +453,7 @@ impl DecisionTable {
                         right: right.id.clone(),
                     });
                 }
-                if left.terminal
-                    && left.conditions.is_empty()
-                    && left.priority >= right.priority
-                {
+                if left.terminal && left.conditions.is_empty() && left.priority >= right.priority {
                     findings.push(DecisionLint::ShadowedRule {
                         rule: right.id.clone(),
                         by: left.id.clone(),
@@ -490,13 +507,13 @@ impl DecisionTable {
             .into_iter()
             .take_while(|rule| rule.priority == top_priority)
             .collect::<Vec<_>>();
-        let distinct_effects = top
-            .iter()
-            .map(|rule| &rule.effect)
-            .collect::<BTreeSet<_>>();
+        let distinct_effects = top.iter().map(|rule| &rule.effect).collect::<BTreeSet<_>>();
         if distinct_effects.len() > 1 {
             let rules = top.iter().map(|rule| rule.id.clone()).collect::<Vec<_>>();
-            let effects = top.iter().map(|rule| rule.effect.clone()).collect::<Vec<_>>();
+            let effects = top
+                .iter()
+                .map(|rule| rule.effect.clone())
+                .collect::<Vec<_>>();
             let digest = outcome_digest("conflict", &trace, &top);
             return DecisionOutcome::Conflict {
                 priority: top_priority,

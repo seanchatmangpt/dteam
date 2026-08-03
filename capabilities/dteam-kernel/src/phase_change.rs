@@ -140,23 +140,41 @@ impl VisionCapability {
     }
 
     #[must_use]
-    pub fn id(&self) -> &str { &self.id }
+    pub fn id(&self) -> &str {
+        &self.id
+    }
     #[must_use]
-    pub fn label(&self) -> &str { &self.label }
+    pub fn label(&self) -> &str {
+        &self.label
+    }
     #[must_use]
-    pub const fn stratum(&self) -> VisionStratum { self.stratum }
+    pub const fn stratum(&self) -> VisionStratum {
+        self.stratum
+    }
     #[must_use]
-    pub const fn standing_value(&self) -> CapabilityStanding { self.standing }
+    pub const fn standing_value(&self) -> CapabilityStanding {
+        self.standing
+    }
     #[must_use]
-    pub fn dependencies(&self) -> &BTreeSet<String> { &self.dependencies }
+    pub fn dependencies(&self) -> &BTreeSet<String> {
+        &self.dependencies
+    }
     #[must_use]
-    pub fn proof_command(&self) -> &str { &self.proof_command }
+    pub fn proof_command(&self) -> &str {
+        &self.proof_command
+    }
     #[must_use]
-    pub fn repair_command(&self) -> Option<&str> { self.repair_command.as_deref() }
+    pub fn repair_command(&self) -> Option<&str> {
+        self.repair_command.as_deref()
+    }
     #[must_use]
-    pub fn evidence_items(&self) -> &[String] { &self.evidence }
+    pub fn evidence_items(&self) -> &[String] {
+        &self.evidence
+    }
     #[must_use]
-    pub fn blockers(&self) -> &[String] { &self.blockers }
+    pub fn blockers(&self) -> &[String] {
+        &self.blockers
+    }
 }
 
 /// One deterministic fix selected by the doctor.
@@ -171,15 +189,25 @@ pub struct RepairAction {
 
 impl RepairAction {
     #[must_use]
-    pub fn capability(&self) -> &str { &self.capability }
+    pub fn capability(&self) -> &str {
+        &self.capability
+    }
     #[must_use]
-    pub fn command(&self) -> &str { &self.command }
+    pub fn command(&self) -> &str {
+        &self.command
+    }
     #[must_use]
-    pub fn reason(&self) -> &str { &self.reason }
+    pub fn reason(&self) -> &str {
+        &self.reason
+    }
     #[must_use]
-    pub const fn impact(&self) -> u16 { self.impact }
+    pub const fn impact(&self) -> u16 {
+        self.impact
+    }
     #[must_use]
-    pub const fn reversible(&self) -> bool { self.reversible }
+    pub const fn reversible(&self) -> bool {
+        self.reversible
+    }
 }
 
 /// Ordered repair plan. Actions are dependency-safe and highest leverage first.
@@ -192,11 +220,17 @@ pub struct RepairPlan {
 
 impl RepairPlan {
     #[must_use]
-    pub fn actions(&self) -> &[RepairAction] { &self.actions }
+    pub fn actions(&self) -> &[RepairAction] {
+        &self.actions
+    }
     #[must_use]
-    pub const fn projected_score(&self) -> u16 { self.projected_score }
+    pub const fn projected_score(&self) -> u16 {
+        self.projected_score
+    }
     #[must_use]
-    pub const fn digest(&self) -> Digest { self.digest }
+    pub const fn digest(&self) -> Digest {
+        self.digest
+    }
 }
 
 /// Machine-readable diagnostic output.
@@ -218,34 +252,68 @@ pub struct DoctorReport {
 
 impl DoctorReport {
     #[must_use]
-    pub const fn score(&self) -> u16 { self.score }
+    pub const fn score(&self) -> u16 {
+        self.score
+    }
     #[must_use]
-    pub const fn standing(&self) -> CapabilityStanding { self.standing }
+    pub const fn standing(&self) -> CapabilityStanding {
+        self.standing
+    }
     #[must_use]
-    pub const fn total(&self) -> usize { self.total }
+    pub const fn total(&self) -> usize {
+        self.total
+    }
     #[must_use]
-    pub const fn alive(&self) -> usize { self.alive }
+    pub const fn alive(&self) -> usize {
+        self.alive
+    }
     #[must_use]
-    pub const fn partial(&self) -> usize { self.partial }
+    pub const fn partial(&self) -> usize {
+        self.partial
+    }
     #[must_use]
-    pub const fn broken(&self) -> usize { self.broken }
+    pub const fn broken(&self) -> usize {
+        self.broken
+    }
     #[must_use]
-    pub const fn blocked(&self) -> usize { self.blocked }
+    pub const fn blocked(&self) -> usize {
+        self.blocked
+    }
     #[must_use]
-    pub const fn unknown(&self) -> usize { self.unknown }
+    pub const fn unknown(&self) -> usize {
+        self.unknown
+    }
     #[must_use]
-    pub const fn unsupported(&self) -> usize { self.unsupported }
+    pub const fn unsupported(&self) -> usize {
+        self.unsupported
+    }
     #[must_use]
-    pub fn critical_path(&self) -> &[String] { &self.critical_path }
+    pub fn critical_path(&self) -> &[String] {
+        &self.critical_path
+    }
     #[must_use]
-    pub fn quick_wins(&self) -> &[String] { &self.quick_wins }
+    pub fn quick_wins(&self) -> &[String] {
+        &self.quick_wins
+    }
     #[must_use]
-    pub const fn digest(&self) -> Digest { self.report_digest }
+    pub const fn digest(&self) -> Digest {
+        self.report_digest
+    }
 
     #[must_use]
     pub fn to_json(&self) -> String {
-        let path = self.critical_path.iter().map(|x| format!("\"{}\"", escape(x))).collect::<Vec<_>>().join(",");
-        let wins = self.quick_wins.iter().map(|x| format!("\"{}\"", escape(x))).collect::<Vec<_>>().join(",");
+        let path = self
+            .critical_path
+            .iter()
+            .map(|x| format!("\"{}\"", escape(x)))
+            .collect::<Vec<_>>()
+            .join(",");
+        let wins = self
+            .quick_wins
+            .iter()
+            .map(|x| format!("\"{}\"", escape(x)))
+            .collect::<Vec<_>>()
+            .join(",");
         format!(
             "{{\"standing\":\"{}\",\"score\":{},\"total\":{},\"alive\":{},\"partial\":{},\"broken\":{},\"blocked\":{},\"unknown\":{},\"unsupported\":{},\"critical_path\":[{}],\"quick_wins\":[{}],\"digest\":\"{}\"}}",
             self.standing, self.score, self.total, self.alive, self.partial, self.broken,
@@ -255,7 +323,10 @@ impl DoctorReport {
 }
 
 fn escape(value: &str) -> String {
-    value.replace('\\', "\\\\").replace('"', "\\\"").replace('\n', "\\n")
+    value
+        .replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('\n', "\\n")
 }
 
 /// Canonical Vision 2030 capability graph and doctor.
@@ -266,7 +337,9 @@ pub struct Vision2030 {
 
 impl Vision2030 {
     #[must_use]
-    pub fn new() -> Self { Self::default() }
+    pub fn new() -> Self {
+        Self::default()
+    }
 
     pub fn insert(&mut self, capability: VisionCapability) -> Option<VisionCapability> {
         self.capabilities.insert(capability.id.clone(), capability)
@@ -278,33 +351,101 @@ impl Vision2030 {
     }
 
     #[must_use]
-    pub fn capabilities(&self) -> &BTreeMap<String, VisionCapability> { &self.capabilities }
+    pub fn capabilities(&self) -> &BTreeMap<String, VisionCapability> {
+        &self.capabilities
+    }
 
     #[must_use]
     pub fn standard() -> Self {
         use CapabilityStanding::{Alive, PartialAlive};
-        use VisionStratum::{Autonomy, Ecosystem, Evidence, Foundation, Intelligence, Orchestration};
+        use VisionStratum::{
+            Autonomy, Ecosystem, Evidence, Foundation, Intelligence, Orchestration,
+        };
         let mut vision = Self::new();
         let items = [
-            VisionCapability::new("identity", "Canonical identities", Foundation).proof("cargo test hash::tests").standing(Alive).evidence("SHA-256 canonical encoder"),
-            VisionCapability::new("schema", "Schema admission and migration", Foundation).depends_on("identity").proof("cargo test schema::tests").standing(Alive),
-            VisionCapability::new("state", "Transactional state", Foundation).depends_on("identity").proof("cargo test store::tests").standing(Alive),
-            VisionCapability::new("receipts", "Receipt and replay ledger", Evidence).depends_on("identity").proof("cargo test ledger::tests").standing(Alive),
-            VisionCapability::new("provenance", "Queryable provenance", Evidence).depends_on("receipts").proof("cargo test provenance::tests").standing(Alive),
-            VisionCapability::new("admission", "Policy admission", Intelligence).depends_on("schema").proof("cargo test policy::tests").standing(Alive),
-            VisionCapability::new("decision", "Explainable decision tables", Intelligence).depends_on("admission").proof("cargo test decision::tests").standing(Alive),
-            VisionCapability::new("process", "Object-centric process intelligence", Intelligence).depends_on("provenance").proof("cargo test process::tests").standing(Alive),
-            VisionCapability::new("planner", "Dependency-closed planner", Orchestration).depends_on("decision").proof("cargo test graph::tests").standing(Alive),
-            VisionCapability::new("scheduler", "Critical-path scheduler", Orchestration).depends_on("planner").proof("cargo test scheduler::tests").standing(Alive),
-            VisionCapability::new("broker", "Receipted exclusive DO path", Orchestration).depends_on("receipts").depends_on("planner").proof("cargo test broker::tests").standing(Alive),
-            VisionCapability::new("hooks", "Pure intent-manufacturing hooks", Autonomy).depends_on("decision").proof("cargo test hook::tests").standing(Alive),
-            VisionCapability::new("quota", "Atomic resource governance", Autonomy).depends_on("state").proof("cargo test quota::tests").standing(Alive),
-            VisionCapability::new("runtime", "End-to-end lawful runtime", Autonomy).depends_on("broker").depends_on("hooks").depends_on("quota").proof("cargo run --bin dteam-capabilities").standing(PartialAlive).repair("cargo test --lib -- --test-threads=1"),
-            VisionCapability::new("doctor", "Self-diagnosing control plane", Ecosystem).depends_on("runtime").proof("cargo run --bin dteam-doctor -- --json").standing(Alive),
-            VisionCapability::new("sdk", "Zero-config embedding SDK", Ecosystem).depends_on("doctor").proof("cargo test phase_change::tests::qol_profiles_are_deterministic").standing(Alive),
-            VisionCapability::new("vision2030", "Vision 2030 crown", Ecosystem).depends_on("runtime").depends_on("doctor").depends_on("sdk").proof("cargo run --bin dteam-doctor -- crown").standing(PartialAlive).repair("cargo run --bin dteam-doctor -- repair"),
+            VisionCapability::new("identity", "Canonical identities", Foundation)
+                .proof("cargo test hash::tests")
+                .standing(Alive)
+                .evidence("SHA-256 canonical encoder"),
+            VisionCapability::new("schema", "Schema admission and migration", Foundation)
+                .depends_on("identity")
+                .proof("cargo test schema::tests")
+                .standing(Alive),
+            VisionCapability::new("state", "Transactional state", Foundation)
+                .depends_on("identity")
+                .proof("cargo test store::tests")
+                .standing(Alive),
+            VisionCapability::new("receipts", "Receipt and replay ledger", Evidence)
+                .depends_on("identity")
+                .proof("cargo test ledger::tests")
+                .standing(Alive),
+            VisionCapability::new("provenance", "Queryable provenance", Evidence)
+                .depends_on("receipts")
+                .proof("cargo test provenance::tests")
+                .standing(Alive),
+            VisionCapability::new("admission", "Policy admission", Intelligence)
+                .depends_on("schema")
+                .proof("cargo test policy::tests")
+                .standing(Alive),
+            VisionCapability::new("decision", "Explainable decision tables", Intelligence)
+                .depends_on("admission")
+                .proof("cargo test decision::tests")
+                .standing(Alive),
+            VisionCapability::new(
+                "process",
+                "Object-centric process intelligence",
+                Intelligence,
+            )
+            .depends_on("provenance")
+            .proof("cargo test process::tests")
+            .standing(Alive),
+            VisionCapability::new("planner", "Dependency-closed planner", Orchestration)
+                .depends_on("decision")
+                .proof("cargo test graph::tests")
+                .standing(Alive),
+            VisionCapability::new("scheduler", "Critical-path scheduler", Orchestration)
+                .depends_on("planner")
+                .proof("cargo test scheduler::tests")
+                .standing(Alive),
+            VisionCapability::new("broker", "Receipted exclusive DO path", Orchestration)
+                .depends_on("receipts")
+                .depends_on("planner")
+                .proof("cargo test broker::tests")
+                .standing(Alive),
+            VisionCapability::new("hooks", "Pure intent-manufacturing hooks", Autonomy)
+                .depends_on("decision")
+                .proof("cargo test hook::tests")
+                .standing(Alive),
+            VisionCapability::new("quota", "Atomic resource governance", Autonomy)
+                .depends_on("state")
+                .proof("cargo test quota::tests")
+                .standing(Alive),
+            VisionCapability::new("runtime", "End-to-end lawful runtime", Autonomy)
+                .depends_on("broker")
+                .depends_on("hooks")
+                .depends_on("quota")
+                .proof("cargo run --bin dteam-capabilities")
+                .standing(PartialAlive)
+                .repair("cargo test --lib -- --test-threads=1"),
+            VisionCapability::new("doctor", "Self-diagnosing control plane", Ecosystem)
+                .depends_on("runtime")
+                .proof("cargo run --bin dteam-doctor -- --json")
+                .standing(Alive),
+            VisionCapability::new("sdk", "Zero-config embedding SDK", Ecosystem)
+                .depends_on("doctor")
+                .proof("cargo test phase_change::tests::qol_profiles_are_deterministic")
+                .standing(Alive),
+            VisionCapability::new("vision2030", "Vision 2030 crown", Ecosystem)
+                .depends_on("runtime")
+                .depends_on("doctor")
+                .depends_on("sdk")
+                .proof("cargo run --bin dteam-doctor -- crown")
+                .standing(PartialAlive)
+                .repair("cargo run --bin dteam-doctor -- repair"),
         ];
-        for item in items { vision.insert(item); }
+        for item in items {
+            vision.insert(item);
+        }
         vision
     }
 
@@ -327,26 +468,52 @@ impl Vision2030 {
             };
             counts[index] += 1;
         }
-        let score = if total_weight == 0 { 0 } else { ((weighted * 100) / total_weight) as u16 };
-        let standing = if self.capabilities.values().all(|c| c.standing == CapabilityStanding::Alive) {
+        let score = if total_weight == 0 {
+            0
+        } else {
+            ((weighted * 100) / total_weight) as u16
+        };
+        let standing = if self
+            .capabilities
+            .values()
+            .all(|c| c.standing == CapabilityStanding::Alive)
+        {
             CapabilityStanding::Alive
-        } else if self.capabilities.values().any(|c| c.standing == CapabilityStanding::BuildBroken) {
+        } else if self
+            .capabilities
+            .values()
+            .any(|c| c.standing == CapabilityStanding::BuildBroken)
+        {
             CapabilityStanding::BuildBroken
-        } else if self.capabilities.values().any(|c| c.standing == CapabilityStanding::Blocked) {
+        } else if self
+            .capabilities
+            .values()
+            .any(|c| c.standing == CapabilityStanding::Blocked)
+        {
             CapabilityStanding::Blocked
         } else {
             CapabilityStanding::PartialAlive
         };
         let critical_path = self.critical_path();
-        let quick_wins = self.capabilities.values()
+        let quick_wins = self
+            .capabilities
+            .values()
             .filter(|c| !c.standing.is_usable() || c.standing == CapabilityStanding::PartialAlive)
-            .filter_map(|c| c.repair_command.as_ref().map(|command| format!("{}: {}", c.id, command)))
+            .filter_map(|c| {
+                c.repair_command
+                    .as_ref()
+                    .map(|command| format!("{}: {}", c.id, command))
+            })
             .take(5)
             .collect::<Vec<_>>();
         let mut encoder = CanonicalEncoder::new();
-        encoder.text("type", "vision-2030-doctor-v1").u64("score", u64::from(score));
+        encoder
+            .text("type", "vision-2030-doctor-v1")
+            .u64("score", u64::from(score));
         for capability in self.capabilities.values() {
-            encoder.text("capability", &capability.id).text("standing", &capability.standing.to_string());
+            encoder
+                .text("capability", &capability.id)
+                .text("standing", &capability.standing.to_string());
         }
         DoctorReport {
             score,
@@ -368,26 +535,46 @@ impl Vision2030 {
     pub fn repair_plan(&self) -> RepairPlan {
         let mut actions = Vec::new();
         for id in self.topological_order() {
-            let Some(capability) = self.capabilities.get(&id) else { continue };
-            if capability.standing == CapabilityStanding::Alive { continue; }
+            let Some(capability) = self.capabilities.get(&id) else {
+                continue;
+            };
+            if capability.standing == CapabilityStanding::Alive {
+                continue;
+            }
             if let Some(command) = &capability.repair_command {
                 actions.push(RepairAction {
                     capability: id,
                     command: command.clone(),
-                    reason: capability.blockers.first().cloned().unwrap_or_else(|| format!("{} is {}", capability.label, capability.standing)),
+                    reason: capability.blockers.first().cloned().unwrap_or_else(|| {
+                        format!("{} is {}", capability.label, capability.standing)
+                    }),
                     impact: 100_u16.saturating_sub(capability.standing.score()),
                     reversible: true,
                 });
             }
         }
-        actions.sort_by(|a, b| b.impact.cmp(&a.impact).then_with(|| a.capability.cmp(&b.capability)));
-        let projected_score = if actions.is_empty() { self.diagnose().score } else { 100 };
+        actions.sort_by(|a, b| {
+            b.impact
+                .cmp(&a.impact)
+                .then_with(|| a.capability.cmp(&b.capability))
+        });
+        let projected_score = if actions.is_empty() {
+            self.diagnose().score
+        } else {
+            100
+        };
         let mut encoder = CanonicalEncoder::new();
         encoder.text("type", "vision-2030-repair-plan-v1");
         for action in &actions {
-            encoder.text("capability", &action.capability).text("command", &action.command);
+            encoder
+                .text("capability", &action.capability)
+                .text("command", &action.command);
         }
-        RepairPlan { actions, projected_score, digest: encoder.digest() }
+        RepairPlan {
+            actions,
+            projected_score,
+            digest: encoder.digest(),
+        }
     }
 
     #[must_use]
@@ -395,12 +582,25 @@ impl Vision2030 {
         let mut incoming = BTreeMap::<String, usize>::new();
         let mut dependents = BTreeMap::<String, BTreeSet<String>>::new();
         for (id, capability) in &self.capabilities {
-            incoming.insert(id.clone(), capability.dependencies.iter().filter(|d| self.capabilities.contains_key(*d)).count());
+            incoming.insert(
+                id.clone(),
+                capability
+                    .dependencies
+                    .iter()
+                    .filter(|d| self.capabilities.contains_key(*d))
+                    .count(),
+            );
             for dependency in &capability.dependencies {
-                dependents.entry(dependency.clone()).or_default().insert(id.clone());
+                dependents
+                    .entry(dependency.clone())
+                    .or_default()
+                    .insert(id.clone());
             }
         }
-        let mut ready = incoming.iter().filter_map(|(id, count)| (*count == 0).then_some(id.clone())).collect::<BTreeSet<_>>();
+        let mut ready = incoming
+            .iter()
+            .filter_map(|(id, count)| (*count == 0).then_some(id.clone()))
+            .collect::<BTreeSet<_>>();
         let mut order = Vec::new();
         while let Some(id) = ready.pop_first() {
             order.push(id.clone());
@@ -408,7 +608,9 @@ impl Vision2030 {
                 for child in children {
                     if let Some(count) = incoming.get_mut(child) {
                         *count = count.saturating_sub(1);
-                        if *count == 0 { ready.insert(child.clone()); }
+                        if *count == 0 {
+                            ready.insert(child.clone());
+                        }
                     }
                 }
             }
@@ -427,14 +629,28 @@ impl Vision2030 {
             let mut parent = None;
             for dependency in &capability.dependencies {
                 let candidate = distance.get(dependency).copied().unwrap_or(0) + 1;
-                if candidate > best { best = candidate; parent = Some(dependency.clone()); }
+                if candidate > best {
+                    best = candidate;
+                    parent = Some(dependency.clone());
+                }
             }
             distance.insert(id.clone(), best);
-            if let Some(parent) = parent { previous.insert(id.clone(), parent); }
+            if let Some(parent) = parent {
+                previous.insert(id.clone(), parent);
+            }
         }
-        let Some(mut cursor) = distance.iter().max_by_key(|(_, value)| *value).map(|(id, _)| id.clone()) else { return Vec::new() };
+        let Some(mut cursor) = distance
+            .iter()
+            .max_by_key(|(_, value)| *value)
+            .map(|(id, _)| id.clone())
+        else {
+            return Vec::new();
+        };
         let mut path = vec![cursor.clone()];
-        while let Some(parent) = previous.get(&cursor).cloned() { path.push(parent.clone()); cursor = parent; }
+        while let Some(parent) = previous.get(&cursor).cloned() {
+            path.push(parent.clone());
+            cursor = parent;
+        }
         path.reverse();
         path
     }
@@ -450,11 +666,17 @@ pub struct QolProfile {
 
 impl QolProfile {
     #[must_use]
-    pub fn name(&self) -> &str { &self.name }
+    pub fn name(&self) -> &str {
+        &self.name
+    }
     #[must_use]
-    pub fn description(&self) -> &str { &self.description }
+    pub fn description(&self) -> &str {
+        &self.description
+    }
     #[must_use]
-    pub fn commands(&self) -> &[String] { &self.commands }
+    pub fn commands(&self) -> &[String] {
+        &self.commands
+    }
 }
 
 /// Zero-memory command catalog. Names are stable API.
@@ -468,27 +690,73 @@ impl QolCatalog {
     pub fn standard() -> Self {
         let mut profiles = BTreeMap::new();
         let entries = [
-            ("check", "Fastest high-information validation", vec!["cargo check --all-targets", "cargo test --lib -- --test-threads=1"]),
-            ("doctor", "Diagnose capability standing and next repair", vec!["cargo run --bin dteam-doctor -- --json"]),
-            ("prove", "Generate complete local execution evidence", vec!["cargo test --all-targets", "cargo run --bin dteam-capabilities", "cargo run --bin dteam-doctor -- crown"]),
-            ("repair", "Apply deterministic repair sequence", vec!["cargo fix --all-targets --allow-dirty", "cargo fmt --all", "cargo test --lib -- --test-threads=1"]),
-            ("ship", "Release readiness without merging", vec!["cargo test --all-targets", "cargo run --bin dteam-doctor -- crown", "git status --short"]),
-            ("explain", "Expose architecture and capability graph", vec!["cargo run --bin dteam-doctor -- graph"]),
+            (
+                "check",
+                "Fastest high-information validation",
+                vec![
+                    "cargo check --all-targets",
+                    "cargo test --lib -- --test-threads=1",
+                ],
+            ),
+            (
+                "doctor",
+                "Diagnose capability standing and next repair",
+                vec!["cargo run --bin dteam-doctor -- --json"],
+            ),
+            (
+                "prove",
+                "Generate complete local execution evidence",
+                vec![
+                    "cargo test --all-targets",
+                    "cargo run --bin dteam-capabilities",
+                    "cargo run --bin dteam-doctor -- crown",
+                ],
+            ),
+            (
+                "repair",
+                "Apply deterministic repair sequence",
+                vec![
+                    "cargo fix --all-targets --allow-dirty",
+                    "cargo fmt --all",
+                    "cargo test --lib -- --test-threads=1",
+                ],
+            ),
+            (
+                "ship",
+                "Release readiness without merging",
+                vec![
+                    "cargo test --all-targets",
+                    "cargo run --bin dteam-doctor -- crown",
+                    "git status --short",
+                ],
+            ),
+            (
+                "explain",
+                "Expose architecture and capability graph",
+                vec!["cargo run --bin dteam-doctor -- graph"],
+            ),
         ];
         for (name, description, commands) in entries {
-            profiles.insert(name.to_owned(), QolProfile {
-                name: name.to_owned(),
-                description: description.to_owned(),
-                commands: commands.into_iter().map(str::to_owned).collect(),
-            });
+            profiles.insert(
+                name.to_owned(),
+                QolProfile {
+                    name: name.to_owned(),
+                    description: description.to_owned(),
+                    commands: commands.into_iter().map(str::to_owned).collect(),
+                },
+            );
         }
         Self { profiles }
     }
 
     #[must_use]
-    pub fn profile(&self, name: &str) -> Option<&QolProfile> { self.profiles.get(name) }
+    pub fn profile(&self, name: &str) -> Option<&QolProfile> {
+        self.profiles.get(name)
+    }
     #[must_use]
-    pub fn profiles(&self) -> &BTreeMap<String, QolProfile> { &self.profiles }
+    pub fn profiles(&self) -> &BTreeMap<String, QolProfile> {
+        &self.profiles
+    }
 }
 
 #[cfg(test)]
@@ -500,10 +768,16 @@ mod tests {
         let vision = Vision2030::standard();
         for capability in vision.capabilities().values() {
             for dependency in capability.dependencies() {
-                assert!(vision.capability(dependency).is_some(), "missing {dependency}");
+                assert!(
+                    vision.capability(dependency).is_some(),
+                    "missing {dependency}"
+                );
             }
         }
-        assert_eq!(vision.topological_order().len(), vision.capabilities().len());
+        assert_eq!(
+            vision.topological_order().len(),
+            vision.capabilities().len()
+        );
     }
 
     #[test]
@@ -518,14 +792,20 @@ mod tests {
     fn repair_plan_targets_only_non_alive_capabilities() {
         let plan = Vision2030::standard().repair_plan();
         assert!(!plan.actions().is_empty());
-        assert!(plan.actions().iter().all(|action| !action.command().is_empty()));
+        assert!(plan
+            .actions()
+            .iter()
+            .all(|action| !action.command().is_empty()));
         assert_eq!(plan.projected_score(), 100);
     }
 
     #[test]
     fn qol_profiles_are_deterministic() {
         let catalog = QolCatalog::standard();
-        assert_eq!(catalog.profile("doctor").unwrap().commands(), &["cargo run --bin dteam-doctor -- --json"]);
+        assert_eq!(
+            catalog.profile("doctor").unwrap().commands(),
+            &["cargo run --bin dteam-doctor -- --json"]
+        );
         assert!(catalog.profile("prove").unwrap().commands().len() >= 3);
     }
 }

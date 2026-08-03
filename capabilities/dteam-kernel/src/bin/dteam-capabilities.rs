@@ -136,8 +136,7 @@ fn main() {
     let mut observation = Observation::new(SubjectId::new("case-42").unwrap(), 7);
     observation.insert("ready", true).unwrap();
     observation.insert("risk", 1_u64).unwrap();
-    observation
-        .attest(AuthorityId::new("operations").unwrap());
+    observation.attest(AuthorityId::new("operations").unwrap());
 
     let result = runtime
         .process(
@@ -150,9 +149,9 @@ fn main() {
         )
         .unwrap_or_else(|error| panic!("runtime failed: {error}"));
     assert!(matches!(
-        runtime.policy().evaluate(
-            Observation::new(SubjectId::new("dry-run").unwrap(), 1)
-        ),
+        runtime
+            .policy()
+            .evaluate(Observation::new(SubjectId::new("dry-run").unwrap(), 1)),
         AdmissionDecision::Refused(_)
     ));
     let log = build_process_log();

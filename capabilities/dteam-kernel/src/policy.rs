@@ -1,8 +1,6 @@
 //! Declarative admission policies with complete violation evidence.
 
-use crate::model::{
-    AdmittedObservation, AuthorityId, FactValue, Observation, PolicyId,
-};
+use crate::model::{AdmittedObservation, AuthorityId, FactValue, Observation, PolicyId};
 use std::collections::BTreeSet;
 use std::fmt::{Display, Formatter};
 
@@ -39,19 +37,53 @@ impl Rule {
 /// Closed set of deterministic admission predicates.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Predicate {
-    Present { key: String },
-    Absent { key: String },
-    Equals { key: String, expected: FactValue },
-    NotEquals { key: String, forbidden: FactValue },
-    MinI64 { key: String, minimum: i64 },
-    MaxI64 { key: String, maximum: i64 },
-    MinU64 { key: String, minimum: u64 },
-    MaxU64 { key: String, maximum: u64 },
-    TextOneOf { key: String, allowed: BTreeSet<String> },
-    TextSetContains { key: String, member: String },
-    Authority { authority: AuthorityId },
-    SequenceAtLeast { minimum: u64 },
-    SequenceAtMost { maximum: u64 },
+    Present {
+        key: String,
+    },
+    Absent {
+        key: String,
+    },
+    Equals {
+        key: String,
+        expected: FactValue,
+    },
+    NotEquals {
+        key: String,
+        forbidden: FactValue,
+    },
+    MinI64 {
+        key: String,
+        minimum: i64,
+    },
+    MaxI64 {
+        key: String,
+        maximum: i64,
+    },
+    MinU64 {
+        key: String,
+        minimum: u64,
+    },
+    MaxU64 {
+        key: String,
+        maximum: u64,
+    },
+    TextOneOf {
+        key: String,
+        allowed: BTreeSet<String>,
+    },
+    TextSetContains {
+        key: String,
+        member: String,
+    },
+    Authority {
+        authority: AuthorityId,
+    },
+    SequenceAtLeast {
+        minimum: u64,
+    },
+    SequenceAtMost {
+        maximum: u64,
+    },
 }
 
 /// One falsified rule with machine-readable code and evidence.
@@ -198,7 +230,10 @@ fn evaluate_rule(rule: &Rule, observation: &Observation) -> Option<Violation> {
             if observation.fact(key).is_none() {
                 None
             } else {
-                violation("FORBIDDEN_FACT", format!("forbidden fact `{key}` is present"))
+                violation(
+                    "FORBIDDEN_FACT",
+                    format!("forbidden fact `{key}` is present"),
+                )
             }
         }
         Predicate::Equals { key, expected } => match observation.fact(key) {
