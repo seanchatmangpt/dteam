@@ -1,16 +1,9 @@
-# Layout and Admission Spec v0.4
+<!-- documentation-closure: superseded -->
+# Superseded documentation
 
-## Canonical Rule
-- **ReferenceLawPath** defines semantics.
-- **AdmittedLayout** defines machine shape.
-- **WireV1** defines canonical bytes.
-- **Truthforge** defines admission.
+`crates/insa/docs/02-layout-admission-spec.md` is retained as a stable repository path, but it is no longer an authoritative document.
 
-## In-Memory Layout vs Wire/File Encoding
-- In-memory layout may be `repr(C)` / aligned (e.g., 32-byte `Cog8Row`).
-- Wire layout must be explicitly encoded. No raw struct transmute becomes `.powl64`.
-- `.powl64` requires explicit endianness, magic headers (`POWL64\0\1`), and enum decode rejection.
+- Exact archived source: [docs/archive/source/crates/insa/docs/02-layout-admission-spec.md.txt](../../../docs/archive/source/crates/insa/docs/02-layout-admission-spec.md.txt)
+- Current documentation authorities: [docs/DOCUMENTATION_MAP.md](../../../docs/DOCUMENTATION_MAP.md)
 
-## Equivalence Contract
-`ReferenceLawPath(x) == CandidateFastPath(x)`
-A fast path (SIMD, table, intrinsic) is admitted only if it yields the exact same closure, selection, and evidence as the reference path.
+Historical claims in the archived source describe their original context and do not establish current implementation standing.

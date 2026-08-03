@@ -1,16 +1,9 @@
-# Summary
+<!-- documentation-closure: superseded -->
+# Superseded documentation
 
-- [Introduction](./introduction.md)
-- [Architecture](./architecture/overview.md)
-  - [The Core Equation: A = µ(O*)](./architecture/equation.md)
-  - [Cognitive Substrate (ccog)](./architecture/ccog.md)
-- [Rust Patterns](./rust-patterns/introduction.md)
-  - [Evidentiary Completion ("Vibe Done")](./rust-patterns/vibe_done.md)
-  - [Zero-Cost Masking & Constraints](./rust-patterns/masking_types.md)
-  - [Constant-Time Dispatch](./rust-patterns/branchless.md)
-- [System Integrity](./integrity/overview.md)
-  - [Anti-Fake Gauntlet](./integrity/anti_fake.md)
-  - [Performance Honesty](./integrity/perf_honesty.md)
-- [Verification](./verification/overview.md)
-  - [Contract Testing](./verification/contracts.md)
-  - [Property-Based Invariants](./verification/properties.md)
+`docs/book/src/SUMMARY.md` is retained as a stable repository path, but it is no longer an authoritative document.
+
+- Exact archived source: [docs/archive/source/docs/book/src/SUMMARY.md.txt](../../archive/source/docs/book/src/SUMMARY.md.txt)
+- Current documentation authorities: [docs/DOCUMENTATION_MAP.md](../../DOCUMENTATION_MAP.md)
+
+Historical claims in the archived source describe their original context and do not establish current implementation standing.

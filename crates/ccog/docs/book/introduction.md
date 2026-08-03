@@ -1,14 +1,9 @@
-# Introduction
+<!-- documentation-closure: superseded -->
+# Superseded documentation
 
-Compiled Cognition (`ccog`) is a field-cognition facade over RDF graph closures. It provides a stable, zero-cost runtime for executing nonlinear cognitive graphs in high-stakes environments.
+`crates/ccog/docs/book/introduction.md` is retained as a stable repository path, but it is no longer an authoritative document.
 
-The core formula of `ccog` is:
-`U → O*_U → C_U → A_U → R_U`
+- Exact archived source: [docs/archive/source/crates/ccog/docs/book/introduction.md.txt](../../../../docs/archive/source/crates/ccog/docs/book/introduction.md.txt)
+- Current documentation authorities: [docs/DOCUMENTATION_MAP.md](../../../../docs/DOCUMENTATION_MAP.md)
 
-- **U**: Bounded operational field.
-- **O*_U**: Semantic closure of the field (from RDF graph).
-- **C_U**: Compiled cognition artifact (cognitive pass).
-- **A_U**: Admissible operations.
-- **R_U**: PROV receipt (proof + provenance).
-
-`ccog` ensures that every transition is verifiable and every decision is backed by a provenance chain.
+Historical claims in the archived source describe their original context and do not establish current implementation standing.

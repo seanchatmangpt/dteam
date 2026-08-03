@@ -1,10 +1,9 @@
-# `ccog-bridge`
+<!-- documentation-closure: superseded -->
+# Superseded documentation
 
-**Translation layer between `ccog` and the parent `dteam` crate.**
+`crates/ccog-bridge/README.md` is retained as a stable repository path, but it is no longer an authoritative document.
 
-This crate serves as a dependency bridge, maintaining an acyclic dependency graph where `ccog` strictly acts as the logic kernel without directly importing `dteam` domain structures (the dep direction must point library → engine, never engine → library).
+- Exact archived source: [docs/archive/source/crates/ccog-bridge/README.md.txt](../../docs/archive/source/crates/ccog-bridge/README.md.txt)
+- Current documentation authorities: [docs/DOCUMENTATION_MAP.md](../../docs/DOCUMENTATION_MAP.md)
 
-## The Translation Surface
-* **`ontology_kbitset_to_present_mask`**: Translates the `dteam` internal `KBitSet<16>` ontology bitmask into the 64-bit `present_mask` shape that `ccog` consumes. Relies on a static `KBitMap` translation table.
-* **`trace_to_runtime_response`**: Formats `ccog::CcogTrace` paths into `dteam` runtime `Response` summaries.
-* **`receipt_to_runtime_evidence`**: Flattens internal execution `ccog::Receipt` payloads into `Evidence` shapes for long-term logging.
+Historical claims in the archived source describe their original context and do not establish current implementation standing.

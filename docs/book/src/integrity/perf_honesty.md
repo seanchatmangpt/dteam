@@ -1,11 +1,9 @@
-# Performance Honesty
+<!-- documentation-closure: superseded -->
+# Superseded documentation
 
-Runtime performance in `ccog` is not a suggestion; it is a hard invariant.
+`docs/book/src/integrity/perf_honesty.md` is retained as a stable repository path, but it is no longer an authoritative document.
 
-## Hot-Path Purity
-The `decide()` and `select_instinct_v0()` functions are the most critical paths in the cognitive substrate. To avoid unpredictable GC pauses or heap fragmentation, we enforce a zero-allocation policy.
+- Exact archived source: [docs/archive/source/docs/book/src/integrity/perf_honesty.md.txt](../../../archive/source/docs/book/src/integrity/perf_honesty.md.txt)
+- Current documentation authorities: [docs/DOCUMENTATION_MAP.md](../../../DOCUMENTATION_MAP.md)
 
-- **`CountingAlloc`**: A thread-local, `#[global_allocator]`-backed instrumentation gate that traps all `alloc`/`dealloc` calls during measured blocks.
-- **Positive Control**: Every performance test includes a `control_allocation_is_detected` check, proving the allocator itself is functional and capable of catching leaks.
-
-If a developer introduces a `format!` or `Vec` into the hot path, the benchmark tier boundary check will immediately fail the gauntlet.
+Historical claims in the archived source describe their original context and do not establish current implementation standing.

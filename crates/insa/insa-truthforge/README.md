@@ -1,11 +1,9 @@
-# `insa-truthforge`
+<!-- documentation-closure: superseded -->
+# Superseded documentation
 
-**Comprehensive verification harness for INSA.**
+`crates/insa/insa-truthforge/README.md` is retained as a stable repository path, but it is no longer an authoritative document.
 
-This crate acts as the central gatekeeper for the INSA architecture. It contains property tests, benchmarks, and compile-fail assertions to guarantee layout stability and uphold the semantic invariants of the entire ecosystem. 
+- Exact archived source: [docs/archive/source/crates/insa/insa-truthforge/README.md.txt](../../../docs/archive/source/crates/insa/insa-truthforge/README.md.txt)
+- Current documentation authorities: [docs/DOCUMENTATION_MAP.md](../../../docs/DOCUMENTATION_MAP.md)
 
-## Architectural Enforcement
-`insa-truthforge` acts as the `O*` boundary enforcer. All verification runs explicitly ensure the strict INSA directive: *Never generate action or state mutations from unclosed fields.*
-
-* **Layout Gates (`gates.rs`)**: Uses `memoffset` and compile-time assertions to ensure structs like `Cog8Row` remain exactly 32 bytes and `RouteCell64` remains exactly 64 bytes. This guarantees that future commits cannot accidentally break the zero-allocation cache-line architecture by sneaking in hidden pointers or unaligned bytes.
-* **Admission Testing (`admission.rs`)**: Validates that generated receipts logically match the `A = µ(O*)` equation against mocked runtime states.
+Historical claims in the archived source describe their original context and do not establish current implementation standing.

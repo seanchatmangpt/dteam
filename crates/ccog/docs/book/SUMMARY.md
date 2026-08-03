@@ -1,7 +1,9 @@
-# Summary
+<!-- documentation-closure: superseded -->
+# Superseded documentation
 
-[Introduction](introduction.md)
-[The Law of 8](law_of_8.md)
-[Topology v2](topology_v2.md)
-[Task Ecology](task_ecology.md)
-[Truthforge](truthforge.md)
+`crates/ccog/docs/book/SUMMARY.md` is retained as a stable repository path, but it is no longer an authoritative document.
+
+- Exact archived source: [docs/archive/source/crates/ccog/docs/book/SUMMARY.md.txt](../../../../docs/archive/source/crates/ccog/docs/book/SUMMARY.md.txt)
+- Current documentation authorities: [docs/DOCUMENTATION_MAP.md](../../../../docs/DOCUMENTATION_MAP.md)
+
+Historical claims in the archived source describe their original context and do not establish current implementation standing.

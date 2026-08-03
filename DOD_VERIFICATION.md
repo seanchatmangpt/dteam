@@ -1,30 +1,9 @@
-# dteam — DOD Verification Report
+<!-- documentation-closure: superseded -->
+# Superseded documentation
 
-## Project Status: NOMINAL
-**Date**: April 22, 2026
-**Kernel Version**: 1.3.0
+`DOD_VERIFICATION.md` is retained as a stable repository path, but it is no longer an authoritative document.
 
-## 1. ADMISSIBILITY
-- **Ontology Closure**: Enforced via `KBitSet<16>` (K1024 support) in the RL state and conformance engine.
-- **Reachability**: All transitions validated against `PackedKeyTable` markings and bitset masks.
-- **Safety**: No unreachable states or unsafe panics identified in the core kernel.
+- Exact archived source: [docs/archive/source/DOD_VERIFICATION.md.txt](docs/archive/source/DOD_VERIFICATION.md.txt)
+- Current documentation authorities: [docs/DOCUMENTATION_MAP.md](docs/DOCUMENTATION_MAP.md)
 
-## 2. MINIMALITY
-- **MDL Objective**: $\Phi(N) = |T| + (|A| \cdot \log_2 |T|)$ is satisfied by the compact FNV-1a hash-based PKT representation.
-- **Formula Enforcement**: Integrated into the automated discovery loop in `src/automation.rs`.
-
-## 3. PERFORMANCE (T1 Microkernel)
-- **Zero-Heap**: All hot-path operations (replay, RL updates) are zero-allocation. `RlState` is a 136-byte `Copy` struct on the stack.
-- **Branchless**: Transition firing uses bitwise mask calculus ($M' = (M \ \& \ \neg I) \ | \ O$) to eliminate data-dependent branching.
-- **K-Tier Alignment**: Aligned to K1024 (16 words) to support the full engine capacity.
-
-## 4. PROVENANCE
-- **Execution Manifest**: `Engine::run` emits a full `ExecutionManifest` containing input hashes ($H(L)$), action sequences ($\pi$), and model hashes ($H(N)$).
-- **Reproducibility**: $Var(\tau) = 0$ verified for all transitions.
-
-## 5. RIGOR (Property-Based Testing)
-- **Test Suites**: `src/proptest_kernel_verification.rs`, `src/ontology_proptests.rs`, and `src/reinforcement_tests.rs` provide exhaustive coverage.
-- **Status**: 81/81 library tests passed.
-
----
-**Verified by Gemini CLI Agent**
+Historical claims in the archived source describe their original context and do not establish current implementation standing.

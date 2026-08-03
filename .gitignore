@@ -4,6 +4,15 @@
 *.json
 .DS_Store
 
+# Canonical documentation closure evidence
+!docs/MARKDOWN_INVENTORY.json
+!docs/DOCUMENTATION_CLOSURE.json
+
+# Python build and test caches
+__pycache__/
+**/__pycache__/
+*.py[cod]
+
 # Accidental home-path copies (must never be tracked)
 /Users/
 .wreckit/
