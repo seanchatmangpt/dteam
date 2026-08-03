@@ -1,0 +1,15 @@
+{
+  "canonical_sha256": "5a8783cb7537233b88d6a3b8e8aed24a1ab74168f3c58e23de3fbe10153c8617",
+  "capabilities": 24,
+  "digest_exact_languages": ["c","cpp","go","java","node","perl","php","python","ruby"],
+  "innovation_checkpoints": 10,
+  "innovation_checkpoints_passed": 10,
+  "languages": ["c","cpp","go","java","node","perl","php","python","ruby"],
+  "negative_controls_killed": 2,
+  "profiles_exhaustively_validated": 8640,
+  "root_sha256": "0e019749d21bce1f94d0ec6d1cd86b86f90b704f4caa168391c700eba46a360d",
+  "rust_local_standing": "BLOCKED_TOOLCHAIN_ABSENT",
+  "schema": "dteam.local-polyglot-capsule.v2",
+  "semantic_passes": 9,
+  "standing": "ALIVE"
+}

@@ -1,0 +1,3 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix dt: <https://dteam.ai/vision2030#> .
+dt:PlatformShape a sh:NodeShape ; sh:targetClass dt:CombinatorialPlatform ; sh:property [ sh:path dt:profileCount ; sh:minCount 1 ; sh:maxCount 1 ] .

@@ -1,0 +1,3 @@
+PREFIX dt: <https://dteam.ai/vision2030#>
+SELECT ?platform ?count WHERE { ?platform a dt:CombinatorialPlatform ; dt:profileCount ?count . }
+ORDER BY ?platform

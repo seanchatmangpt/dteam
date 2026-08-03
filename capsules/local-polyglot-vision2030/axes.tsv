@@ -1,0 +1,6 @@
+mode	cinema,matrix,construct,governance,market,receipt
+device	browser,tv,venue,apple-tv,android-tv,low-resource
+transport	local,lan,federated,delay-tolerant
+accessibility	default,captions,audio-description,high-contrast,reduced-motion
+language	en,es,ja
+standing	UNKNOWN,PARTIAL_ALIVE,ALIVE,BLOCKED
