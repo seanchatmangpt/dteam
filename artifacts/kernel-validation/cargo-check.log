@@ -1,0 +1,8 @@
+info: syncing channel updates for nightly-2026-06-02-x86_64-unknown-linux-gnu
+info: latest update on 2026-06-02 for version 1.98.0-nightly (6bdf43094 2026-06-01)
+info: downloading 6 components
+    Checking dteam-capability-kernel v0.1.0 (/home/runner/work/dteam/dteam/capabilities/dteam-kernel)
+src/quota.rs:386:8: warning: method `logical_time` is never used
+warning: `dteam-capability-kernel` (lib) generated 1 warning
+warning: `dteam-capability-kernel` (lib test) generated 1 warning (1 duplicate)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.48s

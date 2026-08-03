@@ -1,0 +1,58 @@
+name: kernel-surface-sync
+
+on:
+  pull_request:
+    paths:
+      - "capabilities/dteam-kernel/src/*.rs"
+      - ".github/workflows/kernel-surface-sync.yml"
+
+concurrency:
+  group: kernel-surface-sync-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+      - name: Synchronize module declarations
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          source = Path("capabilities/dteam-kernel/src")
+          lib = source / "lib.rs"
+          text = lib.read_text(encoding="utf-8")
+          modules = sorted(
+              path.stem
+              for path in source.glob("*.rs")
+              if path.name != "lib.rs" and not path.stem.startswith("_")
+          )
+          missing = [name for name in modules if f"pub mod {name};" not in text]
+          if missing:
+              anchor = next(
+                  (f"pub mod {name};" for name in modules if f"pub mod {name};" in text),
+                  None,
+              )
+              block = "".join(f"pub mod {name};\n" for name in missing)
+              if anchor:
+                  text = text.replace(anchor, block + anchor, 1)
+              else:
+                  text += "\n" + block
+              lib.write_text(text, encoding="utf-8")
+          print("declared modules:", ", ".join(modules))
+          print("added modules:", ", ".join(missing) if missing else "none")
+          PY
+          cargo fmt --manifest-path capabilities/dteam-kernel/Cargo.toml --all
+          if ! git diff --quiet; then
+            git config user.name "dteam-surface-bot"
+            git config user.email "dteam-surface-bot@users.noreply.github.com"
+            git add capabilities/dteam-kernel/src/lib.rs
+            git commit -m "chore(kernel): synchronize capability module surface"
+            git push origin HEAD:${{ github.event.pull_request.head.ref }}
+          fi

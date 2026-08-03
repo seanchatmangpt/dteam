@@ -1,262 +1,156 @@
-# AGENTS.md — guidance for automated agents and contributors
+# AGENTS.md — implementation guidance
 
-This file summarizes how the **dteam** (Deterministic Process Intelligence Engine / Digital Team) Rust workspace is organized, how to validate changes, and what constraints to respect. It is the primary onboarding artifact for coding agents. When this document conflicts with source or `Cargo.toml`, prefer the repository and update this file in the same change.
+This file governs automated and human implementation work in the repository root. A nested `AGENTS.md`, when present, governs its subtree.
 
-## 1. Project identity
+## Mission
 
-- **Package**: `dteam` version **1.3.0**, Rust **2021** (`Cargo.toml`). Single crate workspace (`[workspace]` is present but empty).
-- **Purpose**: Deterministic process-intelligence kernel: event logs and Petri nets, token-based conformance replay, tabular reinforcement-learning agents for discovery loops, autonomic “digital team” kernels, SIMD/SWAR helpers, POWL and OCEL-oriented structures, and WASM-friendly serialization hooks.
-- **License**: **Business Source License 1.1** (`LICENSE`). Commercial and competitive-use restrictions may apply; read the full text before assuming OSS freedoms.
-- **Third-party models**: `Event` / `Trace` / `EventLog` attribution in **`ATTRIBUTION.md`** (rust4pm lineage, MIT/Apache-2.0).
+dteam manufactures deterministic process-intelligence capabilities whose decisions and effects can be explained, receipted, and replayed.
 
-## 2. Toolchain and dev profile
+Use this execution sequence:
 
-- **Runtime deps** (high level): `bcinr`, `rustc-hash`, `serde`/`serde_json`/`toml`, `quick-xml`, `anyhow`, `chrono`, `uuid`, `hashbrown`, `wasm-bindgen`, `serde-wasm-bindgen`, `fastrand`, `itertools`.
-- **Dev-dependencies**: `criterion`, `divan`, `iai-callgrind`, `dhat`, `process_mining` (reference/bench comparisons where used).
-- **Features** (see §4): default includes **`token-based-replay`**.
-- **MSRV**: Not pinned in `Cargo.toml`; use current **stable** Rust compatible with edition 2021 and the dependency versions in the lockfile (`Cargo.lock`).
+```text
+parse
+→ orient
+→ resolve exact subject and base
+→ inspect doctrine and manifests
+→ admit a bounded plan
+→ implement the smallest coherent change
+→ verify the failed boundary
+→ expand validation
+→ record evidence
+→ publish intentionally
+```
 
-## 3. Commands (daily use)
+## Repository subjects
 
-| Goal | Command |
-|------|---------|
-| Fast compile | `cargo check` or `make check` |
-| Library unit tests | `cargo test --lib` or `make test` (uses `--nocapture` via Makefile) |
-| Release build | `cargo build --release` or `make build` |
-| Lint (deny warnings) | `make lint` → `cargo clippy --all-targets -- -D warnings` |
-| Format | `make fmt` |
-| All-target check (examples, benches) | `cargo check --all-targets` (also part of `make doctor`) |
-| Benchmarks | `cargo bench` / `make bench` |
-| Diagnostics example | `cargo run --example doctor` |
-| Autonomic simulation | `cargo run --example autonomic_runner` |
+Do not collapse these into one claim.
 
-**`make doc`** runs `pdflatex` twice on [`docs/thesis/main.tex`](docs/thesis/main.tex) and renames the output to **`docs/thesis/dteam-whitepaper.pdf`**.
+### Original workspace
 
-## 4. Cargo features
+The root workspace contains INSA, compiled cognition, conformance, reinforcement learning, autonomic kernels, process models, benchmarks, and research assets. Some dependencies resolve through sibling repositories. Root-workspace validation requires a dependency-closed checkout.
 
-- **`token-based-replay`** (default): gates `src/conformance/case_centric/token_based_replay.rs` behind `cfg(feature = "token-based-replay")`. Adversarial tests under `case_centric/` remain available in test builds.
+### Standalone capability kernel
 
-## 5. Configuration (`dteam.toml` and `AutonomicConfig`)
+`capabilities/dteam-kernel` is a dependency-free Rust crate that isolates deterministic admission, planning, brokered execution, receipts, replay, process evidence, access control, event transport, sagas, combinatorial composition, telco assessment, and doctor capabilities.
 
-- Path: workspace root **`dteam.toml`**. **`AutonomicConfig::load`** in `src/config.rs` returns **`Default`** if the file is missing (no error).
-- Sections map roughly as follows:
+A standalone-kernel success does not prove the root workspace. A blocked root dependency does not invalidate an executed standalone subject.
 
-| TOML block | Rust type | Notes |
-|------------|-----------|--------|
-| `[meta]` | `MetaConfig` | Version string, environment label, identity. |
-| `[kernel]` | `KernelConfig` | `tier` (e.g. K256), `alignment`, `determinism`, `allocation_policy` (documented intent; not all keys may drive code paths yet). |
-| `[autonomic]` | `AutonomicSystemConfig` | `mode`, `sampling_rate`, `integrity_hash`; nested **`guards`** (`risk_threshold`, `min_health_threshold`, `max_cycle_latency_ms`, `repair_authority`) and **`policy`** (`profile`, `mdl_penalty`, `human_weight`). |
-| `[rl]` | `RlConfig` | `algorithm` name string, learning/discount/exploration rates, `reward_weights` map. |
-| `[discovery]` | `DiscoveryConfig` | Epoch caps, fitness stop threshold, strategy, drift window. |
-| `[paths]` | `PathConfig` | Training/test/ground-truth dirs under `data/`, `artifacts_dir`, manifest bus path. |
-| `[wasm]` | `WasmConfig` | Batch size and max pages (host/WASM tuning). |
+## Foundational invariants
 
-- **`dteam::dteam::orchestration::Engine::run`** loads `dteam.toml` for reward weight keys such as **`fitness`** and **`soundness`** when building training behavior.
-- **`DefaultKernel`** and **`AutonomicKernel::run_cycle`** also load `dteam.toml` for guard thresholds and policy (e.g. `strict_conformance`, `min_health_threshold`).
+### Governing equation
 
----
+```text
+A = μ(O*)
+R = receipt(A)
+```
 
-## 6. Library surface (`src/lib.rs`)
+`O*` is admitted and bounded observation. `μ` is deterministic lawful manufacture. `R` binds identity, authority, outcome, and replay.
 
-Notable public items:
+### Exclusive actuation
 
-- **Process data**: `models` (`Event`, `Trace`, `EventLog`, `petri_net::PetriNet`), re-exported at crate root via `pub use models::*`.
-- **Conformance**: `conformance` re-exported at crate root.
-- **RL embedding**: **`RlState`**, **`RlAction`**, tied to **`reinforcement::WorkflowState` / `WorkflowAction`**, with a small **`rl_state_serialization`** module for keyed tables.
-- **Autonomic**: re-exports **`AutonomicKernel`**, **`DefaultKernel`**, **`AutonomicState`**, **`AutonomicAction`**, **`AutonomicEvent`**, **`AutonomicResult`**, **`ActionType`**, **`ActionRisk`**.
-- **Namespaces**: `dteam::dteam` holds **`core::KTier`**, **`orchestration::{Engine, EngineBuilder, ExecutionManifest, EngineResult}`**, thin **`kernel` / `artifacts` / `verification`** modules, and **`verification::run_skeptic_harness`**.
-- **Feature modules**: `simd`, `probabilistic`, `powl`, `ml`, `agentic`, `ocpm`, `benchmark`, `config`, `skeptic_harness`, `skeptic_contract`, `ref_models`, `ref_conformance`.
-- **Integration tests in library**: `jtbd_tests`, `jtbd_counterfactual_tests`, `reinforcement_tests` are normal modules with `#[cfg(test)]` suites (see §10).
+Separate:
 
----
+- `SELECT`: choose among admitted alternatives;
+- `CONSTRUCT`: manufacture plans, intents, schemas, projections, and evidence;
+- `DO`: mutate machine or domain state.
 
-## 7. Source layout (by area)
+Only the broker may perform `DO`. Hooks manufacture intents. Planners manufacture plans. Semantic derivations and generated outputs have no ambient execution authority.
 
-### Core process models — `src/models/`
+### Standing
 
-- **`mod.rs`**: Attributes, `Event` / `Trace` / `EventLog`, **`activity_footprint`**, **`canonical_hash`** (FNV-1a over concept:name activity strings).
-- **`petri_net.rs`**: `Place`, `Transition`, `Arc`, **`PetriNet`** with `PackedKeyTable` markings, structural workflow-net checks, soundness / MDL-related helpers used by automation and orchestration.
+Use only:
 
-### Conformance — `src/conformance/`
+- `UNKNOWN`
+- `PARTIAL_ALIVE`
+- `ALIVE`
+- `BLOCKED`
+- `BUILD_BROKEN`
+- `UNSUPPORTED`
 
-- **`mod.rs`**: **`ProjectedLog`** (indexed activities, aggregated traces), **`token_replay_projected`**, **`token_replay`**: fast **`u64`** marking masks when place count **≤ 64**; otherwise **`replay_trace_standard`** path. **`ConformanceResult`**, **`TokenReplayDeviation`** types.
-- **`case_centric/`**: Feature-gated **`token_based_replay`**, **`adversarial_tests`** (overflow, missing tokens).
+A typed lawful refusal is an outcome, not a failure of standing. Inspection is not execution. A workflow is not a successful run. A receipt-shaped file is not verified evidence.
 
-### I/O — `src/io/`
+## Change discipline
 
-- **`xes.rs`**: `XESReader` using `quick-xml` (`read`, `parse_str`). Adds a `source` attribute when reading from path.
-- **`xes_tests.rs`**: Regression tests for import.
+1. Resolve repository, branch, base SHA, and subject.
+2. Read the nearest doctrine, manifests, task runners, tests, and generated-source policy.
+3. Inspect the complete transition path affected by the change.
+4. Write or identify an executable acceptance boundary.
+5. Make the smallest coherent bounded diff.
+6. Preserve authority, receipts, replay, portability, and failure transparency.
+7. Run the narrowest high-information verifier first.
+8. On failure, classify the failed transition and apply a new hypothesis before rerunning.
+9. Update public documentation in the same change.
 
-### Utilities — `src/utils/`
+Avoid unrelated refactors, fabricated evidence, weakened tests, unnecessary dependencies, workstation-specific paths, unchecked subprocesses, and hand-edited generated outputs.
 
-- **`dense_kernel.rs`**: **`fnv1a_64`**, **`PackedKeyTable`**, **`DenseIndex`** (collision-guarded mapping); primary hash spine for nets and logs.
-- **`dense_index_proptests.rs`**: Property tests for **`DenseIndex`** collision detection.
-- **`bitset.rs`**, **`perturbation.rs`**, **`simd/swar.rs`**: low-level and perturbation helpers.
-- **`mod.rs`**: **`to_js_str`** bridges serde types to **`wasm_bindgen::JsValue`** via **`serde_wasm_bindgen`**.
+## Standalone kernel commands
 
-### Reinforcement — `src/reinforcement/`
+```bash
+cargo check --manifest-path capabilities/dteam-kernel/Cargo.toml --all-targets
+cargo test --manifest-path capabilities/dteam-kernel/Cargo.toml --all-targets -- --test-threads=1
+cargo run --manifest-path capabilities/dteam-kernel/Cargo.toml --bin dteam-capabilities
+cargo run --manifest-path capabilities/dteam-kernel/Cargo.toml --bin dteam-dense-demo
+cargo run --manifest-path capabilities/dteam-kernel/Cargo.toml --bin dteam-doctor -- --json
+python3 tools/chicago_validator.py --root . --manifest capabilities/dteam-kernel/Cargo.toml
+```
 
-- Traits: **`WorkflowState`**, **`WorkflowAction`**, **`Agent`**, **`AgentMeta`**.
-- Algorithms: **`QLearning`**, **`DoubleQLearning`**, **`SARSAAgent`**, **`ExpectedSARSAAgent`**, **`ReinforceAgent`**.
-- Shared Q-table helpers use **`PackedKeyTable`** and **`rustc_hash::FxHasher`** for state keys (see `get_q_values`, `hash_state`).
+Portable evidence crown:
 
-### Automation — `src/automation.rs`
+```bash
+bash tools/local_finish.sh
+```
 
-- **`train_with_provenance`** / **`train_with_provenance_projected`**: RL loop over **`ProjectedLog`**, **`token_replay_projected`** fitness, structural checks, emits **`PetriNet`** plus byte **`trajectory`** of action indices.
-- **`automate_discovery`**: scans `data_dir` + config paths for `*.xes` matching `*00.xes` naming (legacy contest layout).
+## Root workspace commands
 
-### Autonomic — `src/autonomic/`
+With all sibling dependencies present:
 
-- **`types.rs`**: States, actions, events, risk tiers.
-- **`kernel.rs`**: **`AutonomicKernel`** trait (**observe → infer → propose → accept → execute → adapt**), **`DefaultKernel`** implementing policy/guard behavior from config.
-- **`vision_2030_kernel.rs`**: **`Vision2030Kernel`** used heavily in JTBD tests; manifest strings include **`VISION_2030_MANIFEST`** invariants.
-- **`macros.rs`**: supporting macros.
+```bash
+make check
+make test
+make lint
+make fmt
+make doctor
+```
 
-### Extended stacks
+Do not substitute standalone proof when a user explicitly requests root integration behavior.
 
-- **`src/powl/`**: Partially ordered workflow language structures (**`PowlModel`**, operators XOR/AND/LOOP/etc., choice graphs); soundness validation hooks on **`PowlNode`**.
-- **`src/ocpm/`**: **`OcelLog`** — hashed IDs, flat vectors, **`add_event_hashed`** to avoid per-event `String` churn where possible.
-- **`src/probabilistic/`**: e.g. count-min style sketch (`count_min.rs`).
-- **`src/ml/`**: **`linucb`** and related exports.
-- **`src/agentic/`**: **`counterfactual::Simulator`** for scenario-style tests.
-- **`src/simd/`**: module wrapper around SWAR helpers.
+## Testing standard
 
-### Verification / reference
+Prefer Chicago-style state-based tests against real collaborators. Every public capability module must own an executable scenario. Required negative controls include:
 
-- **`skeptic_harness.rs`**: Enumerates adversarial “attacks” and claim registry; includes tests tying narrative to code.
-- **`skeptic_contract.rs`**: Non-implementation **contract** document: constants like **`CHECK_RESET_AXIOM`** encode obligations for trace-isolated evaluation (overfitting, value–structure gap, etc.).
-- **`proptest_kernel_verification.rs`**: Cross-architecture `proptest` suite verifying μ-kernel properties:
-    - **Determinism**: `Var(τ) = 0` for all transitions.
-    - **Branchless Logic**: Data-independent firing via bitwise mask calculus.
-    - **MDL Minimality**: Structural complexity enforcement.
-    - **KTier Alignment**: Capacity and word-alignment verification across varied tiers.
-    - **Zero-Heap Verification**: Stack-allocated hot-path transitions.
-    - **Provenance**: Compliance check for `ExecutionManifest` emission.
-- **`ref_models/`**, **`ref_conformance/`**: reference Petri net, event log, token replay for parity checks.
+- duplicate identity with changed content;
+- complete admission violations;
+- no partial transaction or quota mutation;
+- no executor call before authorization;
+- hook intent manufacture without actuation;
+- event lease, acknowledgement, redelivery, and dead-letter boundaries;
+- saga compensation and resumable recovery;
+- cycle refusal in dependency, role, and provenance graphs;
+- replay mismatch detection;
+- crown refusal before complete observed evidence.
 
-### Benchmarks entry — `src/benchmark.rs`
+## Generated and archival files
 
-- **`run_contest_benchmark`**: calls **`automate_discovery("./data/pdc2025/")`** for pipeline timing (requires data on disk).
+Edit canonical sources and generators, not projections. Historical one-shot patch scripts may remain as lineage evidence but are not supported production APIs unless admitted by `closure-policy.json`.
 
----
+## Documentation contract
 
-## 8. Conformance performance path
+Public claims must name:
 
-- **`PetriNet`** places indexed into **`KBitSet<16>`** for vectorized mask updates in **`token_replay`** / **`token_replay_projected`**.
-- Supports up to **1024** places (K1024 tier) with zero-heap, branchless bitset algebra.
-- Larger place counts (if any beyond 1024) fall back to **`replay_trace_standard`** with **`PackedKeyTable`** markings.
-- **`RlState.marking_mask`** in `lib.rs` is now a **`KBitSet<16>`** to maintain nanosecond-scale state updates across all supported tiers.
+- exact subject;
+- observed command and outcome;
+- evidence identity;
+- blockers and exclusions;
+- generated status.
 
-## 9. Examples
+Keep these documents aligned:
 
-| Example | Role |
-|---------|------|
-| **`examples/doctor.rs`** | Prints **`Engine::doctor()`**, exercises **`DefaultKernel`** with a synthetic **`AutonomicEvent`**. |
-| **`examples/autonomic_runner.rs`** | Multi-event simulation: infer → propose → accept → execute → **`adapt`** feedback in a loop. |
+- `README.md`
+- `docs/ARCHITECTURE.md`
+- `docs/VALIDATION.md`
+- `docs/OPERATIONS.md`
+- `CONTRIBUTING.md`
 
----
+## Publication
 
-## 10. Test suites inside the library crate
-
-- **`jtbd_tests` / `jtbd_counterfactual_tests`**: Scenario-driven **`Vision2030Kernel`** runs; assert health bounds, manifest prefixes (`VISION_2030_MANIFEST`), deterministic `hash=` substrings, drift/reward feedback, governance cases.
-- **`reinforcement_tests`**: Convergence and serialization roundtrips for tabular agents. Now includes **`proptest`** for KTier marking admissibility.
-- **`proptest_kernel_verification`**: Property-based tests for μ-kernel determinism, bitset logic, and Engine KTier enforcement. Verifies $Var(\tau) = 0$ determinism, `KTier` capacity boundaries, MDL formula correctness, and cryptographic manifest integrity.
-- **`provenance_mdl_verification`**: Integration tests for `ExecutionManifest` compliance and MDL minimality Φ(N) verification.
-- **`io/xes_tests`**, **`conformance/case_centric/adversarial_tests`**, **`automation`**, **`dteam::orchestration`**, **`autonomic::kernel`**, **`skeptic_harness`**: narrower unit tests.
-
-Run everything: **`cargo test --lib`**.
-
----
-
-## 11. Benchmark binaries (`benches/`, harness = false)
-
-Registered in **`Cargo.toml`**: `reinforcement_bench`, `real_data_bench`, `algorithm_bench`, `dteam_bench`, `zero_allocation_bench`, `instruction_stability_bench`, `bcinr_primitives_bench`, `e2e_discovery_bench`, `ktier_scalability_bench`, `kernel_bench`, `comparison_bench`, `validation_bench`, `wasm_bridge_bench`, `adversarial_topology_bench`, `high_concurrency_update_bench`, `stochastic_noise_bench`, `vision_2030_bench`. Use **`cargo bench <filter>`** to shorten runs during development.
-
----
-
-## 12. Data, artifacts, and thesis assets
-
-- **Config-relative dirs**: `data/pdc2025/{training_logs,test_logs,ground_truth}` (see `dteam.toml`); **`artifacts/`**, **`tmp/dmanifest_bus`** for manifests.
-- **`docs/thesis/`**: LaTeX sources; **`make doc`** produces **`docs/thesis/dteam-whitepaper.pdf`** (via two `pdflatex` passes on `main.tex`).
-
----
-
-## 13. Anti-Lie Release Artifacts
-
-The anti-lie doctrine is operationalized through five release-ready tools. All require a prior `cargo make pdc` run that produced plan JSON files.
-
-### Commands
-
-| Command | Binary | Purpose |
-|---------|--------|---------|
-| `cargo make doctor` | `doctor` | Epistemic smoke test: LYING / SLOW / SATURATED / REDUNDANT / STALE |
-| `cargo make doctor-target TARGET=T1` | `doctor` | Enforce deployment tier contract; suggest cheapest Pareto downgrade |
-| `cargo make doctor-json` | `doctor` | JSON output for CI pipeline integration |
-| `cargo make plan-diff DIR_A=v1 DIR_B=v2` | `plan_diff` | Detect accuracy regressions between two artifact runs |
-| `cargo make plan-schema` | `plan_schema` | Print JSON Schema 2020-12 for AutomlPlan; `--validate=plan.json` for point checks |
-| `cargo make plan-report` | `plan_report` | Standalone HTML report: tier matrix, per-plan table, anti-lie audit, signal frequency |
-
-### Pathology Reference
-
-| Pathology | Exit | Meaning |
-|-----------|------|---------|
-| **LYING** | 2 (fatal) | `accounting_balanced=false`, accounting identity broken, `oracle_gap` mismatch, or Pareto ≠1 chosen |
-| **SLOW** | 1 (warn) | `total_timing_us > 100,000µs` — not edge-deployable |
-| **SATURATED** | 1 (warn) | All selected signals from a single family — monoculture, not orthogonal |
-| **REDUNDANT** | 1 (info) | >40% of evaluated signals rejected for correlation |
-| **STALE** | 1 (info) | `run_metadata.json` missing or commit hash mismatch |
-
-### Doctor Vision (2026–2030)
-
-> "Your doctor command would answer something much stronger: can this system be trusted here?"
-
-The current `doctor` is Phase 1 (smoke test + anti-lie verifier). Future phases:
-- **2027**: operational diagnostician — drift, tier regressions, oracle gap trends, anchor bias metrics
-- **2028**: repair planner — cheapest lawful repair, counterfactual repair engine
-- **2030**: autonomic governor — unified diagnostic and repair substrate across the entire stack
-
-See `docs/explanation/deployment_tiers.md` and `docs/how-to/run-doctor.md` for usage details.
-
----
-
-## 14. Security and determinism notes
-
-- XES parsing uses **`quick-xml`** without a full DTD resolver in the snippet path; keep expansion limits and entity policies in mind when extending **`parse_content`**.
-- Token replay and **`canonical_hash`** are written for **audit-style reproducibility**; preserve hashing and ordering semantics when changing event or net serialization.
-- **`skeptic_contract`** explicitly calls out **no hidden state across traces** as a requirement class for fair evaluation—align RL evaluation loops with that when adding caches.
-
----
-
-## 15. Conventions for agents
-
-- **Scope**: Touch only files needed for the task; avoid drive-by refactors or unsolicited markdown except when updating this **`AGENTS.md`** alongside behavioral changes.
-- **Lockfile**: When changing `Cargo.toml` dependencies, update **`Cargo.lock`** and commit both so CI and `cargo bench` stay reproducible.
-- **Style**: Match module patterns (`anyhow::Result` in IO, `PackedKeyTable` + **`fnv1a_64`** for IDs, feature gates for optional conformance).
-- **Git**: Per project policy, **do not** use destructive resets; fix forward; prefer **`git revert`** for rollback commits.
-- **Performance**: Prefer existing **`ProjectedLog`** and bitmask paths before adding new allocations on hot paths.
-- **Root artifacts**: LaTeX/PDF and roadmap files may live beside the crate; do not remove documentation PDFs or thesis outputs unless the task requires it.
-
----
-
-## 16. Pre-merge verification checklist
-
-1. `cargo check` (minimum).
-2. `cargo clippy --all-targets -- -D warnings` when editing Rust sources intended for merge.
-3. `cargo test --lib`.
-4. If touching conformance or nets: run adversarial tests and a focused **`cargo bench`** group when performance claims change.
-5. Update **`AGENTS.md`** if public layout, config schema, or primary commands change.
-6. For `examples/` or `benches/`, run `cargo check --examples` / `cargo check --benches` if CI does not cover them yet.
-
----
-
-## 17. Envelope CLI surface (ggen — external crate)
-
-Receipt signing and chain verification for dteam-produced artifacts is handled by the `ggen` binary (crate: `ggen-cli`), not by any binary in this workspace. The schema discriminator is `chatmangpt.receipt.envelope.v1`. Producer kinds registered from dteam are `doctor-verdict-automl` and `doctor-verdict-ralph-plan`; future kinds include `ucausal-receipt` and `conformance-result`.
-
-| Verb | Purpose |
-|------|---------|
-| `ggen envelope sign` | Wrap a payload file in a signed ReceiptEnvelope |
-| `ggen envelope verify` | Verify Ed25519 signature on a single envelope |
-| `ggen envelope chain_verify` | Verify BLAKE3 chain integrity across a directory of envelopes |
-
-The envelope layer is a pointer-and-proof layer only. It never re-serializes or merges producer payloads. See `.portfolio/obligations/obl-receipt-format-unifier-001.closure.md` for the full design record.
+Use a purpose branch and intentional conventional commits. Do not force-push. Keep the PR draft until required exact-head validation is observed. Never merge unless explicitly requested.

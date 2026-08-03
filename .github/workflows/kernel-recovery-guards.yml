@@ -1,0 +1,182 @@
+name: kernel-recovery-guards
+
+on:
+  pull_request:
+    paths:
+      - "capabilities/dteam-kernel/src/event_bus.rs"
+      - "capabilities/dteam-kernel/src/saga.rs"
+      - ".github/workflows/kernel-recovery-guards.yml"
+
+concurrency:
+  group: kernel-recovery-guards-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  encode-guards:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+      - name: Encode permanent recovery fixtures
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          saga = Path("capabilities/dteam-kernel/src/saga.rs")
+          text = saga.read_text(encoding="utf-8")
+          text = text.replace(
+              "        if !matches!(instance.state, SagaState::Running | SagaState::Compensating) {",
+              "        if !matches!(\n            instance.state,\n            SagaState::Running | SagaState::Compensating | SagaState::CompensationFailed\n        ) {",
+          )
+          text = text.replace(
+              '''        if instance.state == SagaState::Compensating {
+            compensate(instance, definition, executor);
+            return Ok(self.instances.get(id).expect("instance remains present"));
+        }
+''',
+              '''        if matches!(instance.state, SagaState::Compensating | SagaState::CompensationFailed) {
+            if instance.state == SagaState::CompensationFailed {
+                instance.transition(SagaState::Compensating);
+            }
+            compensate(instance, definition, executor);
+            return Ok(self.instances.get(id).expect("instance remains present"));
+        }
+''',
+          )
+          marker = "    fn retryable_step_retries_with_receipts() {"
+          guard_name = "compensation_failure_resumes_from_checkpoint"
+          if guard_name not in text:
+              insert = r'''
+
+    struct FlakyCompensation {
+        compensation_calls: Vec<String>,
+        failed_once: bool,
+    }
+
+    impl SagaExecutor for FlakyCompensation {
+        fn execute(
+            &mut self,
+            _saga: &SagaId,
+            step: &SagaStep,
+            _attempt: u32,
+            _input: &[u8],
+        ) -> SagaOperationResult {
+            if step.id().as_str() == "ship" {
+                SagaOperationResult::Failed {
+                    code: "SHIP_FAILED".to_owned(),
+                    detail: "force compensation".to_owned(),
+                    elapsed: 1,
+                }
+            } else {
+                SagaOperationResult::Succeeded {
+                    output: step.id().as_str().as_bytes().to_vec(),
+                    elapsed: 1,
+                }
+            }
+        }
+
+        fn compensate(
+            &mut self,
+            _saga: &SagaId,
+            step: &SagaStep,
+            _attempt: u32,
+            _forward_output: &[u8],
+        ) -> SagaOperationResult {
+            self.compensation_calls.push(step.id().as_str().to_owned());
+            if step.id().as_str() == "charge" && !self.failed_once {
+                self.failed_once = true;
+                SagaOperationResult::Failed {
+                    code: "REFUND_FAILED".to_owned(),
+                    detail: "temporary compensation failure".to_owned(),
+                    elapsed: 1,
+                }
+            } else {
+                SagaOperationResult::Succeeded {
+                    output: Vec::new(),
+                    elapsed: 1,
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn compensation_failure_resumes_from_checkpoint() {
+        let definition = definition();
+        let id = SagaId::new("order-recovery").unwrap();
+        let mut coordinator = SagaCoordinator::new();
+        coordinator
+            .start(id.clone(), &definition, Vec::new())
+            .unwrap();
+        let mut executor = FlakyCompensation {
+            compensation_calls: Vec::new(),
+            failed_once: false,
+        };
+        coordinator.run(&id, &definition, &mut executor).unwrap();
+        assert_eq!(
+            coordinator.instance(&id).unwrap().state(),
+            SagaState::CompensationFailed
+        );
+        coordinator.run(&id, &definition, &mut executor).unwrap();
+        assert_eq!(
+            coordinator.instance(&id).unwrap().state(),
+            SagaState::Compensated
+        );
+        assert_eq!(
+            executor.compensation_calls,
+            vec!["charge", "charge", "reserve"]
+        );
+    }
+'''
+              text = text.rsplit("}\n", 1)[0] + insert + "}\n"
+          saga.write_text(text, encoding="utf-8")
+
+          event_bus = Path("capabilities/dteam-kernel/src/event_bus.rs")
+          text = event_bus.read_text(encoding="utf-8")
+          guard_name = "rejected_later_offset_is_not_skipped_by_earlier_ack"
+          if guard_name not in text:
+              insert = r'''
+
+    #[test]
+    fn rejected_later_offset_is_not_skipped_by_earlier_ack() {
+        let mut bus = bus(3);
+        for index in 0..2 {
+            bus.publish(PublishRequest::new(
+                EventId::new(format!("event-{index}")).unwrap(),
+                TopicId::new("events").unwrap(),
+                index + 1,
+                b"same-partition".to_vec(),
+                vec![index as u8],
+            ))
+            .unwrap();
+        }
+        let subscription = SubscriptionId::new("worker").unwrap();
+        let consumer = ConsumerId::new("consumer").unwrap();
+        let mut deliveries = bus.poll(&subscription, &consumer, 3, 10).unwrap();
+        deliveries.sort_by_key(|delivery| delivery.event().offset());
+        let first = deliveries.remove(0);
+        let second = deliveries.remove(0);
+        bus.reject(&subscription, second.id(), &consumer, 4, "retry")
+            .unwrap();
+        bus.acknowledge(&subscription, first.id(), &consumer, 4)
+            .unwrap();
+        let redelivered = bus.poll(&subscription, &consumer, 5, 10).unwrap();
+        assert_eq!(redelivered.len(), 1);
+        assert_eq!(redelivered[0].event().id().as_str(), "event-1");
+        assert_eq!(redelivered[0].attempt(), 2);
+    }
+'''
+              text = text.rsplit("}\n", 1)[0] + insert + "}\n"
+          event_bus.write_text(text, encoding="utf-8")
+          PY
+          cargo fmt --manifest-path capabilities/dteam-kernel/Cargo.toml --all
+          if ! git diff --quiet; then
+            git config user.name "dteam-recovery-guard-bot"
+            git config user.email "dteam-recovery-guard-bot@users.noreply.github.com"
+            git add capabilities/dteam-kernel/src/event_bus.rs capabilities/dteam-kernel/src/saga.rs
+            git commit -m "test(kernel): guard offset and compensation recovery"
+            git push origin HEAD:${{ github.event.pull_request.head.ref }}
+          fi

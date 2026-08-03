@@ -1,0 +1,103 @@
+name: kernel-semantic-repair
+
+on:
+  pull_request:
+    paths:
+      - "capabilities/dteam-kernel/src/event_bus.rs"
+      - "capabilities/dteam-kernel/src/saga.rs"
+      - ".github/workflows/kernel-semantic-repair.yml"
+
+concurrency:
+  group: kernel-semantic-repair-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+      - name: Apply semantic repairs
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          event_bus = Path("capabilities/dteam-kernel/src/event_bus.rs")
+          text = event_bus.read_text(encoding="utf-8")
+          text = text.replace(
+              "    leased_events: BTreeSet<(u16, u64)>,\n    dead_letters: Vec<EventEnvelope>,",
+              "    leased_events: BTreeSet<(u16, u64)>,\n    acknowledged: BTreeSet<(u16, u64)>,\n    dead_letters: Vec<EventEnvelope>,",
+          )
+          text = text.replace(
+              "            leased_events: BTreeSet::new(),\n            dead_letters: Vec::new(),",
+              "            leased_events: BTreeSet::new(),\n            acknowledged: BTreeSet::new(),\n            dead_letters: Vec::new(),",
+          )
+          old = '''fn advance_committed_offset(state: &mut SubscriptionState, partition: u16, offset: u64) {
+    let committed = state
+        .committed_offsets
+        .get_mut(&partition)
+        .expect("configured partition");
+    if offset == *committed {
+        *committed += 1;
+        while state.attempts.remove(&(partition, *committed)).is_some()
+            && !state.leased_events.contains(&(partition, *committed))
+        {
+            *committed += 1;
+        }
+    }
+}
+'''
+          new = '''fn advance_committed_offset(state: &mut SubscriptionState, partition: u16, offset: u64) {
+    state.acknowledged.insert((partition, offset));
+    let committed = state
+        .committed_offsets
+        .get_mut(&partition)
+        .expect("configured partition");
+    while state.acknowledged.remove(&(partition, *committed)) {
+        state.attempts.remove(&(partition, *committed));
+        *committed += 1;
+    }
+}
+'''
+          text = text.replace(old, new)
+          text = text.replace(
+              "            encoder.u64(\"dead-letter-count\", state.dead_letters.len() as u64);",
+              "            encoder.u64(\"acknowledged-count\", state.acknowledged.len() as u64);\n            for (partition, offset) in &state.acknowledged {\n                encoder.u64(\"acknowledged-partition\", u64::from(*partition)).u64(\"acknowledged-offset\", *offset);\n            }\n            encoder.u64(\"dead-letter-count\", state.dead_letters.len() as u64);",
+          )
+          event_bus.write_text(text, encoding="utf-8")
+
+          saga = Path("capabilities/dteam-kernel/src/saga.rs")
+          text = saga.read_text(encoding="utf-8")
+          text = text.replace(
+              "    pub const fn compensation(&self) -> Option<&SagaOperation> {",
+              "    pub fn compensation(&self) -> Option<&SagaOperation> {",
+          )
+          text = text.replace(
+              '''    for step in completed {
+        let Some(_compensation) = step.compensation() else {
+            continue;
+        };
+''',
+              '''    for step in completed {
+        if instance.step_state(step.id()) == Some(SagaStepState::Compensated) {
+            continue;
+        }
+        let Some(_compensation) = step.compensation() else {
+            continue;
+        };
+''',
+          )
+          saga.write_text(text, encoding="utf-8")
+          PY
+          cargo fmt --manifest-path capabilities/dteam-kernel/Cargo.toml --all
+          if ! git diff --quiet; then
+            git config user.name "dteam-semantic-repair-bot"
+            git config user.email "dteam-semantic-repair-bot@users.noreply.github.com"
+            git add capabilities/dteam-kernel/src/event_bus.rs capabilities/dteam-kernel/src/saga.rs
+            git commit -m "fix(kernel): preserve event offsets and compensation idempotency"
+            git push origin HEAD:${{ github.event.pull_request.head.ref }}
+          fi

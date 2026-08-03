@@ -1,287 +1,178 @@
-# Contributing to Compiled Cognition
+# Contributing to dteam
 
-We welcome contributions from the community. This document explains how to contribute and the governance framework for code ownership.
+Contributions must preserve deterministic behavior, explicit authority, and replayable evidence. The project values small coherent changes over broad speculative refactors.
 
----
+## Before changing code
 
-## How to Contribute
+Read:
 
-Contributions are welcome in these areas:
+1. [`README.md`](README.md)
+2. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+3. [`docs/VALIDATION.md`](docs/VALIDATION.md)
+4. the nearest `AGENTS.md` governing the files you will change
+5. the relevant manifest, tests, and task runner
 
-1. **Bug fixes** — Issues reported in the repo or discovered by you
-2. **Tests** — New test cases, improved coverage, edge case testing
-3. **Documentation** — Clarity improvements, examples, diagrams
-4. **Performance** — Benchmarks, optimization, latency improvements
-5. **New AI systems** — Additional symbolic or learned models paired with AutoML equivalents
-6. **Dependency updates** — Keeping Cargo.toml and lockfile current
+Open an issue before changing public APIs, authority boundaries, receipt formats, license terms, generated-source policy, or cross-repository ownership.
 
-### What Requires Discussion First
+## Choose the correct subject
 
-Before starting work, **open an issue** to discuss:
+The repository has two distinct validation surfaces:
 
-1. **New AI systems** — Any new classical or learned model should be discussed first
-2. **API changes** — Changes to public interfaces need design discussion
-3. **License-affecting changes** — Any change to licensing or IP strategy
-4. **Breaking changes** — Anything that breaks backward compatibility
-5. **Large refactors** — Major code reorganization should be scoped in advance
+- **standalone kernel:** `capabilities/dteam-kernel`
+- **root workspace:** the original multi-crate and multi-repository system
 
-For small bug fixes and tests, you can just open a PR.
+Do not claim root-workspace success from standalone-kernel evidence. Do not block standalone work merely because sibling root dependencies are absent.
 
----
+## Development loop
 
-## Developer Certificate of Origin (DCO)
+Use the narrowest executable loop that proves the change:
 
-We use **Developer Certificate of Origin (DCO)** instead of a Contributor License Agreement (CLA).
+```text
+inspect
+→ write a failing behavioral or negative test
+→ implement the smallest coherent repair
+→ run the focused verifier
+→ run module tests
+→ expand to all targets
+→ execute demonstrations
+→ verify receipts and replay
+→ update documentation
+```
 
-**What this means:**
+Never rerun an unchanged failure without a new hypothesis.
 
-You certify that:
-- You wrote the code you're submitting (or have permission to submit it)
-- The contribution is original and doesn't violate anyone else's IP
-- You're granting us the right to use, modify, and distribute your contribution
-
-**How to sign off:**
-
-Add `-s` to your git commit:
+## Standalone kernel commands
 
 ```bash
-git commit -s -m "Fix latency bug in branchless token replay"
+cargo check --manifest-path capabilities/dteam-kernel/Cargo.toml --all-targets
+cargo test --manifest-path capabilities/dteam-kernel/Cargo.toml --all-targets -- --test-threads=1
+cargo run --manifest-path capabilities/dteam-kernel/Cargo.toml --bin dteam-capabilities
+cargo run --manifest-path capabilities/dteam-kernel/Cargo.toml --bin dteam-dense-demo
+cargo run --manifest-path capabilities/dteam-kernel/Cargo.toml --bin dteam-doctor -- --json
+python3 tools/chicago_validator.py --root . --manifest capabilities/dteam-kernel/Cargo.toml
 ```
 
-This adds a `Signed-off-by: Your Name <email@example.com>` line to your commit message.
-
-**Why DCO not CLA?**
-
-- **Simpler**: No lawyers, no corporate agreements, just a line in your commit
-- **Lighter weight**: You retain copyright in your contributions
-- **More permissive**: Anyone (individual or corporate) can contribute
-- **Standard**: Used by Linux, Docker, Kubernetes, and many open-source projects
-
----
-
-## License Terms for Contributors
-
-When you contribute to dteam:
-
-- Your contribution is licensed under **BUSL-1.1** until April 18, 2029
-- After April 18, 2029, your contribution automatically converts to **Apache License 2.0**
-- You retain copyright in your contribution
-- We have the right to sublicense your contribution under commercial licenses (with compensation per contract negotiation)
-
-By submitting a PR, you agree to these terms.
-
----
-
-## Code Style & Quality
-
-- **Rust edition**: 2021 edition only
-- **Linting**: `cargo make lint` must pass with no errors
-- **Formatting**: `cargo make fmt` must pass
-- **Testing**: All new code must have tests; `cargo test --lib` must pass
-- **Benchmarking**: Performance-sensitive code should include `benches/*` benchmarks
-- **Documentation**: Public APIs must have doc comments; examples are encouraged
-
-Run the full CI locally before pushing:
+Portable semantic and process-evidence crown:
 
 ```bash
-cargo make ci
+bash tools/local_finish.sh
 ```
 
----
+## Root-workspace commands
 
-## Code Organization
-
-### File Structure
-
-- `src/` — Core library code
-  - `src/lib.rs` — Crate root
-  - `src/ml/` — Machine learning systems (ELIZA, MYCIN, STRIPS, SHRDLU, Hearsay + AutoML)
-  - `src/conformance/` — Process conformance and token-based replay
-  - `src/io/` — Input/output, logging, observability
-  - `src/utils/` — Utility functions (hashing, bit operations, etc.)
-  - `src/agentic/` — Agent-based orchestration
-- `tests/` — Integration tests
-- `benches/` — Performance benchmarks
-- `docs/` — Documentation and thesis
-
-### Adding a New System
-
-If you're adding a new classical AI system or AutoML equivalent:
-
-1. Create `src/ml/newsystem.rs` (symbolic) and `src/ml/newsystem_automl.rs` (learned)
-2. Add both to `src/ml/mod.rs`
-3. Add tests to each module (≥90% coverage)
-4. Add a doctest showing usage
-5. Add an entry to `docs/ML_INVENTORY.md`
-6. Add the system to the ensemble in `src/ml/automl_config.rs`
-7. Update `PLAYGROUND_README.md` if it changes user-facing features
-
----
-
-## Pull Request Process
-
-1. **Fork** the repo
-2. **Create a branch** off `main`
-3. **Make changes** and commit locally with `git commit -s`
-4. **Push** to your fork
-5. **Open a PR** with:
-   - **Title**: Descriptive, short (max 70 chars)
-   - **Description**: Explains what and why (not just what)
-   - **Issue**: References issue number if applicable
-   - **Testing**: Describes test coverage
-6. **Wait for CI** — All checks must pass
-7. **Respond to feedback** — We may request changes
-8. **Merge** — Maintainers merge when ready
-
----
-
-## Commit Message Convention
-
-Use **conventional commits**:
-
-```
-type(scope): brief description
-
-Optional longer explanation here.
-```
-
-Types:
-
-- `feat:` — New feature
-- `fix:` — Bug fix
-- `test:` — New test or test improvement
-- `docs:` — Documentation
-- `refactor:` — Code reorganization without behavior change
-- `perf:` — Performance improvement
-- `ci:` — CI/CD changes
-
-Examples:
-
-```
-feat(ml): add DQN learner to reinforcement module
-
-fix(conformance): resolve off-by-one error in token replay
-test(utils): add property tests for branchless operations
-
-```
-
----
-
-## Testing Requirements
-
-### Unit Tests
-
-All new code must have unit tests. Target ≥90% coverage:
+With a dependency-closed checkout:
 
 ```bash
-cargo tarpaulin --out Html --timeout 300
-# Open tarpaulin-report.html
+make check
+make test
+make lint
+make fmt
+make doctor
 ```
 
-### Integration Tests
+Document missing sibling repositories as `BLOCKED`; do not replace requested root integration proof with a narrower unit result.
 
-If your change affects end-to-end behavior, add integration tests in `tests/`.
+## Definition of done
 
-### Benchmarks
+A capability change is complete when it has:
 
-If your change affects latency-critical paths:
+- a stable semantic definition;
+- typed input, error, and refusal boundaries;
+- no ambient execution authority outside the broker;
+- deterministic ordering and identity;
+- state-based tests using real collaborators;
+- relevant negative and recovery controls;
+- an evidence or receipt path;
+- replay verification where state changes occur;
+- registration in the capability graph if public;
+- ownership in the Chicago scenario matrix if a public module is added;
+- updated operator and architecture documentation.
+
+## Testing rules
+
+Prefer Chicago-style state-based tests. Exercise real stores, ledgers, planners, brokers, event buses, and coordinators. Test doubles may isolate genuinely external systems, but mock output cannot establish capability standing.
+
+Required invariants include, where applicable:
+
+- failed admission does not actuate;
+- failed preconditions do not partially mutate state;
+- failed resource reservations do not partially consume quota;
+- duplicate identities with changed content are refused;
+- broker authorization precedes executor invocation;
+- hooks manufacture intents but never actuate;
+- event acknowledgement cannot skip rejected earlier offsets;
+- saga compensation is reverse ordered, idempotent, and resumable;
+- cycles in capability, role, or provenance graphs are refused;
+- replay identity matches the admitted source and configuration.
+
+## Code style
+
+- Rust edition: 2021
+- unsafe code: forbidden in the standalone kernel
+- formatting: `cargo fmt --all`
+- linting: `cargo clippy --all-targets -- -D warnings` when the relevant workspace is available
+- public APIs: module and item documentation required
+- dependencies: avoid adding one unless the capability cannot be expressed with the existing platform or standard library
+- generated outputs: edit the canonical source or generator, not the generated projection
+
+## Scope discipline
+
+Keep a change bounded. Avoid:
+
+- unrelated refactors;
+- hand-edited generated artifacts;
+- weakened tests or deleted negative controls;
+- acceptance tests that only assert mocked success;
+- hard-coded developer workstation paths;
+- unchecked subprocess execution;
+- silent fallback from a requested integration proof to a narrower test;
+- claims that exceed observed evidence.
+
+## Commits and pull requests
+
+Use conventional commits:
+
+```text
+feat(scope): add capability
+fix(scope): repair observed defect
+test(scope): add behavioral guard
+docs(scope): align documentation with evidence
+refactor(scope): change structure without changing behavior
+```
+
+PR descriptions must state:
+
+- exact base and subject;
+- what changed and why;
+- commands executed and exit status;
+- negative controls;
+- receipt or artifact identities;
+- known blockers and exclusions;
+- whether generated outputs changed.
+
+Keep PRs draft while required exact-head validation is `BUILD_BROKEN`, `BLOCKED`, or unobserved.
+
+## DCO and license
+
+Commits must include a Developer Certificate of Origin sign-off:
 
 ```bash
-cargo bench --bench hot_path_performance_bench
+git commit -s -m "fix(event-bus): release immutable borrow before mutation"
 ```
 
-If performance regresses, your PR will be asked to optimize.
+Contributions are licensed under the repository's Business Source License 1.1 parameters. The current change date is April 18, 2029. Read [`LICENSE`](LICENSE) before contributing code intended for hosted, managed-service, production, or commercial use.
 
----
+## Review standard
 
-## Documentation Requirements
+Reviewers evaluate:
 
-### Public APIs
+1. semantic correctness;
+2. authority and actuation boundaries;
+3. deterministic behavior;
+4. failure transparency;
+5. state-based test quality;
+6. evidence and replay integrity;
+7. operational clarity;
+8. scope and maintainability.
 
-All public functions, structs, and traits must have doc comments:
-
-```rust
-/// Trains a logistic regression model on the provided features and labels.
-///
-/// Returns a binary classifier with the learned weights.
-///
-/// # Example
-/// ```
-/// let features = vec![vec![0.5, 0.3], vec![0.1, 0.9]];
-/// let labels = vec![true, false];
-/// let model = train_logistic_regression(&features, &labels);
-/// assert_eq!(model.predict(&[0.5, 0.3]), true);
-/// ```
-pub fn train_logistic_regression(features: &[Vec<f64>], labels: &[bool]) -> LogisticModel {
-    // ...
-}
-```
-
-### Module-Level Documentation
-
-Modules should have a top-level doc comment explaining the module's purpose:
-
-```rust
-//! Token-based conformance checking for Petri nets.
-//!
-//! This module implements branchless u64 bitmask token replay for nets with ≤64 places.
-//! For larger nets, see `replay_trace_standard`.
-```
-
----
-
-## Governance & Maintainers
-
-**Current maintainers:**
-- Sean Chatman (xpointsh@gmail.com) — Architecture, theory, release decisions
-
-**Decision process:**
-
-- **Bug fixes**: Merged by any maintainer
-- **New features**: Discussed in issues; consensus among maintainers
-- **API changes**: Discussed in design proposals; approval from Sean
-- **License/IP changes**: Require Sean's explicit approval (governance-affecting)
-
----
-
-## Code of Conduct
-
-All contributors must follow our values:
-
-1. **Respect each other** — Treat others with kindness and professionalism
-2. **Assume good intent** — If something seems off, ask before accusing
-3. **Focus on ideas** — Critique code and ideas, not people
-4. **Embrace diversity** — Welcome contributors of all backgrounds
-5. **Serve the mission** — Contributions should serve civilization benefit, not personal gain
-
-Bad behavior (harassment, discrimination, hostility) will result in removal from the project.
-
----
-
-## Licensing & Ownership
-
-**Your contributions:**
-- License: BUSL-1.1 until April 18, 2029; then Apache 2.0
-- Ownership: You retain copyright; dteam retains non-exclusive rights to sublicense
-- Commercial: Contributions may be included in commercial licenses; you can discuss compensation separately
-
-**Third-party code:**
-- Must be compatible with BUSL-1.1 (Apache 2.0, MIT, BSD, etc.)
-- Must include license attribution
-- Vendor separately in `vendors/` with license file
-
----
-
-## Getting Help
-
-**Questions?**
-- **Chat**: Issues are the best place to ask
-- **Email**: xpointsh@gmail.com for governance questions
-- **Docs**: `PHILOSOPHY.md` explains the vision; `AGENTS.md` explains the architecture
-
----
-
-## Credits
-
-Thank you for contributing to Compiled Cognition. Your work helps civilization benefit from this technology.
-
+A green status without matching behavioral evidence is insufficient. A typed lawful refusal with the expected evidence is a valid successful negative-control outcome.
