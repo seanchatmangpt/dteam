@@ -163,7 +163,7 @@ pub mod dteam {
     /// This module contains the logic for zero-branch transition firing and Bellman updates.
     pub mod kernel {
         pub mod branchless {
-            use crate::models::petri_net::FlatIncidenceMatrix;
+            use crate::models::petri_net::Vec<Vec<i64>>;
 
             /// Performs a branchless Petri net transition update using the state equation:
             /// M' = M + Wx, where W is the incidence matrix and x is the firing vector.
@@ -174,7 +174,7 @@ pub mod dteam {
             pub fn apply_branchless_update(
                 marking_mask: u64,
                 transition_idx: usize,
-                incidence: &FlatIncidenceMatrix,
+                incidence: &Vec<Vec<i64>>,
             ) -> u64 {
                 let mut input_mask = 0u64;
                 let mut output_mask = 0u64;

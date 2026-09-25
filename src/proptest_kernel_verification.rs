@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod proptests {
     use crate::dteam::kernel::branchless::apply_branchless_update;
-    use crate::models::petri_net::FlatIncidenceMatrix;
+    use crate::models::petri_net::Vec<Vec<i64>>;
     use crate::reinforcement::WorkflowAction;
     use crate::utils::dense_kernel::KBitSet;
     use crate::{RlAction, RlState};
@@ -47,7 +47,7 @@ mod proptests {
             for i in 0..places_count * transitions {
                 data[i] = if i % 3 == 0 { -1 } else if i % 3 == 1 { 1 } else { 0 };
             }
-            let incidence = FlatIncidenceMatrix {
+            let incidence = Vec<Vec<i64>> {
                 data,
                 places_count,
                 transitions_count: transitions,

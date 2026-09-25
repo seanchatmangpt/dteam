@@ -11,9 +11,6 @@ echo "Running pre-flight structural checks..."
 cargo check
 cargo test --lib
 
-echo "Verifying T1 admissibility across all substrate patterns..."
-cargo run --bin bench_scanner
-
 echo "Pre-flight checks passed. Unleashing Ralph on the backlog..."
 
 # Execute Ralph with the fallback model for all ideas

@@ -31,7 +31,7 @@ pub struct PetriNet {
 
     /// Cached flat incidence matrix
     #[serde(skip)]
-    pub cached_incidence: Option<FlatIncidenceMatrix>,
+    pub cached_incidence: Option<Vec<Vec<i64>>>,
 
     /// Cached dense index for fast node lookups
     #[serde(skip)]
@@ -49,14 +49,14 @@ impl PartialEq for PetriNet {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct FlatIncidenceMatrix {
+pub struct Vec<Vec<i64>> {
     /// Contiguous 1D buffer of incidence values [row-major: places x transitions]
     pub data: Vec<i32>,
     pub places_count: usize,
     pub transitions_count: usize,
 }
 
-impl FlatIncidenceMatrix {
+impl Vec<Vec<i64>> {
     pub fn get(&self, place_idx: usize, transition_idx: usize) -> i32 {
         self.data[place_idx * self.transitions_count + transition_idx]
     }
@@ -163,7 +163,7 @@ impl PetriNet {
     }
 
     /// Computes the incidence matrix on the fly.
-    fn compute_incidence(&self) -> FlatIncidenceMatrix {
+    fn compute_incidence(&self) -> Vec<Vec<i64>> {
         let places_count = self.places.len();
         let transitions_count = self.transitions.len();
         let mut data = vec![0; places_count * transitions_count];
@@ -204,7 +204,7 @@ impl PetriNet {
             }
         }
 
-        FlatIncidenceMatrix {
+        Vec<Vec<i64>> {
             data,
             places_count,
             transitions_count,
@@ -213,7 +213,7 @@ impl PetriNet {
 
     /// Generates the Incidence Matrix (W) in a flat representation.
     /// Returns the cached matrix if available, otherwise computes it on the fly.
-    pub fn incidence_matrix(&self) -> FlatIncidenceMatrix {
+    pub fn incidence_matrix(&self) -> Vec<Vec<i64>> {
         if let Some(ref cached) = self.cached_incidence {
             return cached.clone();
         }

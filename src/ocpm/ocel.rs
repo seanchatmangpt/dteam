@@ -1,7 +1,7 @@
 //! Hyper-optimized Object-Centric Event Log (OCEL 2.0) primitives.
 //! Eliminates heap-allocated Strings during event processing via 64-bit FNV-1a hashes and flattened 1D arrays.
 
-pub struct OcelEvent {
+pub struct OCELEvent {
     pub id_hash: u64,
     pub activity_hash: u64,
     pub timestamp: u64,
@@ -9,7 +9,7 @@ pub struct OcelEvent {
     pub omap_count: u32,
 }
 
-pub struct OcelObject {
+pub struct OCELObject {
     pub id_hash: u64,
     pub type_hash: u64,
 }
@@ -25,7 +25,7 @@ pub struct OcelO2O {
     pub qualifier_hash: u64,
 }
 
-pub struct OcelObjectChange {
+pub struct OCELObjectChange {
     pub id_hash: u64,
     pub type_hash: u64,
     pub timestamp: u64,
@@ -33,21 +33,21 @@ pub struct OcelObjectChange {
     pub value_hash: u64,
 }
 
-pub struct OcelLog {
-    pub events: Vec<OcelEvent>,
+pub struct OCEL {
+    pub events: Vec<OCELEvent>,
     pub object_relations: Vec<OcelRelation>,
-    pub objects: Vec<OcelObject>,
+    pub objects: Vec<OCELObject>,
     pub o2o: Vec<OcelO2O>,
-    pub object_changes: Vec<OcelObjectChange>,
+    pub object_changes: Vec<OCELObjectChange>,
 }
 
-impl Default for OcelLog {
+impl Default for OCEL {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl OcelLog {
+impl OCEL {
     pub fn new() -> Self {
         Self {
             events: Vec::new(),
@@ -76,7 +76,7 @@ impl OcelLog {
             });
         }
 
-        self.events.push(OcelEvent {
+        self.events.push(OCELEvent {
             id_hash,
             activity_hash,
             timestamp,
