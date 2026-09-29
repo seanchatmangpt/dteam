@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/castle/PreparedEconomicEffect.v1.schema.json",
+  "title": "EffectIdentity (PreparedEconomicEffect v1 identity subset; example.org non-authoritative)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["principal","beneficiary","amount","asset","purpose","authority","obligation","rail","expiry","reservation"],
+  "properties": {
+    "principal": {"type":"string","minLength":1},
+    "beneficiary": {"type":"string","minLength":1},
+    "amount": {"type":"string","pattern":"^[0-9]+(\\.[0-9]+)?$"},
+    "asset": {"type":"string","minLength":1},
+    "purpose": {"type":"string","minLength":1},
+    "authority": {"type":"string","minLength":1},
+    "obligation": {"type":"string","minLength":1},
+    "rail": {"type":"string","minLength":1},
+    "expiry": {"type":"string","minLength":1},
+    "reservation": {"type":"string","minLength":1}
+  }
+}
