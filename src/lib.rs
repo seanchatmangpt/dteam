@@ -220,15 +220,15 @@ pub mod dteam {
                 let mut input_mask = 0u64;
                 let mut output_mask = 0u64;
 
-                for place_idx in 0..incidence.places_count {
+                let limit = incidence.places_count;
+                let mut place_idx = 0;
+                while place_idx < limit {
                     let val = incidence.get(place_idx, transition_idx);
-                    if val < 0 {
-                        // Consumes tokens
-                        input_mask |= 1u64 << place_idx;
-                    } else if val > 0 {
-                        // Produces tokens
-                        output_mask |= 1u64 << place_idx;
-                    }
+                    let is_neg = (val < 0) as u64;
+                    let is_pos = (val > 0) as u64;
+                    input_mask |= is_neg << place_idx;
+                    output_mask |= is_pos << place_idx;
+                    place_idx += 1;
                 }
 
                 (marking_mask & !input_mask) | output_mask

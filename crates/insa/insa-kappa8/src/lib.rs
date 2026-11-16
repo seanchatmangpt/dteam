@@ -58,3 +58,6 @@ pub struct CollapseResult {
 pub trait CollapseEngine {
     fn evaluate(&self, ctx: &ClosureCtx) -> CollapseResult;
 }
+
+#[cfg(test)]
+mod tests;

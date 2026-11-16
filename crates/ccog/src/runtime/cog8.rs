@@ -268,7 +268,38 @@ pub fn execute_cog8_graph(
     };
 
     let mut best_priority = 0u16;
+    let mut best_response = Instinct::Ignore;
+    let mut matched_pack_present = 0u16;
+    let mut matched_pack_val = 0u16;
+    let mut matched_group_present = 0u16;
+    let mut matched_group_val = 0u16;
+    let mut matched_rule_present = 0u16;
+    let mut matched_rule_val = 0u16;
+    let mut matched_breed_present = 0u16;
+    let mut matched_breed_val = 0u8;
+    let mut matched_collapse_present = 0u16;
+    let mut matched_collapse_val = 0u8;
+    let mut selected_node_present = 0u16;
+    let mut selected_node_val = 0u16;
+    let mut selected_edge_present = 0u16;
+    let mut selected_edge_val = 0u16;
+
     let num_nodes = nodes.len();
+
+    const COLLAPSE_FN_LOOKUP: [CollapseFn; 12] = [
+        CollapseFn::None,
+        CollapseFn::ReflectivePosture,
+        CollapseFn::ExpertRule,
+        CollapseFn::Preconditions,
+        CollapseFn::Grounding,
+        CollapseFn::RelationalProof,
+        CollapseFn::Reconstruction,
+        CollapseFn::BlackboardFusion,
+        CollapseFn::DifferenceReduction,
+        CollapseFn::Chunking,
+        CollapseFn::ReactiveIntention,
+        CollapseFn::CaseAnalogy,
+    ];
 
     for edge in edges {
         let instr = &edge.instr;
@@ -296,17 +327,33 @@ pub fn execute_cog8_graph(
                 best.denied_mask |= denied_bit;
 
                 // Attribution: capture the highest-priority closure.
-                if matched && row.priority >= best_priority {
-                    best_priority = row.priority;
-                    best.response = row.response;
-                    best.matched_pack_id = Some(row.pack_id);
-                    best.matched_group_id = Some(row.group_id);
-                    best.matched_rule_id = Some(row.rule_id);
-                    best.matched_breed_id = Some(row.breed_id);
-                    best.collapse_fn = Some(row.collapse_fn);
-                    best.selected_node = Some(edge.to);
-                    best.selected_edge = Some(instr.edge_id);
-                }
+                let is_better = matched && (row.priority >= best_priority);
+                let select_mask_u8 = (is_better as u8).wrapping_neg();
+                let select_mask_u16 = (is_better as u16).wrapping_neg();
+
+                best_priority = (row.priority & select_mask_u16) | (best_priority & !select_mask_u16);
+                best_response = [best_response, row.response][is_better as usize];
+
+                matched_pack_present |= is_better as u16;
+                matched_pack_val = (row.pack_id.0 & select_mask_u16) | (matched_pack_val & !select_mask_u16);
+
+                matched_group_present |= is_better as u16;
+                matched_group_val = (row.group_id.0 & select_mask_u16) | (matched_group_val & !select_mask_u16);
+
+                matched_rule_present |= is_better as u16;
+                matched_rule_val = (row.rule_id.0 & select_mask_u16) | (matched_rule_val & !select_mask_u16);
+
+                matched_breed_present |= is_better as u16;
+                matched_breed_val = (row.breed_id.0 & select_mask_u8) | (matched_breed_val & !select_mask_u8);
+
+                matched_collapse_present |= is_better as u16;
+                matched_collapse_val = ((row.collapse_fn as u8) & select_mask_u8) | (matched_collapse_val & !select_mask_u8);
+
+                selected_node_present |= is_better as u16;
+                selected_node_val = (edge.to.0 & select_mask_u16) | (selected_node_val & !select_mask_u16);
+
+                selected_edge_present |= is_better as u16;
+                selected_edge_val = (instr.edge_id.0 & select_mask_u16) | (selected_edge_val & !select_mask_u16);
             } else {
                 return Err(crate::runtime::error::RuntimeError::NodeOutOfBounds {
                     index: node_index,
@@ -318,6 +365,15 @@ pub fn execute_cog8_graph(
     }
 
     best.completed_mask = completed;
+    best.response = best_response;
+    best.matched_pack_id = [None, Some(PackId(matched_pack_val))][(matched_pack_present > 0) as usize];
+    best.matched_group_id = [None, Some(GroupId(matched_group_val))][(matched_group_present > 0) as usize];
+    best.matched_rule_id = [None, Some(RuleId(matched_rule_val))][(matched_rule_present > 0) as usize];
+    best.matched_breed_id = [None, Some(BreedId(matched_breed_val))][(matched_breed_present > 0) as usize];
+    best.collapse_fn = [None, Some(COLLAPSE_FN_LOOKUP[matched_collapse_val as usize])][(matched_collapse_present > 0) as usize];
+    best.selected_node = [None, Some(NodeId(selected_node_val))][(selected_node_present > 0) as usize];
+    best.selected_edge = [None, Some(EdgeId(selected_edge_val))][(selected_edge_present > 0) as usize];
+
     Ok(best)
 }
 

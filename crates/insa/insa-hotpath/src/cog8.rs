@@ -52,21 +52,41 @@ pub fn execute_cog8_graph(nodes: &[Cog8Row], present: u64, completed: u64) -> Co
         ..Default::default()
     };
 
+    let mut matched_pack_present = 0u16;
+    let mut matched_pack_val = 0u16;
+    let mut matched_group_present = 0u16;
+    let mut matched_group_val = 0u16;
+    let mut matched_rule_present = 0u16;
+    let mut matched_rule_val = 0u16;
+
     for (node_index, row) in nodes.iter().enumerate() {
         let m1 = (present & row.required_mask.0) ^ row.required_mask.0;
         let m2 = present & row.forbidden_mask.0;
         let m3 = (completed & row.completed_block_mask.0) ^ row.completed_block_mask.0;
         let matched = (m1 | m2 | m3) == 0;
 
-        if matched {
-            best.fired_mask |= 1 << (node_index as u64);
-            best.response = row.response;
-            best.matched_pack_id = Some(row.pack_id);
-            best.matched_group_id = Some(row.group_id);
-            best.matched_rule_id = Some(row.rule_id);
-            best.kappa = row.kappa;
-        }
+        let matched_u8 = matched as u8;
+        let select_mask_u8 = matched_u8.wrapping_neg();
+        let matched_u16 = matched as u16;
+        let select_mask_u16 = matched_u16.wrapping_neg();
+
+        best.fired_mask |= (matched as u64) << node_index;
+        best.response = InstinctByte((row.response.0 & select_mask_u8) | (best.response.0 & !select_mask_u8));
+        best.kappa = KappaByte((row.kappa.0 & select_mask_u8) | (best.kappa.0 & !select_mask_u8));
+
+        matched_pack_present |= matched_u16;
+        matched_pack_val = (row.pack_id.0 & select_mask_u16) | (matched_pack_val & !select_mask_u16);
+
+        matched_group_present |= matched_u16;
+        matched_group_val = (row.group_id.0 & select_mask_u16) | (matched_group_val & !select_mask_u16);
+
+        matched_rule_present |= matched_u16;
+        matched_rule_val = (row.rule_id.0 & select_mask_u16) | (matched_rule_val & !select_mask_u16);
     }
+
+    best.matched_pack_id = [None, Some(PackId(matched_pack_val))][(matched_pack_present > 0) as usize];
+    best.matched_group_id = [None, Some(GroupId(matched_group_val))][(matched_group_present > 0) as usize];
+    best.matched_rule_id = [None, Some(RuleId(matched_rule_val))][(matched_rule_present > 0) as usize];
 
     best
 }
